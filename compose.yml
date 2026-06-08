@@ -1,0 +1,36 @@
+# Local Postgres for development + the testcontainers fallback.
+# Started by `task dev` (which calls `task db:up` first). Data survives
+# `docker compose down`; remove with `docker compose down -v` (or
+# `task dev:reset`, which does both).
+#
+# The container name matches the legacy `nutrition-pg` from the previous
+# `docker run` flow so anything that grepped for it (RUN_LOCAL examples,
+# muscle memory) still works.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nutrition-pg
+    environment:
+      POSTGRES_USER: nutrition
+      POSTGRES_PASSWORD: nutrition
+      POSTGRES_DB: nutrition
+    ports:
+      - "5432:5432"
+    volumes:
+      - nutrition-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      # `-q` keeps the output clean; `-d nutrition` makes sure the database
+      # itself is reachable, not just the listener.
+      test: ["CMD-SHELL", "pg_isready -U nutrition -d nutrition -q"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  nutrition-pg-data:
+    # Explicit name (vs the default `<project>_nutrition-pg-data`) so `docker
+    # volume inspect nutrition-pg-data` works from any directory.
+    name: nutrition-pg-data

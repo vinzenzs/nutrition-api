@@ -8,9 +8,9 @@ version: '3'
 silent: true
 
 vars:
-  POSTGRES_CONTAINER: nutrition-pg
-  POSTGRES_IMAGE: postgres:17-alpine
-  POSTGRES_PORT: '5432'
+  POSTGRES_CONTAINER: nutrition-pg          # container name; matches compose.yml
+  POSTGRES_VOLUME: nutrition-pg-data        # named volume from compose.yml
+  COMPOSE_FILE: compose.yml
   BIN: bin/nutrition-api
   INSTALL_PATH:
     sh: echo "$HOME/.local/bin/nutrition-api"
@@ -97,37 +97,48 @@ tasks:
   # ---- Local Postgres lifecycle ----
 
   db:up:
-    desc: Start the local Postgres container ({{.POSTGRES_CONTAINER}}) idempotently
+    desc: Start Postgres via docker compose (idempotent; data persists in volume {{.POSTGRES_VOLUME}})
     cmds:
       - |
         set -eu
-        if command -v docker >/dev/null 2>&1; then
+
+        # Pick a compose runtime: prefer `docker compose` (v2 plugin shipped
+        # with Docker Desktop and modern docker.io), fall back to
+        # `podman compose` for podman-only hosts.
+        if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+          COMPOSE="docker compose"
           RUNTIME=docker
-        elif command -v podman >/dev/null 2>&1; then
+        elif command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+          COMPOSE="podman compose"
           RUNTIME=podman
         else
-          echo "neither docker nor podman found in PATH" >&2
+          echo "no docker/podman compose runtime found in PATH" >&2
+          echo "install Docker Desktop, docker.io with the compose-plugin, or podman ≥ 4.x" >&2
           exit 1
         fi
 
-        if $RUNTIME ps -q -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
-          echo "postgres container already running"
-        elif $RUNTIME ps -aq -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
-          $RUNTIME start {{.POSTGRES_CONTAINER}} >/dev/null
-          echo "started existing container {{.POSTGRES_CONTAINER}}"
-        else
-          $RUNTIME run -d --name {{.POSTGRES_CONTAINER}} \
-            -e POSTGRES_USER=nutrition \
-            -e POSTGRES_PASSWORD=nutrition \
-            -e POSTGRES_DB=nutrition \
-            -p {{.POSTGRES_PORT}}:5432 \
-            {{.POSTGRES_IMAGE}} >/dev/null
-          echo "created container {{.POSTGRES_CONTAINER}}"
+        # One-shot migration from the legacy `docker run` flow: a container
+        # named {{.POSTGRES_CONTAINER}} created without compose labels will
+        # block `compose up`. Detect it (no compose label) and evict so
+        # compose can take over the name. Safe — the new volume already
+        # holds the data.
+        if $RUNTIME ps -aq -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
+          if ! $RUNTIME inspect {{.POSTGRES_CONTAINER}} --format '{{`{{ index .Config.Labels "com.docker.compose.project" }}`}}' 2>/dev/null | grep -q .; then
+            echo "removing legacy non-compose container {{.POSTGRES_CONTAINER}} (data volume is unaffected)"
+            $RUNTIME rm -f {{.POSTGRES_CONTAINER}} >/dev/null
+          fi
         fi
 
-        for i in $(seq 1 30); do
-          if $RUNTIME exec {{.POSTGRES_CONTAINER}} pg_isready -U nutrition -q 2>/dev/null; then
-            echo "postgres ready"
+        # `up -d postgres` is a no-op when already running; otherwise it
+        # creates (or restarts) the container and attaches the volume.
+        $COMPOSE -f {{.COMPOSE_FILE}} up -d postgres >/dev/null
+
+        # Wait for the healthcheck to flip to healthy. `pg_isready` from the
+        # host would race a not-yet-ready listener; running it inside the
+        # container hits the local socket and is more reliable.
+        for i in $(seq 1 60); do
+          if $RUNTIME exec {{.POSTGRES_CONTAINER}} pg_isready -U nutrition -d nutrition -q 2>/dev/null; then
+            echo "postgres ready (compose: $COMPOSE; volume: {{.POSTGRES_VOLUME}})"
             exit 0
           fi
           sleep 0.2
@@ -137,25 +148,36 @@ tasks:
         exit 1
 
   db:down:
-    desc: Stop and remove the local Postgres container
+    desc: Stop and remove the Postgres container (volume {{.POSTGRES_VOLUME}} survives)
     cmds:
       - |
         set -eu
-        if command -v docker >/dev/null 2>&1; then
-          RUNTIME=docker
-        elif command -v podman >/dev/null 2>&1; then
-          RUNTIME=podman
+        if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+          COMPOSE="docker compose"
+        elif command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+          COMPOSE="podman compose"
         else
-          echo "neither docker nor podman found in PATH" >&2
+          echo "no docker/podman compose runtime found in PATH; nothing to stop" >&2
           exit 0
         fi
+        $COMPOSE -f {{.COMPOSE_FILE}} down >/dev/null
+        echo "stopped {{.POSTGRES_CONTAINER}} (volume {{.POSTGRES_VOLUME}} preserved — use 'task dev:reset' for a clean wipe)"
 
-        if $RUNTIME ps -aq -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
-          $RUNTIME rm -f {{.POSTGRES_CONTAINER}} >/dev/null
-          echo "removed {{.POSTGRES_CONTAINER}}"
+  db:wipe:
+    desc: Stop the container AND delete the data volume ({{.POSTGRES_VOLUME}}) — destructive
+    cmds:
+      - |
+        set -eu
+        if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+          COMPOSE="docker compose"
+        elif command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+          COMPOSE="podman compose"
         else
-          echo "no container named {{.POSTGRES_CONTAINER}} present"
+          echo "no docker/podman compose runtime found in PATH" >&2
+          exit 1
         fi
+        $COMPOSE -f {{.COMPOSE_FILE}} down -v >/dev/null
+        echo "removed {{.POSTGRES_CONTAINER}} + volume {{.POSTGRES_VOLUME}}"
 
   # ---- One-command local dev ----
 
@@ -203,8 +225,8 @@ tasks:
       - set -a && . ./.env.local && set +a && go run ./cmd/nutrition-api serve
 
   dev:reset:
-    desc: Tear down container, remove .env.local, then re-run `task dev`
+    desc: Tear down container + data volume, remove .env.local, then re-run `task dev`
     cmds:
-      - task: db:down
+      - task: db:wipe   # wipes container AND the {{.POSTGRES_VOLUME}} volume
       - rm -f .env.local
       - task: dev

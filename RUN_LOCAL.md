@@ -30,25 +30,36 @@ To stop everything: Ctrl-C the `task dev` terminal. The Postgres container
 keeps running (use it for the next iteration). To shut Postgres down:
 
 ```bash
-task db:down
+task db:down       # stops + removes the container; KEEPS the data volume
 ```
 
-To start completely fresh (delete container, regenerate `.env.local`):
+The Postgres data lives in a named Docker volume (`nutrition-pg-data`), so
+your products, meals, goals and weight entries survive `task db:down` and
+re-appear on the next `task db:up`.
+
+To start completely fresh (delete container, **delete the data volume**,
+regenerate `.env.local`):
 
 ```bash
 task dev:reset
+```
+
+To wipe just the data without restarting the dev loop:
+
+```bash
+task db:wipe       # destructive — drops the volume
 ```
 
 ---
 
 ## Prerequisites
 
-| Tool                | Why                                                | Check                  |
-|---------------------|----------------------------------------------------|------------------------|
-| Go 1.24+            | Build the binaries                                 | `go version`           |
-| Docker or Podman    | Run Postgres locally                               | `docker info` or `podman info` |
-| Task (taskfile.dev) | Drive the dev workflow                             | `task --version`       |
-| `curl`              | Smoke-test the API                                 | `curl --version`       |
+| Tool                                  | Why                                                | Check                            |
+|---------------------------------------|----------------------------------------------------|----------------------------------|
+| Go 1.24+                              | Build the binaries                                 | `go version`                     |
+| Docker (with compose v2) **or** Podman ≥ 4.x (with `podman compose`) | Run Postgres locally via `compose.yml`             | `docker compose version` or `podman compose version` |
+| Task (taskfile.dev)                   | Drive the dev workflow                             | `task --version`                 |
+| `curl`                                | Smoke-test the API                                 | `curl --version`                 |
 
 Task install:
 
@@ -56,9 +67,9 @@ Task install:
 - Linux: `sh -c "$(curl -fsSL https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin`
 - Other: see <https://taskfile.dev/installation/>
 
-If you use Podman with a Docker-compatible socket, `docker` and `podman` are
-both auto-detected — `task db:up` prefers `docker` when both are present, falls
-back to `podman` otherwise.
+`task db:up` prefers `docker compose` when available and falls back to
+`podman compose`. Docker Desktop and modern `docker.io` ship the compose v2
+plugin out of the box; Podman ≥ 4.x has native `podman compose`.
 
 ---
 
@@ -66,12 +77,23 @@ back to `podman` otherwise.
 
 If you want to know what's happening under the hood:
 
-1. **`task db:up`** runs first as a dependency. It looks for a container named
-   `nutrition-pg`:
-   - already running → no-op
-   - exists but stopped → starts it
-   - doesn't exist → `docker run -d --name nutrition-pg -e POSTGRES_USER=nutrition -e POSTGRES_PASSWORD=nutrition -e POSTGRES_DB=nutrition -p 5432:5432 postgres:17-alpine`
-   - waits until `pg_isready` succeeds (up to 6 seconds).
+1. **`task db:up`** runs first as a dependency. It drives `docker compose up
+   -d postgres` against [`compose.yml`](compose.yml), which declares:
+   - image `postgres:17-alpine`, container name `nutrition-pg`, port `5432`
+   - a named volume `nutrition-pg-data` mounted at `/var/lib/postgresql/data`
+     (this is what makes your data survive container removal)
+   - a healthcheck running `pg_isready -U nutrition -d nutrition` every 2 s.
+
+   `task db:up` then loops on `pg_isready` inside the container until it
+   succeeds (up to 12 s) so the API doesn't start before Postgres is reachable.
+   The task is idempotent — re-running it when the container is already
+   healthy is a no-op.
+
+   First-time migration note: if you have an old `nutrition-pg` container
+   from before this repo used compose (created via `docker run` directly),
+   `task db:up` detects it has no compose labels and removes it once so
+   compose can take over the name. The data volume is independent of the
+   container, so no data is lost.
 
 2. **`.env.local` is written if missing.** The file is git-ignored. Contents:
 
@@ -114,6 +136,9 @@ task migrate:up       # apply pending migrations via golang-migrate CLI
 task migrate:down     # roll back one migration
 task migrate:new NAME=add_widget   # scaffold a new migration pair
 task mcp:install      # alias for `install` — same binary serves REST and MCP
+task db:up            # start the Postgres compose service (idempotent)
+task db:down          # stop + remove the container; keep the data volume
+task db:wipe          # stop + remove the container AND delete the data volume
 ```
 
 ### Importing recipes from Cookidoo
