@@ -1,0 +1,3240 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Personal nutrition tracking REST API. All endpoints under /products, /meals, and /summary require a bearer token.",
+        "title": "Nutrition API",
+        "contact": {},
+        "version": "0.1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/goals": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Get current nutrition goals",
+                "responses": {
+                    "200": {
+                        "description": "{\\\"goals\\\": Goals | null}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full-replace semantics: absent fields are stored as NULL (cleared). Each goal is `{min?, max?}` with at least one bound; ranges must satisfy min \u003c= max. Note: `Idempotency-Key` is NOT accepted on PUT — supplying the header returns `400 idempotency_unsupported_for_put`. ETag/If-Match retry-safety is forward-pointed but not implemented.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Set or replace nutrition goals",
+                "parameters": [
+                    {
+                        "description": "Goals payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/goals.Goals"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"goals\\\": Goals}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "goal_value_invalid | goal_range_invalid | invalid_json | idempotency_unsupported_for_put",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/goals/overrides": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns overrides whose `date` falls within `[from, to]` (inclusive). Dates without an override are omitted (the caller can infer the default applies).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "List daily goal overrides in a date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start date YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive end date YYYY-MM-DD; max 366 days from `from`",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"overrides\\\": [{date, goals}]}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "range_required | date_invalid | range_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/goals/overrides/{date}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Get a daily goal override for a specific date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Override date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"goals\\\": Goals}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "date_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "override_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full-replace semantics: absent fields are stored as NULL. Same validation as PUT /goals. `Idempotency-Key` is NOT accepted on PUT — supplying it returns `400 idempotency_unsupported_for_put`.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Upsert a daily goal override",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Override date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Goals payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/goals.Goals"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"goals\\\": Goals}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "date_invalid | goal_value_invalid | goal_range_invalid | invalid_json | idempotency_unsupported_for_put",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Delete a daily goal override",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Override date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "400": {
+                        "description": "date_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "override_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/hydration": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "hydration"
+                ],
+                "summary": "List hydration entries in a window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclusive RFC3339 upper bound",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ entries: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records a volume of fluid drunk at a moment in time. The optional `note` carries beverage context (e.g. \"water\", \"coffee\", \"electrolytes\").",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "hydration"
+                ],
+                "summary": "Log a hydration entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Hydration entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hydration.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/hydration.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "quantity_ml_invalid | logged_at_invalid | logged_at_too_far_future | note_too_long",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/hydration/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "hydration"
+                ],
+                "summary": "Delete a hydration entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Hydration entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "hydration_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "hydration"
+                ],
+                "summary": "Partially update a hydration entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Hydration entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hydration.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/hydration.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "quantity_ml_invalid | logged_at_invalid | note_too_long",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "hydration_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/meals": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "List meal entries in a time window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclusive RFC3339 upper bound",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional filter: breakfast|lunch|dinner|snack",
+                        "name": "meal_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ meals: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | meal_type_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "Log a meal entry against an existing product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Meal entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/meals.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/meals.MealEntry"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/meals/freeform": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Use when the user is logging a meal that doesn't map to a barcode. Optionally persists the item as a manual product via `save_as_product`.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "Log a freeform meal entry (no product lookup)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Freeform meal entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/meals.freeformRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/meals.MealEntry"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/meals/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "Get a meal entry by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Meal entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to `components` to include recipe breakdown when the meal's product is a recipe",
+                        "name": "expand",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/meals.MealEntry"
+                        }
+                    },
+                    "404": {
+                        "description": "meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "Delete a meal entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Meal entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Unknown fields are ignored. Send only the keys you want to change.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meals"
+                ],
+                "summary": "Update fields on a meal entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Meal entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/meals.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/meals.MealEntry"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the product cache as a paginated list, ordered last_logged_at desc then name asc. Combine with `delete` to clean up leftovers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "List products with pagination",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by source: off | manual | recipe",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (1..200, default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (\u003e=0, default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ products: [...], total: N, limit, offset }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "source_invalid | limit_too_large | pagination_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a product not sourced from Open Food Facts. Default source is \"manual\". Pass `source: \"recipe\"` together with an `external_url` to register a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row has no `product_components` and `nutriment_computed_at` stays null — distinguishing it from composed recipes built via POST /products/recipes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create a product (manual or flat-imported recipe)",
+                "parameters": [
+                    {
+                        "description": "Product fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/products.createManualRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/products.Product"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | name_required | source_invalid | external_url_too_long | external_url_invalid | nutriments_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "barcode_already_exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/lookup/": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sibling route to POST /products/lookup/{barcode}. Returns 400 when the path parameter is missing instead of falling through to a generic 404.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Reject barcode lookup with no barcode",
+                "responses": {
+                    "400": {
+                        "description": "barcode_required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/lookup/{barcode}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches a product from the local cache or upstream Open Food Facts. Pass `refresh=true` to force an upstream re-fetch.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Look up a product by barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "EAN/UPC barcode",
+                        "name": "barcode",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force a fresh OFF fetch even if cached",
+                        "name": "refresh",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/products.Product"
+                        }
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "upstream_unexpected_response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "upstream_timeout",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/recipes": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Builds a recipe from N component products and per-component grams. Nutriments-per-100g are computed at creation time from components, so existing meal-logging math works unchanged.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create a composite recipe product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Recipe fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/products.createRecipeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/products.createRecipeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "components_required | component_quantity_g_invalid | recipe_as_component_not_supported | invalid_json",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "component_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/recipes/{id}/recompute": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Recompute a recipe's nutriments from its current components",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Recipe product UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/products.createRecipeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "not_a_recipe",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Case-insensitive substring match across product name and brand. Returns up to 50 results.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Search products",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Substring to search for",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ results: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "q_required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get a product by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to `components` to include a recipe's components",
+                        "name": "expand",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/products.Product"
+                        }
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hard-deletes a product. Historical meal_entries get a snapshot of the product's current name + nutriments before the FK is nulled, so daily/range summaries continue to reflect those meals. If the product is referenced as a component of any recipe, the request is rejected with 409 listing the using recipes — delete or replace within those recipes first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Delete a product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "product_in_use_as_component (body includes the using recipes list and a hint)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/race-prep/carb-load": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stateless, deterministic carb-load math: given a race date and a body weight, returns daily carbohydrate targets for the load window and race morning. No persistence. The natural follow-up is to translate each entry into a goal override via `PUT /goals/overrides/{date}`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "race-prep"
+                ],
+                "summary": "Compute a carb-load schedule for a race",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Race date YYYY-MM-DD (must be today or later in DEFAULT_USER_TZ)",
+                        "name": "race_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Athlete body weight in kilograms, 30..200",
+                        "name": "body_weight_kg",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Carb-load days before race day, 0..7 (default 3)",
+                        "name": "days_before",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Load-day multiplier, 1..20 g/kg (default 10)",
+                        "name": "carbs_per_kg_per_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Race-morning multiplier, 0..10 g/kg (default 2)",
+                        "name": "race_day_carbs_per_kg",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/raceprep.CarbLoadSchedule"
+                        }
+                    },
+                    "400": {
+                        "description": "race_date_required | body_weight_kg_required | race_date_invalid | race_date_in_past | body_weight_kg_invalid | days_before_invalid | carbs_per_kg_per_day_invalid | race_day_carbs_per_kg_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/summary/daily": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns aggregated totals for a single calendar date in the supplied timezone. When `meal_type` is set, only entries of that type are summed and adherence is omitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "summary"
+                ],
+                "summary": "Daily nutrition totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Calendar date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional filter: breakfast|lunch|dinner|snack",
+                        "name": "meal_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/summary.Daily"
+                        }
+                    },
+                    "400": {
+                        "description": "date_invalid | tz_invalid | meal_type_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/summary/hydration/daily": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns total ml and per-entry list for one calendar date in the supplied timezone. Volume-only — separate from /summary/daily, which is nutrient-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "summary"
+                ],
+                "summary": "Daily hydration total + entries",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Calendar date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/hydration.Daily"
+                        }
+                    },
+                    "400": {
+                        "description": "date_invalid | tz_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/summary/range": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns one row per day in `[from, to]`. Range is capped at 92 days inclusive.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "summary"
+                ],
+                "summary": "Daily totals across a date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start date YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive end date YYYY-MM-DD",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/summary.Range"
+                        }
+                    },
+                    "400": {
+                        "description": "range_required | range_invalid | range_too_large | date_invalid | tz_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/weight": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "body-weight"
+                ],
+                "summary": "List body-weight entries in a window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclusive RFC3339 upper bound; max 92-day span",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ entries: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records a body weight (kg), optionally with body-fat %. Multiple measurements per day are allowed and smoothed by /weight/trend. Standard `Idempotency-Key` header supported.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "body-weight"
+                ],
+                "summary": "Log a body-weight measurement",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Body-weight entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/bodyweight.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/bodyweight.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "weight_kg_invalid | body_fat_pct_invalid | logged_at_invalid | logged_at_too_far_future | note_too_long",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/weight/trend": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns one point per calendar date in [from, to], each carrying the trailing rolling average over `window_days` days and the `sample_count` that fed it. A `sample_count` of 0 means no data in the trailing window; the matching `rolling_avg_kg` is null.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "body-weight"
+                ],
+                "summary": "Rolling-average body-weight trend",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start date YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive end date YYYY-MM-DD; max 366-day span",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Trailing-window length in days (1..30, default 7)",
+                        "name": "window_days",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bodyweight.Trend"
+                        }
+                    },
+                    "400": {
+                        "description": "range_required | date_invalid | range_invalid | range_too_large | window_days_invalid | tz_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/weight/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "body-weight"
+                ],
+                "summary": "Delete a body-weight entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Body-weight entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "weight_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "body-weight"
+                ],
+                "summary": "Partially update a body-weight entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Body-weight entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/bodyweight.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bodyweight.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "weight_kg_invalid | body_fat_pct_invalid | logged_at_invalid | note_too_long",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "weight_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workouts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "List workouts in a time window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 upper bound",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ workouts: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new workout when external_id is absent or unseen; updates the existing row when external_id matches an existing workout. Garmin re-syncs land here without the writer needing to track sync state.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Upsert a workout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key (writers normally rely on external_id instead)",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Workout",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workouts.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UPDATE (external_id collision)",
+                        "schema": {
+                            "$ref": "#/definitions/workouts.Workout"
+                        }
+                    },
+                    "201": {
+                        "description": "INSERT",
+                        "schema": {
+                            "$ref": "#/definitions/workouts.Workout"
+                        }
+                    },
+                    "400": {
+                        "description": "source_invalid | sport_invalid | window_invalid | started_at_too_far_future | kcal_burned_invalid | avg_hr_invalid | tss_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workouts/bulk": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Each item upserts independently using external_id semantics. Per-item validation/persistence failures are reported in the results array; the overall response is 200 whenever the request body is well-formed and within the size cap. Partial failure is allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Upsert a batch of workouts (max 100 per request)",
+                "parameters": [
+                    {
+                        "description": "{ workouts: [Workout, ...] }",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workouts.bulkCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ results: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "bulk_invalid | bulk_empty | bulk_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/workouts/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Get a workout by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workouts.Workout"
+                        }
+                    },
+                    "404": {
+                        "description": "workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Delete a workout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Accepts `name`, `notes`, `kcal_burned`, `avg_hr`, `tss`. `source`, `external_id`, `sport`, `started_at`, `ended_at` are immutable — delete and re-create if those are wrong.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Partially update a workout (mutable fields only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Mutable fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workouts.Workout"
+                        }
+                    },
+                    "400": {
+                        "description": "field_immutable | kcal_burned_invalid | avg_hr_invalid | tss_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workouts/{id}/fueling": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns three time-anchored buckets (pre / intra / post) of meal + hydration intake around a workout. Aggregation is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged meal in the pre-window still contributes. `nutrition` and `hydration` sub-objects are kept separate so units don't mix.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Workout fueling: pre / intra / post windows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Pre-window length in minutes (default 240, range 0..720)",
+                        "name": "pre_window_min",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Post-window length in minutes (default 60, range 0..720)",
+                        "name": "post_window_min",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workoutfueling.WorkoutFueling"
+                        }
+                    },
+                    "400": {
+                        "description": "window_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "bodyweight.Entry": {
+            "type": "object",
+            "properties": {
+                "body_fat_pct": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "bodyweight.Trend": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bodyweight.TrendPoint"
+                    }
+                },
+                "to": {
+                    "type": "string"
+                },
+                "tz": {
+                    "type": "string"
+                },
+                "window_days": {
+                    "type": "integer"
+                }
+            }
+        },
+        "bodyweight.TrendPoint": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "rolling_avg_kg": {
+                    "type": "number"
+                },
+                "sample_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "bodyweight.createRequest": {
+            "type": "object",
+            "properties": {
+                "body_fat_pct": {
+                    "type": "number"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "bodyweight.patchRequest": {
+            "type": "object",
+            "properties": {
+                "body_fat_pct": {
+                    "type": "number"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "goals.Goals": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "carbs_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "fat_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "fiber_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "iron_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "kcal": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "magnesium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "potassium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "protein_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "salt_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "sugar_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vitamin_b12_mcg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "vitamin_c_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "vitamin_d_mcg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "zinc_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                }
+            }
+        },
+        "goals.Range": {
+            "type": "object",
+            "properties": {
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                }
+            }
+        },
+        "hydration.Daily": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/hydration.Entry"
+                    }
+                },
+                "entry_count": {
+                    "type": "integer"
+                },
+                "total_ml": {
+                    "type": "number"
+                },
+                "tz": {
+                    "type": "string"
+                }
+            }
+        },
+        "hydration.Entry": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "hydration.createRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "hydration.patchRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "workout_id": {
+                    "description": "WorkoutID supports the empty-string clear sentinel:\n  omitted   → leave unchanged\n  \"\u003cuuid\u003e\"  → set the link\n  \"\"        → clear the link",
+                    "type": "string"
+                }
+            }
+        },
+        "meals.MealEntry": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "effective_name": {
+                    "type": "string"
+                },
+                "effective_nutriments_per_100g": {
+                    "$ref": "#/definitions/meals.Nutriments"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "meal_type": {
+                    "$ref": "#/definitions/meals.MealType"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "meals.MealType": {
+            "type": "string",
+            "enum": [
+                "breakfast",
+                "lunch",
+                "dinner",
+                "snack"
+            ],
+            "x-enum-varnames": [
+                "Breakfast",
+                "Lunch",
+                "Dinner",
+                "Snack"
+            ]
+        },
+        "meals.Nutriments": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "iron_mg": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "magnesium_mg": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
+                },
+                "vitamin_b12_mcg": {
+                    "type": "number"
+                },
+                "vitamin_c_mg": {
+                    "type": "number"
+                },
+                "vitamin_d_mcg": {
+                    "type": "number"
+                },
+                "zinc_mg": {
+                    "type": "number"
+                }
+            }
+        },
+        "meals.createRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "meals.freeformNutrimentsBody": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "iron_mg": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "magnesium_mg": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
+                },
+                "vitamin_b12_mcg": {
+                    "type": "number"
+                },
+                "vitamin_c_mg": {
+                    "type": "number"
+                },
+                "vitamin_d_mcg": {
+                    "type": "number"
+                },
+                "zinc_mg": {
+                    "type": "number"
+                }
+            }
+        },
+        "meals.freeformRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "nutriments_per_100g": {
+                    "$ref": "#/definitions/meals.freeformNutrimentsBody"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "save_as_product": {
+                    "type": "boolean"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "meals.patchRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "workout_id": {
+                    "description": "WorkoutID supports the empty-string sentinel for clear:\n  omitted   → leave unchanged\n  \"\u003cuuid\u003e\"  → set the link\n  \"\"        → clear the link",
+                    "type": "string"
+                }
+            }
+        },
+        "products.Nutriments": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "iron_mg": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "magnesium_mg": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
+                },
+                "vitamin_b12_mcg": {
+                    "type": "number"
+                },
+                "vitamin_c_mg": {
+                    "type": "number"
+                },
+                "vitamin_d_mcg": {
+                    "type": "number"
+                },
+                "zinc_mg": {
+                    "type": "number"
+                }
+            }
+        },
+        "products.Product": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "brand": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "external_url": {
+                    "description": "ExternalURL records where this product came from when neither OFF nor a\nmanual user entry. Today's first user is the Cookidoo extension.",
+                    "type": "string"
+                },
+                "fetched_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_logged_at": {
+                    "type": "string"
+                },
+                "last_logged_quantity_g": {
+                    "description": "LastLoggedQuantityG is the quantity_g of the most recent meal entry that\nadvanced last_logged_at. The phone's scan→log flow defaults to this\nvalue, dropping a typical scan from 3 taps to 2. Lockstep with\nLastLoggedAt — see internal/products.Repo.TouchLastLoggedAt.",
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nutriment_computed_at": {
+                    "description": "NutrimentComputedAt is set when a recipe product's nutriments were derived\nfrom its components. Null for non-recipe products.",
+                    "type": "string"
+                },
+                "nutriments_per_100g": {
+                    "$ref": "#/definitions/products.Nutriments"
+                },
+                "serving_size_g": {
+                    "type": "number"
+                },
+                "source": {
+                    "$ref": "#/definitions/products.Source"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "products.Source": {
+            "type": "string",
+            "enum": [
+                "off",
+                "manual",
+                "recipe"
+            ],
+            "x-enum-varnames": [
+                "SourceOFF",
+                "SourceManual",
+                "SourceRecipe"
+            ]
+        },
+        "products.createManualNutris": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "iron_mg": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "magnesium_mg": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
+                },
+                "vitamin_b12_mcg": {
+                    "type": "number"
+                },
+                "vitamin_c_mg": {
+                    "type": "number"
+                },
+                "vitamin_d_mcg": {
+                    "type": "number"
+                },
+                "zinc_mg": {
+                    "type": "number"
+                }
+            }
+        },
+        "products.createManualRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "brand": {
+                    "type": "string"
+                },
+                "external_url": {
+                    "description": "ExternalURL records the upstream page this product was imported from.\nOptional; max 2048 chars; trimmed before validation.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nutriments_per_100g": {
+                    "$ref": "#/definitions/products.createManualNutris"
+                },
+                "serving_size_g": {
+                    "type": "number"
+                },
+                "source": {
+                    "description": "Source defaults to \"manual\". Accepts \"manual\" or \"recipe\" — the latter\nis the flat-imported-recipe path (e.g. the Cookidoo Chrome extension).",
+                    "type": "string"
+                }
+            }
+        },
+        "products.createRecipeComponentBody": {
+            "type": "object",
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                }
+            }
+        },
+        "products.createRecipeRequest": {
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/products.createRecipeComponentBody"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "serving_size_g": {
+                    "type": "number"
+                }
+            }
+        },
+        "products.createRecipeResponse": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "brand": {
+                    "type": "string"
+                },
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/products.recipeComponentResponse"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "external_url": {
+                    "description": "ExternalURL records where this product came from when neither OFF nor a\nmanual user entry. Today's first user is the Cookidoo extension.",
+                    "type": "string"
+                },
+                "fetched_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_logged_at": {
+                    "type": "string"
+                },
+                "last_logged_quantity_g": {
+                    "description": "LastLoggedQuantityG is the quantity_g of the most recent meal entry that\nadvanced last_logged_at. The phone's scan→log flow defaults to this\nvalue, dropping a typical scan from 3 taps to 2. Lockstep with\nLastLoggedAt — see internal/products.Repo.TouchLastLoggedAt.",
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nutriment_computed_at": {
+                    "description": "NutrimentComputedAt is set when a recipe product's nutriments were derived\nfrom its components. Null for non-recipe products.",
+                    "type": "string"
+                },
+                "nutriments_per_100g": {
+                    "$ref": "#/definitions/products.Nutriments"
+                },
+                "serving_size_g": {
+                    "type": "number"
+                },
+                "source": {
+                    "$ref": "#/definitions/products.Source"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "products.recipeComponentResponse": {
+            "type": "object",
+            "properties": {
+                "effective_nutriments_per_100g": {
+                    "$ref": "#/definitions/products.Nutriments"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                }
+            }
+        },
+        "raceprep.CarbLoadEntry": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "days_before": {
+                    "description": "0 for race day, N for N days before",
+                    "type": "integer"
+                },
+                "rationale": {
+                    "type": "string"
+                },
+                "target_carbs_g": {
+                    "description": "rounded to 1 dp",
+                    "type": "number"
+                }
+            }
+        },
+        "raceprep.CarbLoadSchedule": {
+            "type": "object",
+            "properties": {
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "params": {
+                    "$ref": "#/definitions/raceprep.EchoedParams"
+                },
+                "race_date": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/raceprep.CarbLoadEntry"
+                    }
+                }
+            }
+        },
+        "raceprep.EchoedParams": {
+            "type": "object",
+            "properties": {
+                "carbs_per_kg_per_day": {
+                    "type": "number"
+                },
+                "days_before": {
+                    "type": "integer"
+                },
+                "race_day_carbs_per_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "summary.Adherence": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/summary.AdherenceEntry"
+            }
+        },
+        "summary.AdherenceEntry": {
+            "type": "object",
+            "properties": {
+                "actual": {
+                    "type": "number"
+                },
+                "delta_pct": {
+                    "type": "number"
+                },
+                "status": {
+                    "description": "under | on | over | no_data",
+                    "type": "string"
+                },
+                "target": {
+                    "$ref": "#/definitions/goals.Range"
+                }
+            }
+        },
+        "summary.Daily": {
+            "type": "object",
+            "properties": {
+                "adherence": {
+                    "$ref": "#/definitions/summary.Adherence"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/meals.MealEntry"
+                    }
+                },
+                "goal_source": {
+                    "type": "string"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "totals": {
+                    "$ref": "#/definitions/summary.Totals"
+                },
+                "tz": {
+                    "type": "string"
+                }
+            }
+        },
+        "summary.Range": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/summary.RangeDay"
+                    }
+                },
+                "from": {
+                    "type": "string"
+                },
+                "group_by": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "tz": {
+                    "type": "string"
+                }
+            }
+        },
+        "summary.RangeDay": {
+            "type": "object",
+            "properties": {
+                "adherence": {
+                    "$ref": "#/definitions/summary.Adherence"
+                },
+                "by_meal_type": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/summary.Totals"
+                    }
+                },
+                "date": {
+                    "type": "string"
+                },
+                "goal_source": {
+                    "type": "string"
+                },
+                "totals": {
+                    "$ref": "#/definitions/summary.Totals"
+                }
+            }
+        },
+        "summary.Totals": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "iron_mg": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "magnesium_mg": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
+                },
+                "vitamin_b12_mcg": {
+                    "type": "number"
+                },
+                "vitamin_c_mg": {
+                    "type": "number"
+                },
+                "vitamin_d_mcg": {
+                    "type": "number"
+                },
+                "zinc_mg": {
+                    "type": "number"
+                }
+            }
+        },
+        "workoutfueling.FuelingHydration": {
+            "type": "object",
+            "properties": {
+                "entry_count": {
+                    "type": "integer"
+                },
+                "total_ml": {
+                    "type": "number"
+                }
+            }
+        },
+        "workoutfueling.FuelingNutrition": {
+            "type": "object",
+            "properties": {
+                "entry_count": {
+                    "type": "integer"
+                },
+                "totals": {
+                    "$ref": "#/definitions/summary.Totals"
+                }
+            }
+        },
+        "workoutfueling.FuelingWindow": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "hydration": {
+                    "$ref": "#/definitions/workoutfueling.FuelingHydration"
+                },
+                "minutes": {
+                    "type": "integer"
+                },
+                "nutrition": {
+                    "$ref": "#/definitions/workoutfueling.FuelingNutrition"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "workoutfueling.WorkoutFueling": {
+            "type": "object",
+            "properties": {
+                "ended_at": {
+                    "type": "string"
+                },
+                "intra_window": {
+                    "$ref": "#/definitions/workoutfueling.FuelingWindow"
+                },
+                "post_window": {
+                    "$ref": "#/definitions/workoutfueling.FuelingWindow"
+                },
+                "pre_window": {
+                    "$ref": "#/definitions/workoutfueling.FuelingWindow"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "workouts.Source": {
+            "type": "string",
+            "enum": [
+                "garmin",
+                "manual",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "SourceGarmin",
+                "SourceManual",
+                "SourceOther"
+            ]
+        },
+        "workouts.Sport": {
+            "type": "string",
+            "enum": [
+                "run",
+                "bike",
+                "swim",
+                "strength",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "SportRun",
+                "SportBike",
+                "SportSwim",
+                "SportStrength",
+                "SportOther"
+            ]
+        },
+        "workouts.Workout": {
+            "type": "object",
+            "properties": {
+                "avg_hr": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "ended_at": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kcal_burned": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/workouts.Source"
+                },
+                "sport": {
+                    "$ref": "#/definitions/workouts.Sport"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "tss": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "workouts.bulkCreateRequest": {
+            "type": "object"
+        },
+        "workouts.createRequest": {
+            "type": "object",
+            "properties": {
+                "avg_hr": {
+                    "type": "integer"
+                },
+                "ended_at": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "kcal_burned": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sport": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "tss": {
+                    "type": "number"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Static bearer token. Use the format `Bearer \u003ctoken\u003e` with either MOBILE_API_TOKEN or AGENT_API_TOKEN.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

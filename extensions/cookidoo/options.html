@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>nutrition-api: Cookidoo importer — Options</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 14px/1.5 system-ui, sans-serif;
+      max-width: 480px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    p { margin: 0 0 12px; opacity: 0.85; }
+    label { display: block; margin: 14px 0 4px; font-weight: 500; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      font: inherit;
+      border: 1px solid rgba(0,0,0,0.25);
+      border-radius: 4px;
+      background: transparent;
+      color: inherit;
+    }
+    .radio-row { margin-top: 6px; }
+    .radio-row label { display: inline-block; margin-right: 12px; font-weight: 400; }
+    .actions { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
+    button {
+      padding: 6px 14px;
+      font: inherit;
+      background: #2266ee;
+      color: white;
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .toast {
+      opacity: 0;
+      transition: opacity 0.2s;
+      font-size: 13px;
+      color: #1e5b34;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { color: #7a1f1a; }
+  </style>
+</head>
+<body>
+  <h1>nutrition-api: Cookidoo importer</h1>
+  <p>
+    These options tell the extension where the nutrition-api lives and how to
+    authenticate. They are persisted across Chrome instances via
+    <code>chrome.storage.sync</code>.
+  </p>
+
+  <label for="api_url">API base URL</label>
+  <input type="text" id="api_url" placeholder="http://localhost:8080" />
+
+  <label for="token">API token</label>
+  <input type="password" id="token" placeholder="paste your token here" />
+
+  <label>Token type</label>
+  <div class="radio-row">
+    <label><input type="radio" name="token_type" value="mobile" /> mobile</label>
+    <label><input type="radio" name="token_type" value="agent" /> agent</label>
+  </div>
+
+  <div class="actions">
+    <button type="button" id="save">Save</button>
+    <span id="toast" class="toast"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

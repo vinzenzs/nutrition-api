@@ -1,0 +1,14 @@
+{
+  "code": "1111111111111",
+  "status": 1,
+  "status_verbose": "product found",
+  "product": {
+    "product_name": "Mystery Bar",
+    "brands": "Some Brand",
+    "serving_size": "40 g",
+    "nutriments": {
+      "energy-kcal_100g": 200,
+      "proteins_100g": 5
+    }
+  }
+}

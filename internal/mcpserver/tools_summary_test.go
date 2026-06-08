@@ -1,0 +1,77 @@
+package mcpserver
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestDailySummary_BuildsCorrectQuery(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleDailySummary(context.Background(), c, DailySummaryArgs{Date: "2026-06-06", TZ: "Europe/Berlin"})
+	assert.Equal(t, http.MethodGet, rec.method)
+	assert.Equal(t, "/summary/daily", rec.path)
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "2026-06-06", values.Get("date"))
+	assert.Equal(t, "Europe/Berlin", values.Get("tz"))
+}
+
+func TestDailySummary_OmitsTZWhenEmpty(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleDailySummary(context.Background(), c, DailySummaryArgs{Date: "2026-06-06"})
+	assert.NotContains(t, rec.rawQS, "tz=")
+}
+
+func TestRangeSummary_BuildsCorrectQuery(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleRangeSummary(context.Background(), c, RangeSummaryArgs{From: "2026-06-01", To: "2026-06-07", TZ: "UTC"})
+	assert.Equal(t, "/summary/range", rec.path)
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "2026-06-01", values.Get("from"))
+	assert.Equal(t, "2026-06-07", values.Get("to"))
+	assert.Equal(t, "UTC", values.Get("tz"))
+}
+
+func TestRangeSummary_TooLargeErrorIsForwarded(t *testing.T) {
+	c, _ := newRecordingClient(t, 400, `{"error":"range_too_large","max_days":92}`)
+	r := handleRangeSummary(context.Background(), c, RangeSummaryArgs{From: "2026-01-01", To: "2026-12-31"})
+	assert.True(t, r.IsError)
+	tc := extractText(t, r)
+	assert.True(t, strings.Contains(tc, "range_too_large"))
+}
+
+func TestDailySummary_MealTypeForwardedWhenPresent(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleDailySummary(context.Background(), c, DailySummaryArgs{Date: "2026-06-06", MealType: "breakfast"})
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "breakfast", values.Get("meal_type"))
+}
+
+func TestDailySummary_MealTypeOmittedWhenEmpty(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleDailySummary(context.Background(), c, DailySummaryArgs{Date: "2026-06-06"})
+	assert.NotContains(t, rec.rawQS, "meal_type=")
+}
+
+func TestRangeSummary_GroupByForwardedWhenPresent(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleRangeSummary(context.Background(), c, RangeSummaryArgs{
+		From: "2026-06-01", To: "2026-06-07", GroupBy: "meal_type",
+	})
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "meal_type", values.Get("group_by"))
+}
+
+func TestRangeSummary_GroupByOmittedWhenEmpty(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleRangeSummary(context.Background(), c, RangeSummaryArgs{From: "2026-06-01", To: "2026-06-07"})
+	assert.NotContains(t, rec.rawQS, "group_by=")
+}

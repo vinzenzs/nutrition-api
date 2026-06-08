@@ -1,0 +1,16 @@
+{
+  "code": "2222222222222",
+  "status": 1,
+  "status_verbose": "product found",
+  "product": {
+    "product_name": "kJ Only Drink",
+    "brands": "Test",
+    "serving_size": "250 g",
+    "nutriments": {
+      "energy_100g": 418.4,
+      "proteins_100g": 1.0,
+      "carbohydrates_100g": 20.0,
+      "fat_100g": 0.0
+    }
+  }
+}

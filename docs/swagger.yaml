@@ -1,0 +1,2187 @@
+basePath: /
+definitions:
+  bodyweight.Entry:
+    properties:
+      body_fat_pct:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: string
+      logged_at:
+        type: string
+      note:
+        type: string
+      updated_at:
+        type: string
+      weight_kg:
+        type: number
+    type: object
+  bodyweight.Trend:
+    properties:
+      from:
+        type: string
+      points:
+        items:
+          $ref: '#/definitions/bodyweight.TrendPoint'
+        type: array
+      to:
+        type: string
+      tz:
+        type: string
+      window_days:
+        type: integer
+    type: object
+  bodyweight.TrendPoint:
+    properties:
+      date:
+        type: string
+      rolling_avg_kg:
+        type: number
+      sample_count:
+        type: integer
+    type: object
+  bodyweight.createRequest:
+    properties:
+      body_fat_pct:
+        type: number
+      logged_at:
+        type: string
+      note:
+        type: string
+      weight_kg:
+        type: number
+    type: object
+  bodyweight.patchRequest:
+    properties:
+      body_fat_pct:
+        type: number
+      logged_at:
+        type: string
+      note:
+        type: string
+      weight_kg:
+        type: number
+    type: object
+  goals.Goals:
+    properties:
+      calcium_mg:
+        $ref: '#/definitions/goals.Range'
+      carbs_g:
+        $ref: '#/definitions/goals.Range'
+      created_at:
+        type: string
+      fat_g:
+        $ref: '#/definitions/goals.Range'
+      fiber_g:
+        $ref: '#/definitions/goals.Range'
+      iron_mg:
+        $ref: '#/definitions/goals.Range'
+      kcal:
+        $ref: '#/definitions/goals.Range'
+      magnesium_mg:
+        $ref: '#/definitions/goals.Range'
+      potassium_mg:
+        $ref: '#/definitions/goals.Range'
+      protein_g:
+        $ref: '#/definitions/goals.Range'
+      salt_g:
+        $ref: '#/definitions/goals.Range'
+      sugar_g:
+        $ref: '#/definitions/goals.Range'
+      updated_at:
+        type: string
+      vitamin_b12_mcg:
+        $ref: '#/definitions/goals.Range'
+      vitamin_c_mg:
+        $ref: '#/definitions/goals.Range'
+      vitamin_d_mcg:
+        $ref: '#/definitions/goals.Range'
+      zinc_mg:
+        $ref: '#/definitions/goals.Range'
+    type: object
+  goals.Range:
+    properties:
+      max:
+        type: number
+      min:
+        type: number
+    type: object
+  hydration.Daily:
+    properties:
+      date:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/hydration.Entry'
+        type: array
+      entry_count:
+        type: integer
+      total_ml:
+        type: number
+      tz:
+        type: string
+    type: object
+  hydration.Entry:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      logged_at:
+        type: string
+      note:
+        type: string
+      quantity_ml:
+        type: number
+      updated_at:
+        type: string
+      workout_id:
+        type: string
+    type: object
+  hydration.createRequest:
+    properties:
+      logged_at:
+        type: string
+      note:
+        type: string
+      quantity_ml:
+        type: number
+      workout_id:
+        type: string
+    type: object
+  hydration.patchRequest:
+    properties:
+      logged_at:
+        type: string
+      note:
+        type: string
+      quantity_ml:
+        type: number
+      workout_id:
+        description: |-
+          WorkoutID supports the empty-string clear sentinel:
+            omitted   → leave unchanged
+            "<uuid>"  → set the link
+            ""        → clear the link
+        type: string
+    type: object
+  meals.MealEntry:
+    properties:
+      created_at:
+        type: string
+      effective_name:
+        type: string
+      effective_nutriments_per_100g:
+        $ref: '#/definitions/meals.Nutriments'
+      id:
+        type: string
+      logged_at:
+        type: string
+      meal_type:
+        $ref: '#/definitions/meals.MealType'
+      note:
+        type: string
+      product_id:
+        type: string
+      quantity_g:
+        type: number
+      updated_at:
+        type: string
+      workout_id:
+        type: string
+    type: object
+  meals.MealType:
+    enum:
+    - breakfast
+    - lunch
+    - dinner
+    - snack
+    type: string
+    x-enum-varnames:
+    - Breakfast
+    - Lunch
+    - Dinner
+    - Snack
+  meals.Nutriments:
+    properties:
+      calcium_mg:
+        type: number
+      carbs_g:
+        type: number
+      fat_g:
+        type: number
+      fiber_g:
+        type: number
+      iron_mg:
+        type: number
+      kcal:
+        type: number
+      magnesium_mg:
+        type: number
+      potassium_mg:
+        type: number
+      protein_g:
+        type: number
+      salt_g:
+        type: number
+      sugar_g:
+        type: number
+      vitamin_b12_mcg:
+        type: number
+      vitamin_c_mg:
+        type: number
+      vitamin_d_mcg:
+        type: number
+      zinc_mg:
+        type: number
+    type: object
+  meals.createRequest:
+    properties:
+      logged_at:
+        type: string
+      meal_type:
+        type: string
+      note:
+        type: string
+      product_id:
+        type: string
+      quantity_g:
+        type: number
+      workout_id:
+        type: string
+    type: object
+  meals.freeformNutrimentsBody:
+    properties:
+      calcium_mg:
+        type: number
+      carbs_g:
+        type: number
+      fat_g:
+        type: number
+      fiber_g:
+        type: number
+      iron_mg:
+        type: number
+      kcal:
+        type: number
+      magnesium_mg:
+        type: number
+      potassium_mg:
+        type: number
+      protein_g:
+        type: number
+      salt_g:
+        type: number
+      sugar_g:
+        type: number
+      vitamin_b12_mcg:
+        type: number
+      vitamin_c_mg:
+        type: number
+      vitamin_d_mcg:
+        type: number
+      zinc_mg:
+        type: number
+    type: object
+  meals.freeformRequest:
+    properties:
+      logged_at:
+        type: string
+      meal_type:
+        type: string
+      name:
+        type: string
+      note:
+        type: string
+      nutriments_per_100g:
+        $ref: '#/definitions/meals.freeformNutrimentsBody'
+      quantity_g:
+        type: number
+      save_as_product:
+        type: boolean
+      workout_id:
+        type: string
+    type: object
+  meals.patchRequest:
+    properties:
+      logged_at:
+        type: string
+      meal_type:
+        type: string
+      note:
+        type: string
+      quantity_g:
+        type: number
+      workout_id:
+        description: |-
+          WorkoutID supports the empty-string sentinel for clear:
+            omitted   → leave unchanged
+            "<uuid>"  → set the link
+            ""        → clear the link
+        type: string
+    type: object
+  products.Nutriments:
+    properties:
+      calcium_mg:
+        type: number
+      carbs_g:
+        type: number
+      fat_g:
+        type: number
+      fiber_g:
+        type: number
+      iron_mg:
+        type: number
+      kcal:
+        type: number
+      magnesium_mg:
+        type: number
+      potassium_mg:
+        type: number
+      protein_g:
+        type: number
+      salt_g:
+        type: number
+      sugar_g:
+        type: number
+      vitamin_b12_mcg:
+        type: number
+      vitamin_c_mg:
+        type: number
+      vitamin_d_mcg:
+        type: number
+      zinc_mg:
+        type: number
+    type: object
+  products.Product:
+    properties:
+      barcode:
+        type: string
+      brand:
+        type: string
+      created_at:
+        type: string
+      external_url:
+        description: |-
+          ExternalURL records where this product came from when neither OFF nor a
+          manual user entry. Today's first user is the Cookidoo extension.
+        type: string
+      fetched_at:
+        type: string
+      id:
+        type: string
+      last_logged_at:
+        type: string
+      last_logged_quantity_g:
+        description: |-
+          LastLoggedQuantityG is the quantity_g of the most recent meal entry that
+          advanced last_logged_at. The phone's scan→log flow defaults to this
+          value, dropping a typical scan from 3 taps to 2. Lockstep with
+          LastLoggedAt — see internal/products.Repo.TouchLastLoggedAt.
+        type: number
+      name:
+        type: string
+      nutriment_computed_at:
+        description: |-
+          NutrimentComputedAt is set when a recipe product's nutriments were derived
+          from its components. Null for non-recipe products.
+        type: string
+      nutriments_per_100g:
+        $ref: '#/definitions/products.Nutriments'
+      serving_size_g:
+        type: number
+      source:
+        $ref: '#/definitions/products.Source'
+      updated_at:
+        type: string
+    type: object
+  products.Source:
+    enum:
+    - "off"
+    - manual
+    - recipe
+    type: string
+    x-enum-varnames:
+    - SourceOFF
+    - SourceManual
+    - SourceRecipe
+  products.createManualNutris:
+    properties:
+      calcium_mg:
+        type: number
+      carbs_g:
+        type: number
+      fat_g:
+        type: number
+      fiber_g:
+        type: number
+      iron_mg:
+        type: number
+      kcal:
+        type: number
+      magnesium_mg:
+        type: number
+      potassium_mg:
+        type: number
+      protein_g:
+        type: number
+      salt_g:
+        type: number
+      sugar_g:
+        type: number
+      vitamin_b12_mcg:
+        type: number
+      vitamin_c_mg:
+        type: number
+      vitamin_d_mcg:
+        type: number
+      zinc_mg:
+        type: number
+    type: object
+  products.createManualRequest:
+    properties:
+      barcode:
+        type: string
+      brand:
+        type: string
+      external_url:
+        description: |-
+          ExternalURL records the upstream page this product was imported from.
+          Optional; max 2048 chars; trimmed before validation.
+        type: string
+      name:
+        type: string
+      nutriments_per_100g:
+        $ref: '#/definitions/products.createManualNutris'
+      serving_size_g:
+        type: number
+      source:
+        description: |-
+          Source defaults to "manual". Accepts "manual" or "recipe" — the latter
+          is the flat-imported-recipe path (e.g. the Cookidoo Chrome extension).
+        type: string
+    type: object
+  products.createRecipeComponentBody:
+    properties:
+      product_id:
+        type: string
+      quantity_g:
+        type: number
+    type: object
+  products.createRecipeRequest:
+    properties:
+      components:
+        items:
+          $ref: '#/definitions/products.createRecipeComponentBody'
+        type: array
+      name:
+        type: string
+      serving_size_g:
+        type: number
+    type: object
+  products.createRecipeResponse:
+    properties:
+      barcode:
+        type: string
+      brand:
+        type: string
+      components:
+        items:
+          $ref: '#/definitions/products.recipeComponentResponse'
+        type: array
+      created_at:
+        type: string
+      external_url:
+        description: |-
+          ExternalURL records where this product came from when neither OFF nor a
+          manual user entry. Today's first user is the Cookidoo extension.
+        type: string
+      fetched_at:
+        type: string
+      id:
+        type: string
+      last_logged_at:
+        type: string
+      last_logged_quantity_g:
+        description: |-
+          LastLoggedQuantityG is the quantity_g of the most recent meal entry that
+          advanced last_logged_at. The phone's scan→log flow defaults to this
+          value, dropping a typical scan from 3 taps to 2. Lockstep with
+          LastLoggedAt — see internal/products.Repo.TouchLastLoggedAt.
+        type: number
+      name:
+        type: string
+      nutriment_computed_at:
+        description: |-
+          NutrimentComputedAt is set when a recipe product's nutriments were derived
+          from its components. Null for non-recipe products.
+        type: string
+      nutriments_per_100g:
+        $ref: '#/definitions/products.Nutriments'
+      serving_size_g:
+        type: number
+      source:
+        $ref: '#/definitions/products.Source'
+      updated_at:
+        type: string
+    type: object
+  products.recipeComponentResponse:
+    properties:
+      effective_nutriments_per_100g:
+        $ref: '#/definitions/products.Nutriments'
+      name:
+        type: string
+      product_id:
+        type: string
+      quantity_g:
+        type: number
+    type: object
+  raceprep.CarbLoadEntry:
+    properties:
+      date:
+        description: YYYY-MM-DD
+        type: string
+      days_before:
+        description: 0 for race day, N for N days before
+        type: integer
+      rationale:
+        type: string
+      target_carbs_g:
+        description: rounded to 1 dp
+        type: number
+    type: object
+  raceprep.CarbLoadSchedule:
+    properties:
+      body_weight_kg:
+        type: number
+      params:
+        $ref: '#/definitions/raceprep.EchoedParams'
+      race_date:
+        type: string
+      schedule:
+        items:
+          $ref: '#/definitions/raceprep.CarbLoadEntry'
+        type: array
+    type: object
+  raceprep.EchoedParams:
+    properties:
+      carbs_per_kg_per_day:
+        type: number
+      days_before:
+        type: integer
+      race_day_carbs_per_kg:
+        type: number
+    type: object
+  summary.Adherence:
+    additionalProperties:
+      $ref: '#/definitions/summary.AdherenceEntry'
+    type: object
+  summary.AdherenceEntry:
+    properties:
+      actual:
+        type: number
+      delta_pct:
+        type: number
+      status:
+        description: under | on | over | no_data
+        type: string
+      target:
+        $ref: '#/definitions/goals.Range'
+    type: object
+  summary.Daily:
+    properties:
+      adherence:
+        $ref: '#/definitions/summary.Adherence'
+      date:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/meals.MealEntry'
+        type: array
+      goal_source:
+        type: string
+      meal_type:
+        type: string
+      totals:
+        $ref: '#/definitions/summary.Totals'
+      tz:
+        type: string
+    type: object
+  summary.Range:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/summary.RangeDay'
+        type: array
+      from:
+        type: string
+      group_by:
+        type: string
+      to:
+        type: string
+      tz:
+        type: string
+    type: object
+  summary.RangeDay:
+    properties:
+      adherence:
+        $ref: '#/definitions/summary.Adherence'
+      by_meal_type:
+        additionalProperties:
+          $ref: '#/definitions/summary.Totals'
+        type: object
+      date:
+        type: string
+      goal_source:
+        type: string
+      totals:
+        $ref: '#/definitions/summary.Totals'
+    type: object
+  summary.Totals:
+    properties:
+      calcium_mg:
+        type: number
+      carbs_g:
+        type: number
+      fat_g:
+        type: number
+      fiber_g:
+        type: number
+      iron_mg:
+        type: number
+      kcal:
+        type: number
+      magnesium_mg:
+        type: number
+      potassium_mg:
+        type: number
+      protein_g:
+        type: number
+      salt_g:
+        type: number
+      sugar_g:
+        type: number
+      vitamin_b12_mcg:
+        type: number
+      vitamin_c_mg:
+        type: number
+      vitamin_d_mcg:
+        type: number
+      zinc_mg:
+        type: number
+    type: object
+  workoutfueling.FuelingHydration:
+    properties:
+      entry_count:
+        type: integer
+      total_ml:
+        type: number
+    type: object
+  workoutfueling.FuelingNutrition:
+    properties:
+      entry_count:
+        type: integer
+      totals:
+        $ref: '#/definitions/summary.Totals'
+    type: object
+  workoutfueling.FuelingWindow:
+    properties:
+      end:
+        type: string
+      hydration:
+        $ref: '#/definitions/workoutfueling.FuelingHydration'
+      minutes:
+        type: integer
+      nutrition:
+        $ref: '#/definitions/workoutfueling.FuelingNutrition'
+      start:
+        type: string
+    type: object
+  workoutfueling.WorkoutFueling:
+    properties:
+      ended_at:
+        type: string
+      intra_window:
+        $ref: '#/definitions/workoutfueling.FuelingWindow'
+      post_window:
+        $ref: '#/definitions/workoutfueling.FuelingWindow'
+      pre_window:
+        $ref: '#/definitions/workoutfueling.FuelingWindow'
+      started_at:
+        type: string
+      workout_id:
+        type: string
+    type: object
+  workouts.Source:
+    enum:
+    - garmin
+    - manual
+    - other
+    type: string
+    x-enum-varnames:
+    - SourceGarmin
+    - SourceManual
+    - SourceOther
+  workouts.Sport:
+    enum:
+    - run
+    - bike
+    - swim
+    - strength
+    - other
+    type: string
+    x-enum-varnames:
+    - SportRun
+    - SportBike
+    - SportSwim
+    - SportStrength
+    - SportOther
+  workouts.Workout:
+    properties:
+      avg_hr:
+        type: integer
+      created_at:
+        type: string
+      ended_at:
+        type: string
+      external_id:
+        type: string
+      id:
+        type: string
+      kcal_burned:
+        type: number
+      name:
+        type: string
+      notes:
+        type: string
+      source:
+        $ref: '#/definitions/workouts.Source'
+      sport:
+        $ref: '#/definitions/workouts.Sport'
+      started_at:
+        type: string
+      tss:
+        type: number
+      updated_at:
+        type: string
+    type: object
+  workouts.bulkCreateRequest:
+    type: object
+  workouts.createRequest:
+    properties:
+      avg_hr:
+        type: integer
+      ended_at:
+        type: string
+      external_id:
+        type: string
+      kcal_burned:
+        type: number
+      name:
+        type: string
+      notes:
+        type: string
+      source:
+        type: string
+      sport:
+        type: string
+      started_at:
+        type: string
+      tss:
+        type: number
+    type: object
+info:
+  contact: {}
+  description: Personal nutrition tracking REST API. All endpoints under /products,
+    /meals, and /summary require a bearer token.
+  title: Nutrition API
+  version: 0.1.0
+paths:
+  /goals:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"goals\": Goals | null}'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current nutrition goals
+      tags:
+      - goals
+    put:
+      consumes:
+      - application/json
+      description: 'Full-replace semantics: absent fields are stored as NULL (cleared).
+        Each goal is `{min?, max?}` with at least one bound; ranges must satisfy min
+        <= max. Note: `Idempotency-Key` is NOT accepted on PUT — supplying the header
+        returns `400 idempotency_unsupported_for_put`. ETag/If-Match retry-safety
+        is forward-pointed but not implemented.'
+      parameters:
+      - description: Goals payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/goals.Goals'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"goals\": Goals}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: goal_value_invalid | goal_range_invalid | invalid_json | idempotency_unsupported_for_put
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Set or replace nutrition goals
+      tags:
+      - goals
+  /goals/overrides:
+    get:
+      description: Returns overrides whose `date` falls within `[from, to]` (inclusive).
+        Dates without an override are omitted (the caller can infer the default applies).
+      parameters:
+      - description: Inclusive start date YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive end date YYYY-MM-DD; max 366 days from `from`
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"overrides\": [{date, goals}]}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: range_required | date_invalid | range_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List daily goal overrides in a date range
+      tags:
+      - goals
+  /goals/overrides/{date}:
+    delete:
+      parameters:
+      - description: Override date in YYYY-MM-DD
+        in: path
+        name: date
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "400":
+          description: date_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: override_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a daily goal override
+      tags:
+      - goals
+    get:
+      parameters:
+      - description: Override date in YYYY-MM-DD
+        in: path
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"goals\": Goals}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: date_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: override_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a daily goal override for a specific date
+      tags:
+      - goals
+    put:
+      consumes:
+      - application/json
+      description: 'Full-replace semantics: absent fields are stored as NULL. Same
+        validation as PUT /goals. `Idempotency-Key` is NOT accepted on PUT — supplying
+        it returns `400 idempotency_unsupported_for_put`.'
+      parameters:
+      - description: Override date in YYYY-MM-DD
+        in: path
+        name: date
+        required: true
+        type: string
+      - description: Goals payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/goals.Goals'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"goals\": Goals}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: date_invalid | goal_value_invalid | goal_range_invalid | invalid_json
+            | idempotency_unsupported_for_put
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a daily goal override
+      tags:
+      - goals
+  /hydration:
+    get:
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Exclusive RFC3339 upper bound
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ entries: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List hydration entries in a window
+      tags:
+      - hydration
+    post:
+      consumes:
+      - application/json
+      description: Records a volume of fluid drunk at a moment in time. The optional
+        `note` carries beverage context (e.g. "water", "coffee", "electrolytes").
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Hydration entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/hydration.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/hydration.Entry'
+        "400":
+          description: quantity_ml_invalid | logged_at_invalid | logged_at_too_far_future
+            | note_too_long
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a hydration entry
+      tags:
+      - hydration
+  /hydration/{id}:
+    delete:
+      parameters:
+      - description: Hydration entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: hydration_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a hydration entry
+      tags:
+      - hydration
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Hydration entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/hydration.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/hydration.Entry'
+        "400":
+          description: quantity_ml_invalid | logged_at_invalid | note_too_long
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: hydration_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a hydration entry
+      tags:
+      - hydration
+  /meals:
+    get:
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Exclusive RFC3339 upper bound
+        in: query
+        name: to
+        required: true
+        type: string
+      - description: 'Optional filter: breakfast|lunch|dinner|snack'
+        in: query
+        name: meal_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ meals: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | meal_type_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List meal entries in a time window
+      tags:
+      - meals
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Meal entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/meals.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/meals.MealEntry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a meal entry against an existing product
+      tags:
+      - meals
+  /meals/{id}:
+    delete:
+      parameters:
+      - description: Meal entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a meal entry
+      tags:
+      - meals
+    get:
+      parameters:
+      - description: Meal entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Set to `components` to include recipe breakdown when the meal's
+          product is a recipe
+        in: query
+        name: expand
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/meals.MealEntry'
+        "404":
+          description: meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a meal entry by ID
+      tags:
+      - meals
+    patch:
+      consumes:
+      - application/json
+      description: Unknown fields are ignored. Send only the keys you want to change.
+      parameters:
+      - description: Meal entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/meals.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/meals.MealEntry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update fields on a meal entry
+      tags:
+      - meals
+  /meals/freeform:
+    post:
+      consumes:
+      - application/json
+      description: Use when the user is logging a meal that doesn't map to a barcode.
+        Optionally persists the item as a manual product via `save_as_product`.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Freeform meal entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/meals.freeformRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/meals.MealEntry'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a freeform meal entry (no product lookup)
+      tags:
+      - meals
+  /products:
+    get:
+      description: Returns the product cache as a paginated list, ordered last_logged_at
+        desc then name asc. Combine with `delete` to clean up leftovers.
+      parameters:
+      - description: 'Filter by source: off | manual | recipe'
+        in: query
+        name: source
+        type: string
+      - description: Page size (1..200, default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (>=0, default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ products: [...], total: N, limit, offset }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: source_invalid | limit_too_large | pagination_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List products with pagination
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: 'Creates a product not sourced from Open Food Facts. Default source
+        is "manual". Pass `source: "recipe"` together with an `external_url` to register
+        a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row
+        has no `product_components` and `nutriment_computed_at` stays null — distinguishing
+        it from composed recipes built via POST /products/recipes.'
+      parameters:
+      - description: Product fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/products.createManualRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/products.Product'
+        "400":
+          description: invalid_json | name_required | source_invalid | external_url_too_long
+            | external_url_invalid | nutriments_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: barcode_already_exists
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a product (manual or flat-imported recipe)
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      description: Hard-deletes a product. Historical meal_entries get a snapshot
+        of the product's current name + nutriments before the FK is nulled, so daily/range
+        summaries continue to reflect those meals. If the product is referenced as
+        a component of any recipe, the request is rejected with 409 listing the using
+        recipes — delete or replace within those recipes first.
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: product_in_use_as_component (body includes the using recipes
+            list and a hint)
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a product
+      tags:
+      - products
+    get:
+      parameters:
+      - description: Product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Set to `components` to include a recipe's components
+        in: query
+        name: expand
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/products.Product'
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a product by ID
+      tags:
+      - products
+  /products/lookup/:
+    post:
+      description: Sibling route to POST /products/lookup/{barcode}. Returns 400 when
+        the path parameter is missing instead of falling through to a generic 404.
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: barcode_required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reject barcode lookup with no barcode
+      tags:
+      - products
+  /products/lookup/{barcode}:
+    post:
+      description: Fetches a product from the local cache or upstream Open Food Facts.
+        Pass `refresh=true` to force an upstream re-fetch.
+      parameters:
+      - description: EAN/UPC barcode
+        in: path
+        name: barcode
+        required: true
+        type: string
+      - description: Force a fresh OFF fetch even if cached
+        in: query
+        name: refresh
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/products.Product'
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: upstream_unexpected_response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "504":
+          description: upstream_timeout
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Look up a product by barcode
+      tags:
+      - products
+  /products/recipes:
+    post:
+      consumes:
+      - application/json
+      description: Builds a recipe from N component products and per-component grams.
+        Nutriments-per-100g are computed at creation time from components, so existing
+        meal-logging math works unchanged.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Recipe fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/products.createRecipeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/products.createRecipeResponse'
+        "400":
+          description: components_required | component_quantity_g_invalid | recipe_as_component_not_supported
+            | invalid_json
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: component_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a composite recipe product
+      tags:
+      - products
+  /products/recipes/{id}/recompute:
+    post:
+      parameters:
+      - description: Recipe product UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/products.createRecipeResponse'
+        "400":
+          description: not_a_recipe
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Recompute a recipe's nutriments from its current components
+      tags:
+      - products
+  /products/search:
+    get:
+      description: Case-insensitive substring match across product name and brand.
+        Returns up to 50 results.
+      parameters:
+      - description: Substring to search for
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ results: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: q_required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Search products
+      tags:
+      - products
+  /race-prep/carb-load:
+    get:
+      description: 'Stateless, deterministic carb-load math: given a race date and
+        a body weight, returns daily carbohydrate targets for the load window and
+        race morning. No persistence. The natural follow-up is to translate each entry
+        into a goal override via `PUT /goals/overrides/{date}`.'
+      parameters:
+      - description: Race date YYYY-MM-DD (must be today or later in DEFAULT_USER_TZ)
+        in: query
+        name: race_date
+        required: true
+        type: string
+      - description: Athlete body weight in kilograms, 30..200
+        in: query
+        name: body_weight_kg
+        required: true
+        type: number
+      - description: Carb-load days before race day, 0..7 (default 3)
+        in: query
+        name: days_before
+        type: integer
+      - description: Load-day multiplier, 1..20 g/kg (default 10)
+        in: query
+        name: carbs_per_kg_per_day
+        type: number
+      - description: Race-morning multiplier, 0..10 g/kg (default 2)
+        in: query
+        name: race_day_carbs_per_kg
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/raceprep.CarbLoadSchedule'
+        "400":
+          description: race_date_required | body_weight_kg_required | race_date_invalid
+            | race_date_in_past | body_weight_kg_invalid | days_before_invalid | carbs_per_kg_per_day_invalid
+            | race_day_carbs_per_kg_invalid
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Compute a carb-load schedule for a race
+      tags:
+      - race-prep
+  /summary/daily:
+    get:
+      description: Returns aggregated totals for a single calendar date in the supplied
+        timezone. When `meal_type` is set, only entries of that type are summed and
+        adherence is omitted.
+      parameters:
+      - description: Calendar date in YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      - description: 'Optional filter: breakfast|lunch|dinner|snack'
+        in: query
+        name: meal_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/summary.Daily'
+        "400":
+          description: date_invalid | tz_invalid | meal_type_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daily nutrition totals
+      tags:
+      - summary
+  /summary/hydration/daily:
+    get:
+      description: Returns total ml and per-entry list for one calendar date in the
+        supplied timezone. Volume-only — separate from /summary/daily, which is nutrient-only.
+      parameters:
+      - description: Calendar date in YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/hydration.Daily'
+        "400":
+          description: date_invalid | tz_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daily hydration total + entries
+      tags:
+      - summary
+  /summary/range:
+    get:
+      description: Returns one row per day in `[from, to]`. Range is capped at 92
+        days inclusive.
+      parameters:
+      - description: Inclusive start date YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive end date YYYY-MM-DD
+        in: query
+        name: to
+        required: true
+        type: string
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/summary.Range'
+        "400":
+          description: range_required | range_invalid | range_too_large | date_invalid
+            | tz_invalid
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daily totals across a date range
+      tags:
+      - summary
+  /weight:
+    get:
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Exclusive RFC3339 upper bound; max 92-day span
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ entries: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List body-weight entries in a window
+      tags:
+      - body-weight
+    post:
+      consumes:
+      - application/json
+      description: Records a body weight (kg), optionally with body-fat %. Multiple
+        measurements per day are allowed and smoothed by /weight/trend. Standard `Idempotency-Key`
+        header supported.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Body-weight entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/bodyweight.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/bodyweight.Entry'
+        "400":
+          description: weight_kg_invalid | body_fat_pct_invalid | logged_at_invalid
+            | logged_at_too_far_future | note_too_long
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a body-weight measurement
+      tags:
+      - body-weight
+  /weight/{id}:
+    delete:
+      parameters:
+      - description: Body-weight entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: weight_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a body-weight entry
+      tags:
+      - body-weight
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Body-weight entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/bodyweight.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/bodyweight.Entry'
+        "400":
+          description: weight_kg_invalid | body_fat_pct_invalid | logged_at_invalid
+            | note_too_long
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: weight_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a body-weight entry
+      tags:
+      - body-weight
+  /weight/trend:
+    get:
+      description: Returns one point per calendar date in [from, to], each carrying
+        the trailing rolling average over `window_days` days and the `sample_count`
+        that fed it. A `sample_count` of 0 means no data in the trailing window; the
+        matching `rolling_avg_kg` is null.
+      parameters:
+      - description: Inclusive start date YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive end date YYYY-MM-DD; max 366-day span
+        in: query
+        name: to
+        required: true
+        type: string
+      - description: Trailing-window length in days (1..30, default 7)
+        in: query
+        name: window_days
+        type: integer
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/bodyweight.Trend'
+        "400":
+          description: range_required | date_invalid | range_invalid | range_too_large
+            | window_days_invalid | tz_invalid
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rolling-average body-weight trend
+      tags:
+      - body-weight
+  /workouts:
+    get:
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive RFC3339 upper bound
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ workouts: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List workouts in a time window
+      tags:
+      - workouts
+    post:
+      consumes:
+      - application/json
+      description: Creates a new workout when external_id is absent or unseen; updates
+        the existing row when external_id matches an existing workout. Garmin re-syncs
+        land here without the writer needing to track sync state.
+      parameters:
+      - description: Optional client-supplied idempotency key (writers normally rely
+          on external_id instead)
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Workout
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workouts.createRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: UPDATE (external_id collision)
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "201":
+          description: INSERT
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "400":
+          description: source_invalid | sport_invalid | window_invalid | started_at_too_far_future
+            | kcal_burned_invalid | avg_hr_invalid | tss_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a workout
+      tags:
+      - workouts
+  /workouts/{id}:
+    delete:
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a workout
+      tags:
+      - workouts
+    get:
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a workout by id
+      tags:
+      - workouts
+    patch:
+      consumes:
+      - application/json
+      description: Accepts `name`, `notes`, `kcal_burned`, `avg_hr`, `tss`. `source`,
+        `external_id`, `sport`, `started_at`, `ended_at` are immutable — delete and
+        re-create if those are wrong.
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Mutable fields
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "400":
+          description: field_immutable | kcal_burned_invalid | avg_hr_invalid | tss_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a workout (mutable fields only)
+      tags:
+      - workouts
+  /workouts/{id}/fueling:
+    get:
+      description: Returns three time-anchored buckets (pre / intra / post) of meal
+        + hydration intake around a workout. Aggregation is by `logged_at` time-window
+        matching, NOT by the `workout_id` tag on intake rows — an untagged meal in
+        the pre-window still contributes. `nutrition` and `hydration` sub-objects
+        are kept separate so units don't mix.
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Pre-window length in minutes (default 240, range 0..720)
+        in: query
+        name: pre_window_min
+        type: integer
+      - description: Post-window length in minutes (default 60, range 0..720)
+        in: query
+        name: post_window_min
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workoutfueling.WorkoutFueling'
+        "400":
+          description: window_invalid
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 'Workout fueling: pre / intra / post windows'
+      tags:
+      - workouts
+  /workouts/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Each item upserts independently using external_id semantics. Per-item
+        validation/persistence failures are reported in the results array; the overall
+        response is 200 whenever the request body is well-formed and within the size
+        cap. Partial failure is allowed.
+      parameters:
+      - description: '{ workouts: [Workout, ...] }'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workouts.bulkCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ results: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: bulk_invalid | bulk_empty | bulk_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a batch of workouts (max 100 per request)
+      tags:
+      - workouts
+securityDefinitions:
+  BearerAuth:
+    description: Static bearer token. Use the format `Bearer <token>` with either
+      MOBILE_API_TOKEN or AGENT_API_TOKEN.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

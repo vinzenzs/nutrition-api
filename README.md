@@ -1,1 +1,657 @@
 # nutrition-api
+
+A personal nutrition logging backend. Single user. Two clients: a mobile app
+(barcode scans + manual entry) and an LLM coaching agent reached over MCP.
+
+> **First time here?** See [**RUN_LOCAL.md**](RUN_LOCAL.md) for a 10-minute
+> walkthrough from a fresh clone to a working API and registered MCP server.
+> This README is the reference (config table, every endpoint, project layout).
+
+Built with Go + Gin + Postgres. Product data comes from the public
+[Open Food Facts](https://world.openfoodfacts.org) API; products are cached
+locally on first lookup and the raw OFF payload is preserved per row for
+future re-extraction.
+
+## What it does
+
+- Lookup-and-cache products by barcode from Open Food Facts
+- Log meal entries by product + quantity in grams, or as freeform name +
+  nutriment estimate (the path the LLM agent uses)
+- Edit / delete meal entries
+- Daily and ranged summaries computed in a user-supplied IANA timezone
+- Search the product cache, ranked by recency of use
+- Idempotent writes via `Idempotency-Key` so retries (especially from the
+  agent) are safe
+
+## Quickstart
+
+```bash
+# One command — brings up Postgres, generates dev env, runs the API
+task dev
+
+# Smoke test (from another terminal)
+curl http://localhost:8080/healthz
+
+# (Optional) Browse the OpenAPI docs
+open http://localhost:8080/swagger/index.html
+```
+
+For the prerequisites, the dev-token defaults, and the full walkthrough,
+see [`RUN_LOCAL.md`](RUN_LOCAL.md). For a more manual setup (your own
+Postgres, your own tokens):
+
+```bash
+# 1. Start Postgres
+docker run --rm -d --name nutrition-pg \
+    -e POSTGRES_USER=nutrition -e POSTGRES_PASSWORD=nutrition \
+    -e POSTGRES_DB=nutrition -p 5432:5432 postgres:17-alpine
+
+# 2. Copy + edit env (generate real tokens with: openssl rand -hex 32)
+cp .env.example .env
+
+# 3. Run (migrations run on startup by default)
+set -a; . ./.env; set +a
+task run                # equivalent to: go run ./cmd/nutrition-api serve
+```
+
+The binary is a single Cobra-based command — invoke it as
+`nutrition-api <subcommand>`:
+
+| Subcommand                | Purpose                                                |
+|---------------------------|--------------------------------------------------------|
+| `nutrition-api serve`     | Run the HTTP REST API                                  |
+| `nutrition-api mcp`       | Run the MCP server over stdio                          |
+| `nutrition-api migrate`   | Apply pending database migrations and exit             |
+| `nutrition-api version`   | Print the embedded version, commit, and build date     |
+
+Run `nutrition-api <subcommand> --help` for the flags each accepts (the only
+serve-specific flag today is `--addr`, which overrides `HTTP_ADDR`).
+
+## Configuration (env)
+
+| Variable                 | Default                                       | Purpose                                                              |
+|--------------------------|-----------------------------------------------|----------------------------------------------------------------------|
+| `DATABASE_URL`           | _required_                                    | Postgres connection string                                           |
+| `HTTP_ADDR`              | `:8080`                                       | HTTP listen address                                                  |
+| `MOBILE_API_TOKEN`       | _required_                                    | Bearer token for the mobile app                                      |
+| `AGENT_API_TOKEN`        | _required_                                    | Bearer token for the LLM agent (must differ from `MOBILE_API_TOKEN`) |
+| `DEFAULT_USER_TZ`        | `UTC`                                         | IANA timezone used when summary endpoints omit `tz`                  |
+| `OFF_TIMEOUT_SECONDS`    | `5`                                           | Open Food Facts request timeout                                      |
+| `OFF_USER_AGENT_CONTACT` | `+https://github.com/vinzenzs/nutrition-api`  | Identification baked into the OFF `User-Agent`                       |
+| `IDEMPOTENCY_TTL_HOURS`  | `24`                                          | How long idempotency records are retained before cleanup             |
+| `MIGRATE_ON_START`       | `true`                                        | Run schema migrations at startup                                     |
+| `SWAGGER_ENABLED`        | `false`                                       | Serve `/swagger/*` in release mode (always served in debug mode)     |
+
+## API at a glance
+
+All endpoints require `Authorization: Bearer <token>`. Write endpoints accept
+an optional `Idempotency-Key: <opaque-id>` header — retrying within the TTL
+returns the original response; a different body with the same key returns
+`409 idempotency_key_conflict`.
+
+### Products
+
+```bash
+# Lookup by barcode (first call hits OFF, cached afterwards)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/products/lookup/3017624010701
+
+# Force a fresh OFF fetch and refresh the cache
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/products/lookup/3017624010701?refresh=true"
+
+# Create a manual product
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Homemade granola","nutriments_per_100g":{"kcal":420,"protein_g":12}}' \
+    http://localhost:8080/products
+
+# Search the product cache (ranked by recency of use)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/products/search?q=granola"
+
+# List the cache (paginated, most-recently-used first). Optional ?source=off|manual|recipe
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/products?source=manual&limit=20"
+
+# Fetch one. Response includes `last_logged_quantity_g` for previously logged
+# products — the phone's scan→log flow uses it as the default quantity, so a
+# repeat scan of a product the user keeps eating goes from 3 taps to 2.
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/products/<uuid>
+
+# Delete a product. Returns 204 on success; 409 product_in_use_as_component
+# with the using-recipes list if the product is referenced by any recipe.
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/products/<uuid>
+
+# Fetch a recipe with its component breakdown
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/products/<recipe-uuid>?expand=components"
+
+# Create a composite recipe from existing component products
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "name":"Morning skyr bowl",
+         "serving_size_g": 250,
+         "components": [
+           {"product_id":"<skyr-uuid>","quantity_g":200},
+           {"product_id":"<oats-uuid>","quantity_g":40},
+           {"product_id":"<honey-uuid>","quantity_g":10}
+         ]
+       }' \
+    http://localhost:8080/products/recipes
+
+# Recompute a recipe's nutriments after a component changed (e.g. OFF refresh)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/products/recipes/<recipe-uuid>/recompute
+```
+
+### Meals
+
+```bash
+# Log a meal from a known product
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{"product_id":"<uuid>","quantity_g":150,"logged_at":"2026-06-06T12:30:00Z","meal_type":"lunch"}' \
+    http://localhost:8080/meals
+
+# Freeform log (LLM-agent friendly)
+curl -X POST -H "Authorization: Bearer $AGENT_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{
+         "name":"banana",
+         "nutriments_per_100g":{"kcal":89,"protein_g":1.1,"carbs_g":22.8,"fat_g":0.3},
+         "quantity_g":120,
+         "logged_at":"2026-06-06T10:00:00Z",
+         "save_as_product": true
+       }' \
+    http://localhost:8080/meals/freeform
+
+# List meals in a window (half-open [from, to))
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/meals?from=2026-06-01T00:00:00Z&to=2026-06-07T00:00:00Z"
+
+# Patch
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"quantity_g":200}' \
+    http://localhost:8080/meals/<uuid>
+
+# Delete
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/meals/<uuid>
+
+# Optionally link a meal to a workout (per add-meal-workout-link). The link is
+# metadata for grouping; the workout-fueling summary aggregates by logged_at
+# time-window matching, not by this tag. On PATCH, "" clears the link.
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"product_id":"<uuid>","quantity_g":80,"logged_at":"2026-06-07T07:30:00Z","workout_id":"<workout-uuid>"}' \
+    http://localhost:8080/meals
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"workout_id":""}' \
+    http://localhost:8080/meals/<uuid>
+```
+
+### Hydration
+
+Volume-only — never mixed with grams. Separate table, separate endpoints, separate
+daily summary. The optional `note` carries beverage context (e.g. `water`,
+`iced coffee`, `electrolytes`). For drinks with nutriments (Coke, juice), also
+log the macros via `/meals/freeform`.
+
+```bash
+# Log a hydration entry
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{"quantity_ml":500,"logged_at":"2026-06-07T08:00:00Z","note":"water"}' \
+    http://localhost:8080/hydration
+
+# List in a window (half-open [from, to), 92-day cap)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/hydration?from=2026-06-07T00:00:00Z&to=2026-06-08T00:00:00Z"
+
+# Patch / delete (same shape as meals)
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"quantity_ml":250}' \
+    http://localhost:8080/hydration/<uuid>
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/hydration/<uuid>
+
+# Daily total + entries (separate from /summary/daily, which is nutrients-only)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/hydration/daily?date=2026-06-07&tz=Europe/Berlin"
+
+# Optionally tag a sip with a workout (per add-meal-workout-link). PATCH "" clears.
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"quantity_ml":250,"logged_at":"2026-06-07T08:45:00Z","workout_id":"<workout-uuid>"}' \
+    http://localhost:8080/hydration
+```
+
+### Workouts
+
+A training session: sport, time window, optional intensity (`tss`) and burn (`kcal_burned`).
+Backend exposes the write endpoint; the source-specific *writer* lives outside — `garmin.py`
+translates Garmin Connect activities into the API shape and POSTs them. No Garmin code lives
+in the backend; the same `/workouts` endpoint accepts manual entries, Strava, Apple Health,
+or anything else a writer wants to translate. `external_id` is the dedup key — re-POSTing
+the same workout updates it in place (Garmin re-syncs land here automatically). For first-time
+backfill or any batch import, `/workouts/bulk` accepts up to 100 items per request with
+per-item results so partial failures are reportable.
+
+```bash
+# Manual workout (gym session — no Garmin tracking)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "source":"manual",
+         "sport":"strength",
+         "name":"Push day",
+         "started_at":"2026-06-07T18:00:00Z",
+         "ended_at":"2026-06-07T19:00:00Z"
+       }' \
+    http://localhost:8080/workouts
+
+# Garmin-shaped workout (external_id makes the call idempotent)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "external_id":"garmin:1234567",
+         "source":"garmin",
+         "sport":"bike",
+         "name":"Morning Z2",
+         "started_at":"2026-06-07T08:00:00Z",
+         "ended_at":"2026-06-07T09:30:00Z",
+         "kcal_burned":850,
+         "avg_hr":135,
+         "tss":78
+       }' \
+    http://localhost:8080/workouts
+# Re-POSTing with the same external_id returns 200 (UPDATE), not 201 (INSERT).
+
+# Bulk upsert (e.g. first-time Garmin backfill; max 100/request)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"workouts": [
+          {"external_id":"garmin:1","source":"garmin","sport":"bike","started_at":"...","ended_at":"...","kcal_burned":700},
+          {"external_id":"garmin:2","source":"garmin","sport":"run","started_at":"...","ended_at":"...","kcal_burned":420}
+        ]}' \
+    http://localhost:8080/workouts/bulk
+# → { "results": [{"index":0,"id":"...","created":true}, {"index":1,"id":"...","created":true}] }
+
+# List window
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/workouts?from=2026-06-01T00:00:00Z&to=2026-06-08T00:00:00Z"
+
+# Patch TSS / notes (immutable: source, external_id, sport, started_at, ended_at)
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"tss":85,"notes":"FTP changed last month"}' \
+    http://localhost:8080/workouts/<uuid>
+
+# Delete
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/workouts/<uuid>
+
+# Workout fueling: pre / intra / post intake windows (per add-meal-workout-link).
+# Defaults: pre_window_min=240 (4h), post_window_min=60. Both bounded [0, 720].
+# Aggregation is by logged_at time-window — an UNTAGGED meal in the pre-window
+# still contributes; a tagged meal logged 8h before does NOT.
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/workouts/<uuid>/fueling?pre_window_min=180&post_window_min=90"
+# → {
+#     "workout_id": "...",
+#     "started_at": "...", "ended_at": "...",
+#     "pre_window":   { "minutes": 180, "nutrition": {"totals": {...}, "entry_count": 1}, "hydration": {"total_ml": 0,   "entry_count": 0} },
+#     "intra_window": { "minutes":  90, "nutrition": {"totals": {...}, "entry_count": 0}, "hydration": {"total_ml": 500, "entry_count": 1} },
+#     "post_window":  { "minutes":  90, "nutrition": {"totals": {...}, "entry_count": 1}, "hydration": {"total_ml": 0,   "entry_count": 0} }
+#   }
+```
+
+### Body weight
+
+A measurement event — kg, optionally body-fat %, with a `note` for context that affects
+readings (post-workout, hotel scale, non-morning timing). Multiple measurements per day are
+allowed; the trend endpoint smooths them with a rolling average. Each trend point carries
+`sample_count` so callers can tell a real trend from a sparse-data mirage (a `rolling_avg_kg`
+from `sample_count: 1` is just that one sample).
+
+```bash
+# Log a morning weighing, optionally with body-fat %
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{"weight_kg":72.5,"body_fat_pct":14.2,"logged_at":"2026-06-07T07:00:00Z","note":"morning, fasted"}' \
+    http://localhost:8080/weight
+
+# List entries in a window (half-open [from, to), 92-day cap)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/weight?from=2026-06-01T00:00:00Z&to=2026-06-08T00:00:00Z"
+
+# Rolling-average trend (default window_days=7; 366-day range cap)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/weight/trend?from=2026-05-01&to=2026-06-07&window_days=7&tz=Europe/Berlin"
+# → { "points": [
+#       {"date":"2026-05-01","rolling_avg_kg":73.4,"sample_count":5},
+#       {"date":"2026-05-02","rolling_avg_kg":null,"sample_count":0},   # gap day
+#       ...
+#     ] }
+
+# Patch / delete (standard CRUD)
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"body_fat_pct":13.8}' \
+    http://localhost:8080/weight/<uuid>
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/weight/<uuid>
+```
+
+### Summaries
+
+```bash
+# Daily totals + entries (in a user-supplied tz), with goals-aware adherence
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/daily?date=2026-06-06&tz=Europe/Berlin"
+
+# Daily scoped to a single meal type (omits adherence)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/daily?date=2026-06-06&meal_type=breakfast"
+
+# Per-day breakdown over an inclusive range (max 92 days)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/range?from=2026-06-01&to=2026-06-30&tz=Europe/Berlin"
+
+# Per-meal-type breakdown across a range ("what's my average breakfast this week?")
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/range?from=2026-06-01&to=2026-06-07&group_by=meal_type"
+```
+
+### Goals
+
+```bash
+# Get current goals (returns {"goals": null} if unset)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goals
+
+# Set / replace goals (PUT semantics — absent fields are cleared)
+curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "kcal": {"min": 2090, "max": 2310},
+         "protein_g": {"min": 150, "max": 190},
+         "fiber_g": {"min": 30},
+         "sugar_g": {"max": 50},
+         "iron_mg": {"min": 14},
+         "vitamin_b12_mcg": {"min": 2.4}
+       }' \
+    http://localhost:8080/goals
+```
+
+#### Daily goal overrides
+
+Per-date overrides sit on top of the default singleton. Use them when a single
+date (training day, rest day, race day) needs different targets. PUT is
+full-replace; absent fields stored as null. The summary endpoints carry a
+`goal_source: "override" | "default" | "none"` field so callers can see which
+set produced the day's adherence rows.
+
+```bash
+# Training-day override
+curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "kcal": {"min": 2280, "max": 2520},
+         "protein_g": {"min": 160, "max": 200},
+         "carbs_g": {"min": 350, "max": 450}
+       }' \
+    http://localhost:8080/goals/overrides/2026-06-15
+
+# Read one (404 override_not_found if no row)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goals/overrides/2026-06-15
+
+# List a window (max 366 days; dates without an override are omitted)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/goals/overrides?from=2026-06-01&to=2026-06-30"
+
+# Delete — date falls back to the default goals
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goals/overrides/2026-06-15
+```
+
+### Race prep
+
+One stateless primitive today: a carb-load schedule for a single race. No
+storage — the agent passes the race date and body weight, the API returns
+per-day carb targets in grams. The natural follow-up is to translate each
+schedule entry into a goal override (`PUT /goals/overrides/{date}`) so
+adherence on those days reflects the carb-load target.
+
+```bash
+# Default protocol: 3 load days at 10 g carbs/kg/day + race day at 2 g/kg.
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/race-prep/carb-load?race_date=2026-07-24&body_weight_kg=70"
+
+# Custom protocol: 2-day mini-load for a sprint tri, lighter race-morning meal.
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/race-prep/carb-load?race_date=2026-07-24&body_weight_kg=70&days_before=2&carbs_per_kg_per_day=8&race_day_carbs_per_kg=2.5"
+```
+
+Response shape:
+
+```json
+{
+  "race_date": "2026-07-24",
+  "body_weight_kg": 70,
+  "params": {"days_before": 3, "carbs_per_kg_per_day": 10, "race_day_carbs_per_kg": 2},
+  "schedule": [
+    {"date": "2026-07-21", "days_before": 3, "target_carbs_g": 700, "rationale": "carb-load day 1 of 3"},
+    {"date": "2026-07-22", "days_before": 2, "target_carbs_g": 700, "rationale": "carb-load day 2 of 3"},
+    {"date": "2026-07-23", "days_before": 1, "target_carbs_g": 700, "rationale": "carb-load day 3 of 3"},
+    {"date": "2026-07-24", "days_before": 0, "target_carbs_g": 140, "rationale": "race morning, pre-race meal ~3-4h before start"}
+  ]
+}
+```
+
+## API documentation (Swagger / OpenAPI)
+
+Annotated handlers generate an OpenAPI 2.0 spec, committed to `docs/`. When
+the server runs in debug mode (the default for `go run`), the interactive
+Swagger UI is mounted at `http://localhost:8080/swagger/index.html`. In
+release mode it is gated behind `SWAGGER_ENABLED=true`.
+
+```bash
+task swag    # regenerate docs/docs.go, docs/swagger.json, docs/swagger.yaml
+```
+
+The generated `docs/` directory is committed so plain `go build` does not
+require `swag` to be installed.
+
+## MCP server (LLM agent integration)
+
+`nutrition-api mcp` is a stdio MCP server that fronts the REST API for an LLM
+agent. It is a thin wrapper: each MCP tool issues exactly one HTTP call to the
+REST API, using `AGENT_API_TOKEN` for auth. The REST API must be running before
+the agent calls any tool.
+
+```bash
+# Build and install the single binary; the MCP server is `nutrition-api mcp`.
+task install             # builds bin/nutrition-api and copies to ~/.local/bin/nutrition-api
+```
+
+### Register with Claude Desktop
+
+In `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nutrition": {
+      "command": "/Users/<you>/.local/bin/nutrition-api",
+      "args": ["mcp"],
+      "env": {
+        "NUTRITION_API_URL": "http://localhost:8080",
+        "AGENT_API_TOKEN": "<your AGENT_API_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+### Register with Claude Code
+
+In `~/.claude/mcp.json` (or via `claude mcp add`):
+
+```json
+{
+  "mcpServers": {
+    "nutrition": {
+      "command": "/Users/<you>/.local/bin/nutrition-api",
+      "args": ["mcp"],
+      "env": {
+        "NUTRITION_API_URL": "http://localhost:8080",
+        "AGENT_API_TOKEN": "<your AGENT_API_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+### Tools exposed
+
+| Tool                          | REST endpoint                          | Purpose                                                       |
+|-------------------------------|----------------------------------------|---------------------------------------------------------------|
+| `lookup_product_by_barcode`   | `POST /products/lookup/{barcode}`      | OFF lookup with local cache; `refresh=true` re-fetches.       |
+| `search_products`             | `GET /products/search?q=…`             | Recall by name/brand (results include `off`, `manual`, `recipe`). |
+| `list_products`               | `GET /products?source=…&limit=…&offset=…` | Enumerate the cache, recency-first. Pair with `delete_product` to clean up. |
+| `delete_product`              | `DELETE /products/{id}`                | Permanently delete a product. Historical meals keep their snapshots; in-use-as-component returns 409. |
+| `create_recipe`               | `POST /products/recipes`               | Define a composite multi-ingredient meal as a reusable recipe. |
+| `recompute_recipe`            | `POST /products/recipes/{id}/recompute`| Refresh recipe nutriments after a component changed.          |
+| `log_meal`                    | `POST /meals`                          | Log from a known `product_id` + grams (recipes work here).    |
+| `log_meal_freeform`           | `POST /meals/freeform`                 | Log from agent-supplied name + nutriment estimate (macros + micros). |
+| `patch_meal`                  | `PATCH /meals/{id}`                    | Edit portion / time / meal_type / note.                       |
+| `delete_meal`                 | `DELETE /meals/{id}`                   | Remove a meal entry.                                          |
+| `daily_summary`               | `GET /summary/daily?date=…&tz=…&meal_type=…` | Per-day totals + entries; goal-based adherence when set.  |
+| `range_summary`               | `GET /summary/range?from=…&to=…&group_by=…`  | Per-day breakdown across an inclusive range (max 92 days). |
+| `get_goals`                   | `GET /goals`                           | Read current goals.                                           |
+| `set_goals`                   | `PUT /goals`                           | Set/replace daily macro and micro targets.                    |
+| `set_daily_goal_override`     | `PUT /goals/overrides/{date}`          | Override default goals for one date (training / rest / race day). |
+| `get_daily_goal_override`     | `GET /goals/overrides/{date}`          | Read the override for one date (404 if none).                 |
+| `delete_daily_goal_override`  | `DELETE /goals/overrides/{date}`       | Remove an override; date falls back to default goals.         |
+| `list_daily_goal_overrides`   | `GET /goals/overrides?from=…&to=…`     | List overrides in a window (max 366 days).                    |
+| `log_hydration`               | `POST /hydration`                      | Record a volume of fluid drunk at a moment in time.           |
+| `list_hydration`              | `GET /hydration?from=…&to=…`           | List hydration entries in a half-open window (92-day cap).    |
+| `patch_hydration`             | `PATCH /hydration/{id}`                | Edit volume / time / note.                                    |
+| `delete_hydration`            | `DELETE /hydration/{id}`               | Remove a hydration entry.                                     |
+| `daily_hydration_summary`     | `GET /summary/hydration/daily?date=…&tz=…` | Volume-only daily summary, separate from `daily_summary`. |
+| `plan_carb_load`              | `GET /race-prep/carb-load?race_date=…&body_weight_kg=…` | Stateless carb-load schedule for a race. Pair with `set_daily_goal_override` to apply it. |
+| `log_workout`                 | `POST /workouts`                       | Record a workout (manual entries, sweat-rate windows). Garmin sessions come via `garmin.py`, not this tool. |
+| `list_workouts`               | `GET /workouts?from=…&to=…`            | List workouts in a 92-day window.                             |
+| `get_workout`                 | `GET /workouts/{id}`                   | Fetch a workout by id.                                        |
+| `patch_workout`               | `PATCH /workouts/{id}`                 | Edit `name`/`notes`/`kcal_burned`/`avg_hr`/`tss`. Sport, window, source, external_id are immutable. |
+| `delete_workout`              | `DELETE /workouts/{id}`                | Remove a workout.                                             |
+| `log_weight`                  | `POST /weight`                         | Record a body-weight measurement, optionally with body-fat %. |
+| `list_weights`                | `GET /weight?from=…&to=…`              | List body-weight entries in a 92-day window.                  |
+| `patch_weight`                | `PATCH /weight/{id}`                   | Edit weight / body-fat % / logged_at / note.                  |
+| `delete_weight`               | `DELETE /weight/{id}`                  | Remove a body-weight entry.                                   |
+| `weight_trend`                | `GET /weight/trend?from=…&to=…&window_days=…` | Rolling-average weight trend; each point carries `sample_count`. |
+| `workout_fueling_summary`     | `GET /workouts/{id}/fueling?pre_window_min=…&post_window_min=…` | Pre/intra/post intake totals for a workout. `nutrition` (meals) and `hydration` (entries) sub-objects per window. |
+
+Write tools accept an optional `idempotency_key`. When omitted, the wrapper
+derives a stable key from the tool arguments so the agent's automatic retries
+do not double-log. To intentionally log the same item twice, pass a distinct
+`idempotency_key`.
+
+### MCP environment variables
+
+| Variable                       | Default                  | Purpose                                                            |
+|--------------------------------|--------------------------|--------------------------------------------------------------------|
+| `NUTRITION_API_URL`            | `http://localhost:8080`  | Where the REST API lives, as seen by the MCP process.              |
+| `AGENT_API_TOKEN`              | _required_               | Bearer token for the REST API.                                     |
+| `MCP_REQUEST_TIMEOUT_SECONDS`  | `10`                     | Per-tool HTTP timeout.                                             |
+
+### Local sanity check
+
+```bash
+# In one terminal: the REST API
+task run    # or: task dev (sets up env automatically)
+
+# In another: launch the MCP server (waits for JSON-RPC on stdin)
+go run ./cmd/nutrition-api mcp
+```
+
+The MCP integration test (`go test -tags=integration ./internal/mcpserver/`)
+builds the binary, spawns `nutrition-api mcp`, exchanges `initialize` +
+`tools/list` over stdio, and asserts the expected tools are announced.
+
+## Development
+
+```bash
+task dev                      # one-command local: Postgres up + env + serve
+task run                      # start the API (uses current env)
+task test                     # full test suite (boots Postgres via testcontainers)
+task vet                      # go vet
+task build                    # compile bin/nutrition-api
+task install                  # build + copy to ~/.local/bin/nutrition-api
+task db:up                    # start the local Postgres container (idempotent)
+task db:down                  # stop and remove the local Postgres container
+task migrate                  # apply migrations using the binary
+task migrate:up               # apply migrations via golang-migrate CLI
+task migrate:new NAME=add_widget   # scaffold a new migration pair
+task swag                     # regenerate docs/ from handler annotations
+task --list                   # show every available target
+```
+
+Integration tests boot a Postgres container via
+[testcontainers-go](https://golang.testcontainers.org/). Docker or Podman must
+be running. On Podman, the test helper disables the Ryuk reaper automatically
+(`t.Cleanup` handles teardown).
+
+## Project layout
+
+```
+cmd/nutrition-api/        single binary: serve | mcp | migrate | version
+docs/                     generated OpenAPI (committed; regenerate with `task swag`)
+internal/auth/            two-token bearer middleware
+internal/config/          Viper-backed env + flag loader shared by all subcommands
+internal/httpserver/      Gin router, request logging, Swagger gate, lifecycle
+internal/mcpserver/       MCP server fronting the REST API for the LLM agent
+internal/idempotency/     middleware + repo + cleanup ticker
+internal/off/             Open Food Facts client + parser
+internal/products/        repo, service, handlers
+internal/meals/           repo, service, handlers
+internal/hydration/       volume-only intake log (CRUD + daily summary)
+internal/workouts/        training sessions (CRUD + bulk upsert) — writers translate sources here
+internal/bodyweight/      body-weight log + rolling-average trend (kg, optional body-fat %)
+internal/workoutfueling/  pre/intra/post fueling aggregation per workout (meals + hydration)
+internal/summary/         daily + range computation
+internal/store/           shared pgx pool + embedded migrations
+internal/e2e/             single happy-path end-to-end test
+testdata/off/             recorded OFF JSON fixtures
+openspec/                 OpenSpec proposals, designs, and specs
+```
+
+## Design notes
+
+See [`openspec/changes/add-meal-logging-mvp/`](openspec/changes/add-meal-logging-mvp/)
+for the proposal, design document, and per-capability specifications. The data
+model keeps `products` (reusable definitions) and `meal_entries` (events in
+time) distinct, with freeform meal entries also storing a nutriment snapshot
+inline so historical summaries do not silently change when a linked product is
+later edited.
+
+## Non-goals for v1
+
+- HTTP / SSE transport for the MCP server (stdio only — covers Claude Desktop and Claude Code)
+- MCP resources and prompts (tools only)
+- Trends / coaching endpoints
+- OFF text search (the freeform endpoint covers the "no barcode" case)
+- Multi-user, OAuth, web UI

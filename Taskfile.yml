@@ -1,0 +1,210 @@
+version: '3'
+
+# nutrition-api Taskfile.
+#
+# Run `task --list` to see available targets, or `task dev` to bring up the
+# local environment with one command.
+
+silent: true
+
+vars:
+  POSTGRES_CONTAINER: nutrition-pg
+  POSTGRES_IMAGE: postgres:17-alpine
+  POSTGRES_PORT: '5432'
+  BIN: bin/nutrition-api
+  INSTALL_PATH:
+    sh: echo "$HOME/.local/bin/nutrition-api"
+  MIGRATIONS_DIR: internal/store/migrations
+  DATABASE_URL: postgres://nutrition:nutrition@localhost:5432/nutrition?sslmode=disable
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Compile the binary to {{.BIN}}
+    cmds:
+      - go build -o {{.BIN}} ./cmd/nutrition-api
+
+  run:
+    desc: Run the REST API from source (uses current env)
+    cmds:
+      - go run ./cmd/nutrition-api serve
+
+  test:
+    desc: Run the full test suite
+    cmds:
+      - go test ./...
+
+  vet:
+    desc: Run go vet across the module
+    cmds:
+      - go vet ./...
+
+  swag:
+    desc: Regenerate the OpenAPI docs into docs/
+    cmds:
+      - swag init -g cmd/nutrition-api/main.go -o docs
+
+  install:
+    desc: Build and copy the binary to ~/.local/bin/nutrition-api
+    deps: [build]
+    cmds:
+      - mkdir -p "$(dirname {{.INSTALL_PATH}})"
+      - cp {{.BIN}} {{.INSTALL_PATH}}
+      # Re-sign in place. macOS kills binaries whose ad-hoc signature has been
+      # invalidated by post-build mutation — `cp` across some volumes drops the
+      # xattrs the signature relies on, which manifests as the MCP supervisor
+      # silently restarting forever (Code Signature Invalid in Console.app).
+      # Cheap insurance; idempotent.
+      - codesign --force --sign - {{.INSTALL_PATH}}
+      - echo "installed {{.INSTALL_PATH}}"
+
+  mcp:install:
+    desc: Alias for `install` — the same binary serves REST and MCP via `nutrition-api mcp`
+    cmds:
+      - task: install
+
+  # ---- Migrations ----
+
+  migrate:
+    desc: Apply pending migrations using the binary (prod parity)
+    deps: [build]
+    env:
+      DATABASE_URL: '{{.DATABASE_URL}}'
+    cmds:
+      - '{{.BIN}} migrate'
+
+  migrate:up:
+    desc: Apply pending migrations via the golang-migrate CLI
+    cmds:
+      - go run -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate -path {{.MIGRATIONS_DIR}} -database "{{.DATABASE_URL}}" up
+
+  migrate:down:
+    desc: Roll back one migration via the golang-migrate CLI
+    cmds:
+      - go run -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate -path {{.MIGRATIONS_DIR}} -database "{{.DATABASE_URL}}" down 1
+
+  migrate:new:
+    desc: 'Scaffold a new migration pair (usage: task migrate:new NAME=add_widget)'
+    requires:
+      vars: [NAME]
+    cmds:
+      - go run -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate create -ext sql -dir {{.MIGRATIONS_DIR}} -seq {{.NAME}}
+
+  # ---- Local Postgres lifecycle ----
+
+  db:up:
+    desc: Start the local Postgres container ({{.POSTGRES_CONTAINER}}) idempotently
+    cmds:
+      - |
+        set -eu
+        if command -v docker >/dev/null 2>&1; then
+          RUNTIME=docker
+        elif command -v podman >/dev/null 2>&1; then
+          RUNTIME=podman
+        else
+          echo "neither docker nor podman found in PATH" >&2
+          exit 1
+        fi
+
+        if $RUNTIME ps -q -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
+          echo "postgres container already running"
+        elif $RUNTIME ps -aq -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
+          $RUNTIME start {{.POSTGRES_CONTAINER}} >/dev/null
+          echo "started existing container {{.POSTGRES_CONTAINER}}"
+        else
+          $RUNTIME run -d --name {{.POSTGRES_CONTAINER}} \
+            -e POSTGRES_USER=nutrition \
+            -e POSTGRES_PASSWORD=nutrition \
+            -e POSTGRES_DB=nutrition \
+            -p {{.POSTGRES_PORT}}:5432 \
+            {{.POSTGRES_IMAGE}} >/dev/null
+          echo "created container {{.POSTGRES_CONTAINER}}"
+        fi
+
+        for i in $(seq 1 30); do
+          if $RUNTIME exec {{.POSTGRES_CONTAINER}} pg_isready -U nutrition -q 2>/dev/null; then
+            echo "postgres ready"
+            exit 0
+          fi
+          sleep 0.2
+        done
+
+        echo "postgres did not become ready in time" >&2
+        exit 1
+
+  db:down:
+    desc: Stop and remove the local Postgres container
+    cmds:
+      - |
+        set -eu
+        if command -v docker >/dev/null 2>&1; then
+          RUNTIME=docker
+        elif command -v podman >/dev/null 2>&1; then
+          RUNTIME=podman
+        else
+          echo "neither docker nor podman found in PATH" >&2
+          exit 0
+        fi
+
+        if $RUNTIME ps -aq -f "name=^{{.POSTGRES_CONTAINER}}$" | grep -q .; then
+          $RUNTIME rm -f {{.POSTGRES_CONTAINER}} >/dev/null
+          echo "removed {{.POSTGRES_CONTAINER}}"
+        else
+          echo "no container named {{.POSTGRES_CONTAINER}} present"
+        fi
+
+  # ---- One-command local dev ----
+
+  _write-env-local:
+    internal: true
+    status:
+      - test -f .env.local
+    cmds:
+      - |
+        cat > .env.local <<'EOF'
+        # Auto-generated by `task dev`. Safe defaults for localhost only.
+        # Regenerate with: rm .env.local && task dev
+        DATABASE_URL=postgres://nutrition:nutrition@localhost:5432/nutrition?sslmode=disable
+        MOBILE_API_TOKEN=dev-mobile-token-0000000000aaaa
+        AGENT_API_TOKEN=dev-agent-token-0000000000bbbbb
+        DEFAULT_USER_TZ=Europe/Berlin
+        HTTP_ADDR=:8080
+        MIGRATE_ON_START=true
+        NUTRITION_API_URL=http://localhost:8080
+        MCP_REQUEST_TIMEOUT_SECONDS=10
+        SWAGGER_ENABLED=true
+        EOF
+      - echo "wrote .env.local (dev tokens — not for production)"
+
+  dev:
+    desc: One-command local — bring up Postgres, ensure .env.local, run the API
+    deps: [db:up]
+    cmds:
+      - task: _write-env-local
+      - |
+        echo ""
+        echo "──────────────────────────────────────────────────────────────"
+        echo " nutrition-api dev"
+        echo "──────────────────────────────────────────────────────────────"
+        echo " API:     http://localhost:8080"
+        echo " Health:  http://localhost:8080/healthz"
+        echo " Swagger: http://localhost:8080/swagger/index.html"
+        echo ""
+        echo " Mobile token: $(grep ^MOBILE_API_TOKEN .env.local | cut -d= -f2-)"
+        echo " Agent token:  $(grep ^AGENT_API_TOKEN .env.local | cut -d= -f2-)"
+        echo ""
+        echo " Try:     curl http://localhost:8080/healthz"
+        echo "──────────────────────────────────────────────────────────────"
+        echo ""
+      - set -a && . ./.env.local && set +a && go run ./cmd/nutrition-api serve
+
+  dev:reset:
+    desc: Tear down container, remove .env.local, then re-run `task dev`
+    cmds:
+      - task: db:down
+      - rm -f .env.local
+      - task: dev
