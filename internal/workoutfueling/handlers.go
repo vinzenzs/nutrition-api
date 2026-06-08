@@ -26,7 +26,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 
 // fueling godoc
 // @Summary      Workout fueling: pre / intra / post windows
-// @Description  Returns three time-anchored buckets (pre / intra / post) of meal + hydration intake around a workout. Aggregation is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged meal in the pre-window still contributes. `nutrition` and `hydration` sub-objects are kept separate so units don't mix.
+// @Description  Returns three time-anchored buckets (pre / intra / post), each carrying three separate sub-objects of intake around a workout: `nutrition` (from meals), `hydration` (from hydration entries), and `workout_fuel` (from workout-fuel entries — gels / electrolyte drinks / caffeine). Aggregation is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged meal in the pre-window still contributes. Sub-objects are unit-isolated: no ml inside `nutrition.totals`, no kcal inside `hydration` or `workout_fuel`.
 // @Tags         workouts
 // @Produce      json
 // @Param        id                path   string   true   "Workout UUID"

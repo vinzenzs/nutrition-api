@@ -149,6 +149,18 @@ func (r *Repo) ListInRange(ctx context.Context, from, to time.Time) ([]*Entry, e
 	return r.List(ctx, from, to)
 }
 
+// LatestBefore returns the most-recent entry whose logged_at is strictly before
+// `before`. Returns ErrNotFound when no such entry exists. Used by the energy
+// availability composition resolver as the last-before-window fallback.
+func (r *Repo) LatestBefore(ctx context.Context, before time.Time) (*Entry, error) {
+	row := r.q.QueryRow(ctx,
+		`SELECT `+selectCols+
+			` FROM body_weight_entries WHERE logged_at < $1 ORDER BY logged_at DESC LIMIT 1`,
+		before,
+	)
+	return scanEntry(row)
+}
+
 type scanner interface {
 	Scan(dest ...any) error
 }

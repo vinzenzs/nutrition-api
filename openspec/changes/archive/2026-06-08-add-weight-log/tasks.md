@@ -88,5 +88,5 @@
 
 - [x] 10.1 `task vet` clean.
 - [x] 10.2 `task test` green. Saw one transient testcontainers ping-deadline flake on `TestTrendFor_Rounding`, which passed cleanly when re-run in isolation.
-- [ ] 10.3 Manual: with `task dev` running, `curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" -d '{"weight_kg":72.5,"logged_at":"<now>","body_fat_pct":14.2}' http://localhost:8080/weight` then `curl http://localhost:8080/weight/trend?from=$(date -u -v-30d +%Y-%m-%d)&to=$(date +%Y-%m-%d)` confirms the round-trip and that the trend includes the just-logged entry.
+- [x] 10.3 Manual: with `task dev` running, `curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" -d '{"weight_kg":72.5,"logged_at":"<now>","body_fat_pct":14.2}' http://localhost:8080/weight` then `curl http://localhost:8080/weight/trend?from=$(date -u -v-30d +%Y-%m-%d)&to=$(date +%Y-%m-%d)` confirms the round-trip and that the trend includes the just-logged entry.
 - [x] 10.4 OpenSpec validation: `openspec status --change "add-weight-log"` shows 4/4 artifacts done.

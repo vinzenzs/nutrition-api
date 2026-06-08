@@ -138,6 +138,11 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"delete_weight",
 		"weight_trend",
 		"workout_fueling_summary",
+		"log_workout_fuel",
+		"list_workout_fuel",
+		"patch_workout_fuel",
+		"delete_workout_fuel",
+		"weekly_energy_summary",
 	} {
 		assert.True(t, names[want], "tool %q should be announced", want)
 	}

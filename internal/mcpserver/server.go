@@ -49,7 +49,9 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	registerHydrationTools(server, client)
 	registerRacePrepTools(server, client)
 	registerWorkoutsTools(server, client)
+	registerWorkoutFuelTools(server, client)
 	registerWeightTools(server, client)
+	registerEnergyTools(server, client)
 
 	logger.Info("nutrition-mcp ready",
 		"version", Version,

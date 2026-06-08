@@ -65,5 +65,5 @@
 
 - [x] 10.1 `task vet` clean.
 - [x] 10.2 `task test` green (use `-p 1` if the testcontainers parallel boot flakes).
-- [ ] 10.3 Manual: with `task dev` running, `curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" -d '{"quantity_ml":500,"logged_at":"<now>"}' http://localhost:8080/hydration` then `curl http://localhost:8080/summary/hydration/daily?date=$(date +%Y-%m-%d)` confirms the round-trip.
+- [x] 10.3 Manual: with `task dev` running, `curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" -d '{"quantity_ml":500,"logged_at":"<now>"}' http://localhost:8080/hydration` then `curl http://localhost:8080/summary/hydration/daily?date=$(date +%Y-%m-%d)` confirms the round-trip.
 - [x] 10.4 OpenSpec validation: `openspec status --change "add-hydration-tracking"` shows 4/4 artifacts done.

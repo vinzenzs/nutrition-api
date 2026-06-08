@@ -18,6 +18,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/meals"
 	"github.com/vinzenzs/nutrition-api/internal/products"
 	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
+	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
 )
@@ -31,6 +32,7 @@ type fixture struct {
 	productsRepo *products.Repo
 	mealsRepo    *meals.Repo
 	hydRepo      *hydration.Repo
+	fuelRepo     *workoutfuel.Repo
 	workoutsRepo *workouts.Repo
 }
 
@@ -41,12 +43,13 @@ func setup(t *testing.T) *fixture {
 	mRepo := meals.NewRepo(pool)
 	hRepo := hydration.NewRepo(pool)
 	wRepo := workouts.NewRepo(pool)
-	svc := workoutfueling.NewService(wRepo, mRepo, hRepo)
+	fRepo := workoutfuel.NewRepo(pool)
+	svc := workoutfueling.NewService(wRepo, mRepo, hRepo, fRepo)
 	r := gin.New()
 	rg := r.Group("/")
 	workoutfueling.NewHandlers(svc).Register(rg)
 	return &fixture{
-		r: r, productsRepo: pRepo, mealsRepo: mRepo, hydRepo: hRepo, workoutsRepo: wRepo,
+		r: r, productsRepo: pRepo, mealsRepo: mRepo, hydRepo: hRepo, fuelRepo: fRepo, workoutsRepo: wRepo,
 	}
 }
 
@@ -95,6 +98,37 @@ func insertHydration(t *testing.T, repo *hydration.Repo, at time.Time, ml float6
 	e := &hydration.Entry{LoggedAt: at, QuantityMl: ml, WorkoutID: workoutID}
 	require.NoError(t, repo.Insert(context.Background(), e))
 }
+
+type fuelOpts struct {
+	carbs     *float64
+	sodium    *float64
+	potass    *float64
+	caffeine  *float64
+	ml        *float64
+	workoutID *uuid.UUID
+	name      string
+}
+
+func insertFuel(t *testing.T, repo *workoutfuel.Repo, at time.Time, opts fuelOpts) {
+	t.Helper()
+	name := opts.name
+	if name == "" {
+		name = "test-fuel"
+	}
+	e := &workoutfuel.Entry{
+		LoggedAt:    at,
+		Name:        name,
+		QuantityMl:  opts.ml,
+		CarbsG:      opts.carbs,
+		SodiumMg:    opts.sodium,
+		PotassiumMg: opts.potass,
+		CaffeineMg:  opts.caffeine,
+		WorkoutID:   opts.workoutID,
+	}
+	require.NoError(t, repo.Insert(context.Background(), e))
+}
+
+func ptr(f float64) *float64 { return &f }
 
 func doGet(t *testing.T, r *gin.Engine, path string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -291,4 +325,132 @@ func TestFueling_Rounding(t *testing.T) {
 	// 100 × 99.999/100 = 99.999 → 100.0
 	assert.Equal(t, 100.0, out.IntraWindow.Nutrition.Totals.Kcal,
 		"rounding to 1dp at the response boundary")
+}
+
+// ============================================================================
+// workout_fuel sub-object (added by add-workout-fuel)
+// ============================================================================
+
+// Intra fuel entry contributes to intra_window.workout_fuel.totals.
+func TestFueling_WorkoutFuelIntraContributes(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	insertFuel(t, f.fuelRepo, time.Date(2026, 6, 7, 8, 30, 0, 0, time.UTC), fuelOpts{
+		name: "Gel A", carbs: ptr(25), sodium: ptr(100),
+	})
+	insertFuel(t, f.fuelRepo, time.Date(2026, 6, 7, 8, 45, 0, 0, time.UTC), fuelOpts{
+		name: "Drink B", ml: ptr(500), carbs: ptr(25), sodium: ptr(200),
+	})
+
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, 2, out.IntraWindow.WorkoutFuel.EntryCount)
+	require.NotNil(t, out.IntraWindow.WorkoutFuel.Totals.CarbsG)
+	assert.Equal(t, 50.0, *out.IntraWindow.WorkoutFuel.Totals.CarbsG)
+	require.NotNil(t, out.IntraWindow.WorkoutFuel.Totals.SodiumMg)
+	assert.Equal(t, 300.0, *out.IntraWindow.WorkoutFuel.Totals.SodiumMg)
+	require.NotNil(t, out.IntraWindow.WorkoutFuel.Totals.QuantityMl,
+		"sum across nil+500 contributors should yield 500, not nil")
+	assert.Equal(t, 500.0, *out.IntraWindow.WorkoutFuel.Totals.QuantityMl)
+}
+
+// Boundary at started_at lands in intra, not pre.
+func TestFueling_WorkoutFuelBoundaryStartedAtIntoIntra(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	insertFuel(t, f.fuelRepo, time.Date(2026, 6, 7, 8, 0, 0, 0, time.UTC), fuelOpts{
+		name: "Boundary gel", carbs: ptr(25),
+	})
+
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, 0, out.PreWindow.WorkoutFuel.EntryCount)
+	assert.Equal(t, 1, out.IntraWindow.WorkoutFuel.EntryCount)
+}
+
+// Boundary at ended_at lands in post, not intra.
+func TestFueling_WorkoutFuelBoundaryEndedAtIntoPost(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	insertFuel(t, f.fuelRepo, time.Date(2026, 6, 7, 9, 30, 0, 0, time.UTC), fuelOpts{
+		name: "Recovery shake", carbs: ptr(20),
+	})
+
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, 0, out.IntraWindow.WorkoutFuel.EntryCount)
+	assert.Equal(t, 1, out.PostWindow.WorkoutFuel.EntryCount)
+}
+
+// All three sub-objects populated in the same intra window.
+func TestFueling_AllThreeSubObjectsCoexist(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	pid := makeProduct(t, f.productsRepo, 100, 25) // 100 kcal/100g, 25g carbs/100g
+
+	// Intra meal: 200g banana = 200 kcal, 50g carbs
+	insertMeal(t, f.mealsRepo, pid, time.Date(2026, 6, 7, 8, 15, 0, 0, time.UTC), 200)
+	// Intra hydration: 500ml
+	insertHydration(t, f.hydRepo, time.Date(2026, 6, 7, 8, 30, 0, 0, time.UTC), 500, nil)
+	// Intra fuel: gel
+	insertFuel(t, f.fuelRepo, time.Date(2026, 6, 7, 8, 45, 0, 0, time.UTC), fuelOpts{
+		name: "Gel", carbs: ptr(25), caffeine: ptr(100),
+	})
+
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, 1, out.IntraWindow.Nutrition.EntryCount)
+	assert.Equal(t, 200.0, out.IntraWindow.Nutrition.Totals.Kcal)
+	assert.Equal(t, 500.0, out.IntraWindow.Hydration.TotalMl)
+	assert.Equal(t, 1, out.IntraWindow.WorkoutFuel.EntryCount)
+	require.NotNil(t, out.IntraWindow.WorkoutFuel.Totals.CaffeineMg)
+	assert.Equal(t, 100.0, *out.IntraWindow.WorkoutFuel.Totals.CaffeineMg)
+}
+
+// Empty workout: workout_fuel.entry_count = 0; totals nullable fields stay nil.
+func TestFueling_WorkoutFuelEmptyWindow(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, 0, out.PreWindow.WorkoutFuel.EntryCount)
+	assert.Equal(t, 0, out.IntraWindow.WorkoutFuel.EntryCount)
+	assert.Equal(t, 0, out.PostWindow.WorkoutFuel.EntryCount)
+	assert.Nil(t, out.IntraWindow.WorkoutFuel.Totals.CarbsG,
+		"no contributors → all totals stay nil")
+	assert.Nil(t, out.IntraWindow.WorkoutFuel.Totals.SodiumMg)
+}
+
+// Rounding: assemble values that produce a .x666 fraction.
+func TestFueling_WorkoutFuelRoundingAtResponseBoundary(t *testing.T) {
+	f := setup(t)
+	wid := makeWorkout(t, f.workoutsRepo)
+	// Three contributions: 25.5556, 25.5556, 25.5556 → 76.6668 → 76.7.
+	for _, at := range []time.Time{
+		time.Date(2026, 6, 7, 8, 10, 0, 0, time.UTC),
+		time.Date(2026, 6, 7, 8, 20, 0, 0, time.UTC),
+		time.Date(2026, 6, 7, 8, 30, 0, 0, time.UTC),
+	} {
+		insertFuel(t, f.fuelRepo, at, fuelOpts{
+			name: "Gel", carbs: ptr(25.5556),
+		})
+	}
+
+	rec := doGet(t, f.r, "/workouts/"+wid.String()+"/fueling")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var out workoutfueling.WorkoutFueling
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	// DB rounds to NUMERIC(10,1) on insert: 25.5556 → 25.6. Three of them: 76.8.
+	require.NotNil(t, out.IntraWindow.WorkoutFuel.Totals.CarbsG)
+	assert.Equal(t, 76.8, *out.IntraWindow.WorkoutFuel.Totals.CarbsG)
 }

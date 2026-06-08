@@ -71,5 +71,5 @@
 
 - [x] 9.1 `task vet` clean.
 - [x] 9.2 `task test` green (use `-p 1` if testcontainers parallel-boot flakes surface). Saw one transient testcontainers ping-deadline flake on an unrelated meals test that passed cleanly when re-run in isolation.
-- [ ] 9.3 Manual e2e: with `task dev` running, set a default goal, log a meal, fetch daily → `goal_source: "default"`. Set an override for the same date with different bounds, fetch again → `goal_source: "override"` and adherence reflects override. Delete the override, fetch once more → back to `"default"`.
+- [x] 9.3 Manual e2e: with `task dev` running, set a default goal, log a meal, fetch daily → `goal_source: "default"`. Set an override for the same date with different bounds, fetch again → `goal_source: "override"` and adherence reflects override. Delete the override, fetch once more → back to `"default"`.
 - [x] 9.4 OpenSpec validation: `openspec status --change "add-date-varying-goals"` shows 4/4 artifacts done.

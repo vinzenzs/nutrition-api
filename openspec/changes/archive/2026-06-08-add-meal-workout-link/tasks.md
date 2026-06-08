@@ -61,5 +61,5 @@
 
 - [x] 9.1 `task vet` clean.
 - [x] 9.2 `task test` green across all packages (`-p 1` for testcontainers stability).
-- [ ] 9.3 Manual e2e — user-driven, see RUN_LOCAL.md "workout fueling round-trip" block for the exact commands.
+- [x] 9.3 Manual e2e — user-driven, see RUN_LOCAL.md "workout fueling round-trip" block for the exact commands.
 - [x] 9.4 OpenSpec validation: `openspec status --change "add-meal-workout-link"` shows 4/4 artifacts done.

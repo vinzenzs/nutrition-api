@@ -43,5 +43,5 @@
 - [x] 6.1 Run `task test` (or equivalent) — all unit + handler + integration tests pass.
 - [x] 6.2 Run `task build` and exercise both branches via a manual curl (GET then POST /apply) against the local server — confirm the response shapes match the spec scenarios.
 - [x] 6.3 Verify `openspec status --change "add-carb-load-auto-apply"` reports all artifacts done and all tasks done.
-- [ ] 6.4 Commit (per the CLAUDE.md "commit after every /opsx:apply" convention): `feat(race-prep): add carb-load auto-apply via plan_carb_load apply flag` with the change directory + code + tests + docs included.
-- [ ] 6.5 Ready for `/opsx:archive add-carb-load-auto-apply` — at archive time the delta specs in `openspec/changes/add-carb-load-auto-apply/specs/` merge into `openspec/specs/race-prep/spec.md`, `openspec/specs/nutrition-goals/spec.md`, and `openspec/specs/mcp-server/spec.md`.
+- [x] 6.4 Commit (per the CLAUDE.md "commit after every /opsx:apply" convention): `feat(race-prep): add carb-load auto-apply via plan_carb_load apply flag` with the change directory + code + tests + docs included.
+- [x] 6.5 Ready for `/opsx:archive add-carb-load-auto-apply` — at archive time the delta specs in `openspec/changes/add-carb-load-auto-apply/specs/` merge into `openspec/specs/race-prep/spec.md`, `openspec/specs/nutrition-goals/spec.md`, and `openspec/specs/mcp-server/spec.md`.

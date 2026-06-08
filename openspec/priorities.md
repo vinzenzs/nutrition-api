@@ -5,7 +5,7 @@ in the sense of "we commit to X by Y" — single-user project, no commitments.
 It's a staging area for ideas worth keeping while we wait for real-use data
 to confirm which ones matter most.
 
-Last updated: **2026-06-08** (reconciled against `openspec/changes/` — workouts-capability and last-logged-quantity archived; meal-workout-link, workout-fuel, weight-log added).
+Last updated: **2026-06-08** (post archive cycle — meal-workout-link, workout-fuel, weight-log, hydration, date-varying-goals, energy-availability all archived; T1 #1, #2, #4, T2 #6 delivered; carb-load-auto-apply added as the live T1 #3 proposal).
 
 ---
 
@@ -41,54 +41,59 @@ the offline analysis the user did before that session.
 
 ---
 
-## Snapshot — in-flight as of 2026-06-08
+## Snapshot — in-flight as of 2026-06-08 (end-of-day)
 
 ```
-APPLIED (ready-to-archive — manual e2e left):
-  add-hydration-tracking         (34/35 tasks)
-  add-date-varying-goals         (32/33 tasks)
-  add-weight-log                 (34/35 tasks — delivers T2 #6;
-                                   unblocks T1 #4 EA body-weight input) [added 2026-06-08]
-
-APPLYING (in flight):
-  add-meal-workout-link          (16/36 tasks — delivers T1 #1; the first
-                                   leverage-cluster leaf after workouts) [added 2026-06-08]
+APPLYING / APPLIED (in flight):
+  (none — clean queue post-archive cycle)
 
 PROPOSED (full artifacts, not yet applied):
-  add-workout-fuel               (0/38 tasks — delivers T1 #2; sibling to hydration;
-                                   composes into the workout-anchored summary
-                                   meal-workout-link introduces) [added 2026-06-08]
-  add-meal-from-photo            (0/50 tasks — backend Claude Vision integration)
+  add-meal-from-photo            (0/50 tasks — backend Claude Vision integration;
+                                   currently #1 in continuity.md "Up next")
+  add-carb-load-auto-apply       (delivers T1 #3 — `plan_carb_load(apply: true)`
+                                   atomically writes per-date overrides;
+                                   pure-compute default unchanged) [added 2026-06-08]
   add-flutter-companion-app      (0/87 tasks — predates the endurance pivot;
                                    may need revisit, see Meta #3)
 
-RECENTLY ARCHIVED:
-  add-workouts-capability        (archived 2026-06-08 — the leverage trunk;
-                                   unblocks T1 #1, #2, #4 + T2 #10 + T3 #5, #6)
-  add-last-logged-quantity       (archived 2026-06-08)
-  add-race-prep-primitives       (archived 2026-06-07)
+RECENTLY ARCHIVED (all 2026-06-08):
+  add-energy-availability        (delivers T1 #4 — Loucks EA over a window;
+                                   pure composition over meals + workouts + weight)
+  add-workout-fuel               (delivers T1 #2 — sibling capability to hydration
+                                   carrying carbs/sodium/potassium/caffeine/optional ml)
+  add-meal-workout-link          (delivers T1 #1 — workout_id on intake +
+                                   /workouts/{id}/fueling pre/intra/post summary)
+  add-weight-log                 (delivers T2 #6 — body-weight log + 7d rolling trend)
+  add-date-varying-goals         (per-date goal overrides for training vs rest)
+  add-hydration-tracking         (ml-only intake log)
+  add-workouts-capability        (the leverage trunk — earlier on 2026-06-08)
+  add-last-logged-quantity       (earlier on 2026-06-08)
+
+EARLIER ARCHIVED:
+  add-race-prep-primitives       (2026-06-07)
   unify-adherence-shape, harden-write-paths, product management, … (earlier)
 ```
 
 ---
 
-## The leverage insight
+## The leverage insight (cashed in — 2026-06-08)
 
-**Six tier-1 / tier-2 / tier-3 gaps all share one dependency: the API has no
-concept of a workout.** Whatever the right workout primitive is, shipping it
-clears a third of this entire backlog cheaply.
+**Six tier-1 / tier-2 / tier-3 gaps all shared one dependency: the API had
+no concept of a workout.** Shipping `add-workouts-capability` unblocked the
+whole cluster cheaply.
 
 ```
-T1 #1  workout_ref on logs           ┐
-T1 #2  in-session electrolytes/fuel  │
-T1 #4  EA computation                │── all unblocked by
-T2 #10 recommend_workout_fuel        │   add-workouts-capability
-T3 #5  GI/RPE on workout fueling     │
-T3 #6  sweat rate test workflow      ┘
+T1 #1  workout_ref on logs           ┐  ✅ delivered (add-meal-workout-link)
+T1 #2  in-session electrolytes/fuel  │  ✅ delivered (add-workout-fuel)
+T1 #4  EA computation                │  ✅ delivered (add-energy-availability)
+T2 #10 recommend_workout_fuel        │  ⏳ still on the list
+T3 #5  GI/RPE on workout fueling     │  ⏳ still on the list
+T3 #6  sweat rate test workflow      ┘  ⏳ still on the list (much cheaper now)
 ```
 
-`add-workouts-capability` (currently proposed) addresses this directly. Each
-of the six gaps becomes a separate small follow-up after workouts lands.
+Three of the six leaves shipped on 2026-06-08. The remaining three are
+T2 / T3 — re-evaluate priority when there's a real "I want this" moment;
+keep on the list otherwise.
 
 ---
 
@@ -103,8 +108,10 @@ question. Fix shape: add optional `workout_ref` to `log_meal`,
 `log_meal_freeform`, `log_hydration`; add a `workout_fueling_summary`
 tool returning carbs/fluid/sodium across pre-, intra-, post-windows.
 
-**Status:** Delivering as `add-meal-workout-link` (16/36, applying). Workouts
-capability landed 2026-06-08, this is the first leverage-cluster leaf.
+**Status:** **Delivered** by `add-meal-workout-link` (archived 2026-06-08). The
+`/workouts/{id}/fueling` endpoint with `nutrition` + `hydration` + (later)
+`workout_fuel` sub-objects now answers the pre/intra/post fueling question
+natively.
 
 ### 2. Hydration is volume-only — no electrolytes / carbs / caffeine
 
@@ -116,9 +123,11 @@ extending the hydration table because mixing g and mg in one Totals struct
 is exactly the footgun we avoided when shipping hydration). Carries
 `(workout_ref?, ml?, carbs_g?, sodium_mg?, potassium_mg?, caffeine_mg?, note)`.
 
-**Status:** Delivering as `add-workout-fuel` (0/38, proposed). Depends on
-`add-meal-workout-link` landing so the new entries can compose into the
-workout-anchored fueling summary that change introduces.
+**Status:** **Delivered** by `add-workout-fuel` (archived 2026-06-08). Sibling
+table to `hydration_entries`; carries `quantity_ml? / carbs_g? / sodium_mg? /
+potassium_mg? / caffeine_mg?` with the explicit-zero vs unmeasured distinction
+preserved across the wire. Composes into the third sub-object of
+`/workouts/{id}/fueling`.
 
 ### 3. `plan_carb_load` is computational only — no auto-apply
 
@@ -127,9 +136,11 @@ Fix shape: a `plan_and_apply_carb_load` tool (separate from `plan_carb_load`
 to keep the side effect explicit) that writes the overrides and returns what
 it set.
 
-**Status:** Revisit after first real race-week use. The non-goal in
-`add-race-prep-primitives` was deliberate; relitigate only with usage data
-that shows the friction is real.
+**Status:** Proposed as `add-carb-load-auto-apply` (2026-06-08, in Backlog).
+The original deferral was "wait for real-use data showing the friction." That
+data has accumulated — every race-prep workflow today is compute-then-loop —
+so the auto-apply flag is now on the queue as an additive `apply: true` on
+the existing tool.
 
 ### 4. No Energy Availability (EA) computation or flagging
 
@@ -139,10 +150,12 @@ burn but not surfaced. Fix shape: `weekly_energy_summary(date_range,
 body_weight_kg, lean_mass_kg?, kcal_burned_per_day)` returning avg EA with
 Loucks bands (`<30 kcal/kg FFM/day = low`, `30–45 = sub-optimal`, `>45 = ok`).
 
-**Status:** Workouts capability shipped 2026-06-08 and `add-weight-log` is
-ready-to-archive — both inputs (SUM over `workouts.kcal_burned`, stored
-body weight) are about to exist. Ship as a small follow-up after
-meal-workout-link and weight-log archive.
+**Status:** **Delivered** by `add-energy-availability` (archived 2026-06-08).
+`GET /energy/availability?from=&to=&tz=&lean_mass_kg?&body_fat_pct?` returns
+per-day EA + window aggregate with the Loucks band classification. FFM
+resolution is loud about its source (explicit > stored > 85% fallback); days
+with workouts missing `kcal_burned` are listed in `missing_burn_workout_ids`
+and excluded from `window.avg_ea`. Pure composition — no schema.
 
 ### 5. No training-day vs rest-day goal templates (only per-date overrides)
 
@@ -195,9 +208,10 @@ record. Also no goal-weight + projected-date calc. Fix shape:
 `log_weight(kg, body_fat_pct?, logged_at)` + `weight_trend(from, to)` with
 rolling 7-day average to suppress daily noise.
 
-**Status:** Delivering as `add-weight-log` (34/35, ready-to-archive pending
-manual e2e). Body-fat % and goal-weight projections deferred — explicit
-follow-ups when real use earns them.
+**Status:** **Delivered** by `add-weight-log` (archived 2026-06-08). `POST
+/weight` + `GET /weight/trend` (rolling-average with `sample_count` per
+point). Body-fat % is supported on entries — used by `add-energy-availability`
+for the FFM resolver. Goal-weight projections deferred.
 
 ### 7. Protein distribution per meal
 
@@ -351,18 +365,13 @@ Not committed; just current best-guess order.
 
 ```
 Now:
-  ├ Archive add-hydration-tracking + add-date-varying-goals + add-weight-log
-  │   (all three: manual e2e left, then `/opsx:archive`)
-  └ Finish add-meal-workout-link (20 tasks remaining — closes T1 #1, the
-    first cluster leaf after workouts-capability)
+  └ Queue is clean. add-meal-from-photo is #1 in continuity.md.
 
 Next 2-3 changes (any order):
-  ├ add-workout-fuel (T1 #2; composes into the workout-anchored summary
-  │   add-meal-workout-link introduces — wait until that archives)
-  ├ T1 #4 EA tool (pure math; both inputs — workouts.kcal_burned and
-  │   stored body weight — exist or will shortly)
-  └ add-meal-from-photo (independent backend feature; the Flutter app's
-    #2 killer interaction)
+  ├ add-meal-from-photo (independent backend feature; Flutter killer #2)
+  ├ add-carb-load-auto-apply (T1 #3; additive `apply: true` flag — small,
+  │   directly uses the goal-overrides layer that already exists)
+  └ (open slot — propose the next leverage move when a real use surfaces it)
 
 Decide before building:
   ├ T1 #5 vs T1 #1A (templates vs phases — same question, two answers)
@@ -370,7 +379,6 @@ Decide before building:
   └ T2 #6F coach_recommendation persistence (tests synthesis principle)
 
 Wait for usage data:
-  ├ T1 #3 plan_carb_load auto-apply (revisit after first real race week)
   └ T1 #5 templates (revisit after first multi-week training block planned)
 ```
 

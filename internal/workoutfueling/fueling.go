@@ -16,6 +16,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/meals"
 	"github.com/vinzenzs/nutrition-api/internal/numfmt"
 	"github.com/vinzenzs/nutrition-api/internal/summary"
+	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
 )
 
@@ -39,13 +40,35 @@ type FuelingHydration struct {
 	EntryCount int     `json:"entry_count"`
 }
 
+// WorkoutFuelTotals is the unit-isolated summed shape for the workout-fuel
+// sub-object. Each field is pointer-nullable so "no contribution" stays
+// distinct from "all contributors recorded zero" — important for the
+// rehearsal-data rule that omitting a measurement (NULL) differs from
+// explicitly logging zero.
+type WorkoutFuelTotals struct {
+	QuantityMl  *float64 `json:"quantity_ml,omitempty"`
+	CarbsG      *float64 `json:"carbs_g,omitempty"`
+	SodiumMg    *float64 `json:"sodium_mg,omitempty"`
+	PotassiumMg *float64 `json:"potassium_mg,omitempty"`
+	CaffeineMg  *float64 `json:"caffeine_mg,omitempty"`
+}
+
+// FuelingWorkoutFuel is the per-window workout-fuel contribution
+// (workout_fuel_entries). Sibling to the hydration sub-object; carries its
+// own field shape (carbs/mg/ml) — no kcal, no per-100g nutriments.
+type FuelingWorkoutFuel struct {
+	Totals     WorkoutFuelTotals `json:"totals"`
+	EntryCount int               `json:"entry_count"`
+}
+
 // FuelingWindow is one of pre / intra / post.
 type FuelingWindow struct {
-	Start     time.Time        `json:"start"`
-	End       time.Time        `json:"end"`
-	Minutes   int              `json:"minutes"`
-	Nutrition FuelingNutrition `json:"nutrition"`
-	Hydration FuelingHydration `json:"hydration"`
+	Start       time.Time          `json:"start"`
+	End         time.Time          `json:"end"`
+	Minutes     int                `json:"minutes"`
+	Nutrition   FuelingNutrition   `json:"nutrition"`
+	Hydration   FuelingHydration   `json:"hydration"`
+	WorkoutFuel FuelingWorkoutFuel `json:"workout_fuel"`
 }
 
 // WorkoutFueling is the response shape for GET /workouts/{id}/fueling.
@@ -58,15 +81,17 @@ type WorkoutFueling struct {
 	PostWindow  FuelingWindow `json:"post_window"`
 }
 
-// Service composes meals + hydration over a workout's pre/intra/post windows.
+// Service composes meals + hydration + workout-fuel over a workout's
+// pre/intra/post windows.
 type Service struct {
-	workouts  *workouts.Repo
-	meals     *meals.Repo
-	hydration *hydration.Repo
+	workouts    *workouts.Repo
+	meals       *meals.Repo
+	hydration   *hydration.Repo
+	workoutFuel *workoutfuel.Repo
 }
 
-func NewService(workoutsRepo *workouts.Repo, mealsRepo *meals.Repo, hydrationRepo *hydration.Repo) *Service {
-	return &Service{workouts: workoutsRepo, meals: mealsRepo, hydration: hydrationRepo}
+func NewService(workoutsRepo *workouts.Repo, mealsRepo *meals.Repo, hydrationRepo *hydration.Repo, workoutFuelRepo *workoutfuel.Repo) *Service {
+	return &Service{workouts: workoutsRepo, meals: mealsRepo, hydration: hydrationRepo, workoutFuel: workoutFuelRepo}
 }
 
 // FueledFor returns the workout's pre/intra/post fueling aggregation. preMin
@@ -90,14 +115,18 @@ func (s *Service) FueledFor(ctx context.Context, id uuid.UUID, preMin, postMin i
 	if err != nil {
 		return nil, fmt.Errorf("list hydration for fueling: %w", err)
 	}
+	fuelAll, err := s.workoutFuel.List(ctx, preStart, postEnd)
+	if err != nil {
+		return nil, fmt.Errorf("list workout-fuel for fueling: %w", err)
+	}
 
 	out := &WorkoutFueling{
 		WorkoutID:   w.ID,
 		StartedAt:   w.StartedAt,
 		EndedAt:     w.EndedAt,
-		PreWindow:   buildWindow(preStart, w.StartedAt, preMin, mealsAll, hydAll),
-		IntraWindow: buildWindow(w.StartedAt, w.EndedAt, intraMinutes(w.StartedAt, w.EndedAt), mealsAll, hydAll),
-		PostWindow:  buildWindow(w.EndedAt, postEnd, postMin, mealsAll, hydAll),
+		PreWindow:   buildWindow(preStart, w.StartedAt, preMin, mealsAll, hydAll, fuelAll),
+		IntraWindow: buildWindow(w.StartedAt, w.EndedAt, intraMinutes(w.StartedAt, w.EndedAt), mealsAll, hydAll, fuelAll),
+		PostWindow:  buildWindow(w.EndedAt, postEnd, postMin, mealsAll, hydAll, fuelAll),
 	}
 	return out, nil
 }
@@ -111,7 +140,7 @@ func intraMinutes(start, end time.Time) int {
 // buildWindow filters the supplied entries to those whose logged_at falls in
 // [start, end), sums their nutriments, and rounds at the response boundary.
 // Half-open: end-boundary entries belong to the NEXT window, not this one.
-func buildWindow(start, end time.Time, minutes int, mealsAll []*meals.MealEntry, hydAll []*hydration.Entry) FuelingWindow {
+func buildWindow(start, end time.Time, minutes int, mealsAll []*meals.MealEntry, hydAll []*hydration.Entry, fuelAll []*workoutfuel.Entry) FuelingWindow {
 	var mealsIn []*meals.MealEntry
 	for _, m := range mealsAll {
 		if !m.LoggedAt.Before(start) && m.LoggedAt.Before(end) {
@@ -124,6 +153,12 @@ func buildWindow(start, end time.Time, minutes int, mealsAll []*meals.MealEntry,
 		if !h.LoggedAt.Before(start) && h.LoggedAt.Before(end) {
 			hydMl += h.QuantityMl
 			hydCount++
+		}
+	}
+	var fuelIn []*workoutfuel.Entry
+	for _, f := range fuelAll {
+		if !f.LoggedAt.Before(start) && f.LoggedAt.Before(end) {
+			fuelIn = append(fuelIn, f)
 		}
 	}
 
@@ -140,6 +175,44 @@ func buildWindow(start, end time.Time, minutes int, mealsAll []*meals.MealEntry,
 			TotalMl:    numfmt.Round1(hydMl),
 			EntryCount: hydCount,
 		},
+		WorkoutFuel: FuelingWorkoutFuel{
+			Totals:     sumWorkoutFuel(fuelIn),
+			EntryCount: len(fuelIn),
+		},
+	}
+}
+
+// sumWorkoutFuel sums each nullable field across contributing entries.
+// A field with no non-null contributor stays nil in the output; if any
+// contributor supplied a value, the sum is non-nil even when zero —
+// preserving the "I measured zero" signal across the aggregation. Rounds
+// each non-nil result at the response boundary.
+func sumWorkoutFuel(in []*workoutfuel.Entry) WorkoutFuelTotals {
+	var qml, carbs, sodium, potass, caff *float64
+	addFloat := func(acc, v *float64) *float64 {
+		if v == nil {
+			return acc
+		}
+		if acc == nil {
+			s := *v
+			return &s
+		}
+		s := *acc + *v
+		return &s
+	}
+	for _, e := range in {
+		qml = addFloat(qml, e.QuantityMl)
+		carbs = addFloat(carbs, e.CarbsG)
+		sodium = addFloat(sodium, e.SodiumMg)
+		potass = addFloat(potass, e.PotassiumMg)
+		caff = addFloat(caff, e.CaffeineMg)
+	}
+	return WorkoutFuelTotals{
+		QuantityMl:  numfmt.Round1Ptr(qml),
+		CarbsG:      numfmt.Round1Ptr(carbs),
+		SodiumMg:    numfmt.Round1Ptr(sodium),
+		PotassiumMg: numfmt.Round1Ptr(potass),
+		CaffeineMg:  numfmt.Round1Ptr(caff),
 	}
 }
 

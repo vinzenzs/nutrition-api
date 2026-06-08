@@ -63,6 +63,66 @@ definitions:
       weight_kg:
         type: number
     type: object
+  energy.Availability:
+    properties:
+      composition:
+        $ref: '#/definitions/energy.Composition'
+      days:
+        items:
+          $ref: '#/definitions/energy.Day'
+        type: array
+      from:
+        type: string
+      to:
+        type: string
+      tz:
+        type: string
+      window:
+        $ref: '#/definitions/energy.Window'
+    type: object
+  energy.Composition:
+    properties:
+      body_weight_kg:
+        type: number
+      body_weight_source:
+        type: string
+      composition_estimated:
+        type: boolean
+      ffm_kg:
+        type: number
+      source:
+        type: string
+    type: object
+  energy.Day:
+    properties:
+      band:
+        type: string
+      complete_data:
+        type: boolean
+      date:
+        type: string
+      ea:
+        type: number
+      exercise_energy_kcal:
+        type: number
+      intake_kcal:
+        type: number
+      missing_burn_workout_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  energy.Window:
+    properties:
+      avg_ea:
+        type: number
+      band:
+        type: string
+      days_with_complete_data:
+        type: integer
+      total_days:
+        type: integer
+    type: object
   goals.Goals:
     properties:
       calcium_mg:
@@ -537,6 +597,32 @@ definitions:
       quantity_g:
         type: number
     type: object
+  raceprep.AppliedEntry:
+    properties:
+      carbs_g_min:
+        type: number
+      created:
+        type: boolean
+      date:
+        type: string
+    type: object
+  raceprep.ApplyResponse:
+    properties:
+      applied:
+        items:
+          $ref: '#/definitions/raceprep.AppliedEntry'
+        type: array
+      body_weight_kg:
+        type: number
+      params:
+        $ref: '#/definitions/raceprep.EchoedParams'
+      race_date:
+        type: string
+      schedule:
+        items:
+          $ref: '#/definitions/raceprep.CarbLoadEntry'
+        type: array
+    type: object
   raceprep.CarbLoadEntry:
     properties:
       date:
@@ -570,6 +656,19 @@ definitions:
         type: number
       days_before:
         type: integer
+      race_day_carbs_per_kg:
+        type: number
+    type: object
+  raceprep.applyRequestBody:
+    properties:
+      body_weight_kg:
+        type: number
+      carbs_per_kg_per_day:
+        type: number
+      days_before:
+        type: integer
+      race_date:
+        type: string
       race_day_carbs_per_kg:
         type: number
     type: object
@@ -671,6 +770,54 @@ definitions:
       zinc_mg:
         type: number
     type: object
+  workoutfuel.Entry:
+    properties:
+      caffeine_mg:
+        type: number
+      carbs_g:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: string
+      logged_at:
+        type: string
+      name:
+        type: string
+      note:
+        type: string
+      potassium_mg:
+        type: number
+      quantity_ml:
+        type: number
+      sodium_mg:
+        type: number
+      updated_at:
+        type: string
+      workout_id:
+        type: string
+    type: object
+  workoutfuel.createRequest:
+    properties:
+      caffeine_mg:
+        type: number
+      carbs_g:
+        type: number
+      logged_at:
+        type: string
+      name:
+        type: string
+      note:
+        type: string
+      potassium_mg:
+        type: number
+      quantity_ml:
+        type: number
+      sodium_mg:
+        type: number
+      workout_id:
+        type: string
+    type: object
   workoutfueling.FuelingHydration:
     properties:
       entry_count:
@@ -697,6 +844,28 @@ definitions:
         $ref: '#/definitions/workoutfueling.FuelingNutrition'
       start:
         type: string
+      workout_fuel:
+        $ref: '#/definitions/workoutfueling.FuelingWorkoutFuel'
+    type: object
+  workoutfueling.FuelingWorkoutFuel:
+    properties:
+      entry_count:
+        type: integer
+      totals:
+        $ref: '#/definitions/workoutfueling.WorkoutFuelTotals'
+    type: object
+  workoutfueling.WorkoutFuelTotals:
+    properties:
+      caffeine_mg:
+        type: number
+      carbs_g:
+        type: number
+      potassium_mg:
+        type: number
+      quantity_ml:
+        type: number
+      sodium_mg:
+        type: number
     type: object
   workoutfueling.WorkoutFueling:
     properties:
@@ -798,6 +967,56 @@ info:
   title: Nutrition API
   version: 0.1.0
 paths:
+  /energy/availability:
+    get:
+      description: 'Per-day EA values + window aggregate, computed from meals (intake),
+        workouts (exercise burn) and body weight (composition). Loucks bands: `< 30
+        kcal/kg FFM/day = low`, `30-45 = sub_optimal`, `>= 45 = adequate`. FFM resolution
+        order: lean_mass_kg query param → body_fat_pct query param + stored body weight
+        → most-recent in-window stored body_fat_pct → 85% fallback (loud, flagged
+        via `composition.composition_estimated`). Days with workouts missing `kcal_burned`
+        are listed in `missing_burn_workout_ids` and excluded from `window.avg_ea`.'
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Exclusive RFC3339 upper bound; max 92 days from 'from'
+        in: query
+        name: to
+        required: true
+        type: string
+      - description: IANA timezone for calendar-day boundaries; defaults to DEFAULT_USER_TZ
+        in: query
+        name: tz
+        type: string
+      - description: Explicit FFM override (highest-trust); > 0
+        in: query
+        name: lean_mass_kg
+        type: number
+      - description: Explicit body-fat % override; 0 <= x < 100
+        in: query
+        name: body_fat_pct
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/energy.Availability'
+        "400":
+          description: window_required | window_invalid | range_too_large | tz_invalid
+            | lean_mass_kg_invalid | body_fat_pct_invalid | weight_data_missing
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Energy Availability over a window
+      tags:
+      - energy
   /goals:
     get:
       produces:
@@ -1660,6 +1879,48 @@ paths:
       summary: Compute a carb-load schedule for a race
       tags:
       - race-prep
+  /race-prep/carb-load/apply:
+    post:
+      consumes:
+      - application/json
+      description: Same inputs as `GET /race-prep/carb-load`. Computes the schedule,
+        then in a single transaction writes the per-day carb target into the `daily_goal_overrides`
+        row for each schedule date — merging into existing overrides (preserving non-carb
+        fields) or creating new rows. Returns the schedule plus a per-date `applied`
+        outcome (`{date, carbs_g_min, created}`). On any per-date failure the whole
+        transaction rolls back and zero overrides are persisted.
+      parameters:
+      - description: Carb-load parameters (same as the GET endpoint)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/raceprep.applyRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/raceprep.ApplyResponse'
+        "400":
+          description: race_date_required | body_weight_kg_required | race_date_invalid
+            | race_date_in_past | body_weight_kg_invalid | days_before_invalid | carbs_per_kg_per_day_invalid
+            | race_day_carbs_per_kg_invalid | invalid_json
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: apply_failed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Compute AND apply a carb-load schedule into per-date goal overrides
+      tags:
+      - race-prep
   /summary/daily:
     get:
       description: Returns aggregated totals for a single calendar date in the supplied
@@ -1938,6 +2199,144 @@ paths:
       summary: Rolling-average body-weight trend
       tags:
       - body-weight
+  /workout-fuel:
+    get:
+      parameters:
+      - description: Inclusive RFC3339 lower bound
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Exclusive RFC3339 upper bound
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ entries: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List workout-fuel entries in a window
+      tags:
+      - workout-fuel
+    post:
+      consumes:
+      - application/json
+      description: 'Records an in-session fueling event — gel, electrolyte drink,
+        salt tab, caffeine pill. At least one of quantity_ml/carbs_g/sodium_mg/potassium_mg/caffeine_mg
+        MUST be set. `caffeine_mg: 0` means "measured, no caffeine"; omitting means
+        "not measured" (NULL). Plain water belongs in /hydration; anything with electrolytes/carbs/caffeine
+        belongs here.'
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Workout-fuel entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workoutfuel.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workoutfuel.Entry'
+        "400":
+          description: name_required | empty_entry | quantity_ml_invalid | carbs_g_invalid
+            | sodium_mg_invalid | potassium_mg_invalid | caffeine_mg_invalid | logged_at_invalid
+            | logged_at_too_far_future | note_too_long | workout_id_invalid | workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a workout-fuel entry
+      tags:
+      - workout-fuel
+  /workout-fuel/{id}:
+    delete:
+      parameters:
+      - description: Workout-fuel entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: workout_fuel_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a workout-fuel entry
+      tags:
+      - workout-fuel
+    patch:
+      consumes:
+      - application/json
+      description: Any field may be sent. For nullable fields, an explicit JSON `null`
+        clears the column (sets it to NULL); omitting the field leaves it untouched.
+        `workout_id` additionally honours the empty-string clear sentinel ("") for
+        consistency with meals/hydration. PATCH that would leave all five quantitative
+        fields null is rejected as `empty_entry`.
+      parameters:
+      - description: Workout-fuel entry UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (any subset)
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workoutfuel.Entry'
+        "400":
+          description: name_required | empty_entry | quantity_ml_invalid | carbs_g_invalid
+            | sodium_mg_invalid | potassium_mg_invalid | caffeine_mg_invalid | logged_at_invalid
+            | logged_at_too_far_future | note_too_long | workout_id_invalid | workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: workout_fuel_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a workout-fuel entry
+      tags:
+      - workout-fuel
   /workouts:
     get:
       parameters:
@@ -2102,11 +2501,14 @@ paths:
       - workouts
   /workouts/{id}/fueling:
     get:
-      description: Returns three time-anchored buckets (pre / intra / post) of meal
-        + hydration intake around a workout. Aggregation is by `logged_at` time-window
-        matching, NOT by the `workout_id` tag on intake rows — an untagged meal in
-        the pre-window still contributes. `nutrition` and `hydration` sub-objects
-        are kept separate so units don't mix.
+      description: 'Returns three time-anchored buckets (pre / intra / post), each
+        carrying three separate sub-objects of intake around a workout: `nutrition`
+        (from meals), `hydration` (from hydration entries), and `workout_fuel` (from
+        workout-fuel entries — gels / electrolyte drinks / caffeine). Aggregation
+        is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake
+        rows — an untagged meal in the pre-window still contributes. Sub-objects are
+        unit-isolated: no ml inside `nutrition.totals`, no kcal inside `hydration`
+        or `workout_fuel`.'
       parameters:
       - description: Workout UUID
         in: path

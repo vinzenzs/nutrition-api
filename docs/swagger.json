@@ -8,6 +8,72 @@
     },
     "basePath": "/",
     "paths": {
+        "/energy/availability": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Per-day EA values + window aggregate, computed from meals (intake), workouts (exercise burn) and body weight (composition). Loucks bands: `\u003c 30 kcal/kg FFM/day = low`, `30-45 = sub_optimal`, `\u003e= 45 = adequate`. FFM resolution order: lean_mass_kg query param → body_fat_pct query param + stored body weight → most-recent in-window stored body_fat_pct → 85% fallback (loud, flagged via `composition.composition_estimated`). Days with workouts missing `kcal_burned` are listed in `missing_burn_workout_ids` and excluded from `window.avg_ea`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "energy"
+                ],
+                "summary": "Energy Availability over a window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclusive RFC3339 upper bound; max 92 days from 'from'",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone for calendar-day boundaries; defaults to DEFAULT_USER_TZ",
+                        "name": "tz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Explicit FFM override (highest-trust); \u003e 0",
+                        "name": "lean_mass_kg",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Explicit body-fat % override; 0 \u003c= x \u003c 100",
+                        "name": "body_fat_pct",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/energy.Availability"
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large | tz_invalid | lean_mass_kg_invalid | body_fat_pct_invalid | weight_data_missing",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/goals": {
             "get": {
                 "security": [
@@ -1311,6 +1377,61 @@
                 }
             }
         },
+        "/race-prep/carb-load/apply": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Same inputs as `GET /race-prep/carb-load`. Computes the schedule, then in a single transaction writes the per-day carb target into the `daily_goal_overrides` row for each schedule date — merging into existing overrides (preserving non-carb fields) or creating new rows. Returns the schedule plus a per-date `applied` outcome (`{date, carbs_g_min, created}`). On any per-date failure the whole transaction rolls back and zero overrides are persisted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "race-prep"
+                ],
+                "summary": "Compute AND apply a carb-load schedule into per-date goal overrides",
+                "parameters": [
+                    {
+                        "description": "Carb-load parameters (same as the GET endpoint)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/raceprep.applyRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/raceprep.ApplyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "race_date_required | body_weight_kg_required | race_date_invalid | race_date_in_past | body_weight_kg_invalid | days_before_invalid | carbs_per_kg_per_day_invalid | race_day_carbs_per_kg_invalid | invalid_json",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "apply_failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/summary/daily": {
             "get": {
                 "security": [
@@ -1726,6 +1847,204 @@
                 }
             }
         },
+        "/workout-fuel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-fuel"
+                ],
+                "summary": "List workout-fuel entries in a window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive RFC3339 lower bound",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exclusive RFC3339 upper bound",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ entries: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Records an in-session fueling event — gel, electrolyte drink, salt tab, caffeine pill. At least one of quantity_ml/carbs_g/sodium_mg/potassium_mg/caffeine_mg MUST be set. `caffeine_mg: 0` means \"measured, no caffeine\"; omitting means \"not measured\" (NULL). Plain water belongs in /hydration; anything with electrolytes/carbs/caffeine belongs here.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-fuel"
+                ],
+                "summary": "Log a workout-fuel entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Workout-fuel entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workoutfuel.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/workoutfuel.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "name_required | empty_entry | quantity_ml_invalid | carbs_g_invalid | sodium_mg_invalid | potassium_mg_invalid | caffeine_mg_invalid | logged_at_invalid | logged_at_too_far_future | note_too_long | workout_id_invalid | workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workout-fuel/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "workout-fuel"
+                ],
+                "summary": "Delete a workout-fuel entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout-fuel entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "workout_fuel_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Any field may be sent. For nullable fields, an explicit JSON `null` clears the column (sets it to NULL); omitting the field leaves it untouched. `workout_id` additionally honours the empty-string clear sentinel (\"\") for consistency with meals/hydration. PATCH that would leave all five quantitative fields null is rejected as `empty_entry`.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-fuel"
+                ],
+                "summary": "Partially update a workout-fuel entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout-fuel entry UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update (any subset)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workoutfuel.Entry"
+                        }
+                    },
+                    "400": {
+                        "description": "name_required | empty_entry | quantity_ml_invalid | carbs_g_invalid | sodium_mg_invalid | potassium_mg_invalid | caffeine_mg_invalid | logged_at_invalid | logged_at_too_far_future | note_too_long | workout_id_invalid | workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "workout_fuel_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/workouts": {
             "get": {
                 "security": [
@@ -2025,7 +2344,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns three time-anchored buckets (pre / intra / post) of meal + hydration intake around a workout. Aggregation is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged meal in the pre-window still contributes. `nutrition` and `hydration` sub-objects are kept separate so units don't mix.",
+                "description": "Returns three time-anchored buckets (pre / intra / post), each carrying three separate sub-objects of intake around a workout: `nutrition` (from meals), `hydration` (from hydration entries), and `workout_fuel` (from workout-fuel entries — gels / electrolyte drinks / caffeine). Aggregation is by `logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged meal in the pre-window still contributes. Sub-objects are unit-isolated: no ml inside `nutrition.totals`, no kcal inside `hydration` or `workout_fuel`.",
                 "produces": [
                     "application/json"
                 ],
@@ -2176,6 +2495,98 @@
                 },
                 "weight_kg": {
                     "type": "number"
+                }
+            }
+        },
+        "energy.Availability": {
+            "type": "object",
+            "properties": {
+                "composition": {
+                    "$ref": "#/definitions/energy.Composition"
+                },
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/energy.Day"
+                    }
+                },
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "tz": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/energy.Window"
+                }
+            }
+        },
+        "energy.Composition": {
+            "type": "object",
+            "properties": {
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "body_weight_source": {
+                    "type": "string"
+                },
+                "composition_estimated": {
+                    "type": "boolean"
+                },
+                "ffm_kg": {
+                    "type": "number"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "energy.Day": {
+            "type": "object",
+            "properties": {
+                "band": {
+                    "type": "string"
+                },
+                "complete_data": {
+                    "type": "boolean"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "ea": {
+                    "type": "number"
+                },
+                "exercise_energy_kcal": {
+                    "type": "number"
+                },
+                "intake_kcal": {
+                    "type": "number"
+                },
+                "missing_burn_workout_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "energy.Window": {
+            "type": "object",
+            "properties": {
+                "avg_ea": {
+                    "type": "number"
+                },
+                "band": {
+                    "type": "string"
+                },
+                "days_with_complete_data": {
+                    "type": "integer"
+                },
+                "total_days": {
+                    "type": "integer"
                 }
             }
         },
@@ -2848,6 +3259,46 @@
                 }
             }
         },
+        "raceprep.AppliedEntry": {
+            "type": "object",
+            "properties": {
+                "carbs_g_min": {
+                    "type": "number"
+                },
+                "created": {
+                    "type": "boolean"
+                },
+                "date": {
+                    "type": "string"
+                }
+            }
+        },
+        "raceprep.ApplyResponse": {
+            "type": "object",
+            "properties": {
+                "applied": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/raceprep.AppliedEntry"
+                    }
+                },
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "params": {
+                    "$ref": "#/definitions/raceprep.EchoedParams"
+                },
+                "race_date": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/raceprep.CarbLoadEntry"
+                    }
+                }
+            }
+        },
         "raceprep.CarbLoadEntry": {
             "type": "object",
             "properties": {
@@ -2896,6 +3347,26 @@
                 },
                 "days_before": {
                     "type": "integer"
+                },
+                "race_day_carbs_per_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "raceprep.applyRequestBody": {
+            "type": "object",
+            "properties": {
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "carbs_per_kg_per_day": {
+                    "type": "number"
+                },
+                "days_before": {
+                    "type": "integer"
+                },
+                "race_date": {
+                    "type": "string"
                 },
                 "race_day_carbs_per_kg": {
                     "type": "number"
@@ -3051,6 +3522,79 @@
                 }
             }
         },
+        "workoutfuel.Entry": {
+            "type": "object",
+            "properties": {
+                "caffeine_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "sodium_mg": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "workoutfuel.createRequest": {
+            "type": "object",
+            "properties": {
+                "caffeine_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "sodium_mg": {
+                    "type": "number"
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
         "workoutfueling.FuelingHydration": {
             "type": "object",
             "properties": {
@@ -3090,6 +3634,40 @@
                 },
                 "start": {
                     "type": "string"
+                },
+                "workout_fuel": {
+                    "$ref": "#/definitions/workoutfueling.FuelingWorkoutFuel"
+                }
+            }
+        },
+        "workoutfueling.FuelingWorkoutFuel": {
+            "type": "object",
+            "properties": {
+                "entry_count": {
+                    "type": "integer"
+                },
+                "totals": {
+                    "$ref": "#/definitions/workoutfueling.WorkoutFuelTotals"
+                }
+            }
+        },
+        "workoutfueling.WorkoutFuelTotals": {
+            "type": "object",
+            "properties": {
+                "caffeine_mg": {
+                    "type": "number"
+                },
+                "carbs_g": {
+                    "type": "number"
+                },
+                "potassium_mg": {
+                    "type": "number"
+                },
+                "quantity_ml": {
+                    "type": "number"
+                },
+                "sodium_mg": {
+                    "type": "number"
                 }
             }
         },

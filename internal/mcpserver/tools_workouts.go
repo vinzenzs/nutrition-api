@@ -198,12 +198,12 @@ func registerWorkoutsTools(server *mcp.Server, c *apiClient) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "workout_fueling_summary",
 		Description: "Return pre/intra/post fueling totals for a workout. Three time-anchored buckets " +
-			"(pre, intra, post), each carrying separate `nutrition` (kcal + macros + nullable micros from " +
-			"meals) and `hydration` (total_ml from hydration entries) sub-objects. Aggregation is by " +
-			"`logged_at` time-window matching, NOT by the `workout_id` tag on intake rows — an untagged " +
-			"meal logged in the pre-window still contributes. Defaults: pre_window_min=240 (4h), " +
-			"post_window_min=60. Both bounded [0, 720]. Future: when workout_fuel ships, the response will " +
-			"gain a third `workout_fuel` sub-object per window automatically.",
+			"(pre, intra, post), each carrying THREE separate sub-objects: `nutrition` (kcal + macros + " +
+			"nullable micros from meals), `hydration` (total_ml from hydration entries), and " +
+			"`workout_fuel` (carbs/sodium/potassium/caffeine/ml from workout-fuel entries — gels, " +
+			"electrolyte drinks, salt tabs, caffeine). Aggregation is by `logged_at` time-window matching, " +
+			"NOT by the `workout_id` tag on intake rows — an untagged meal logged in the pre-window still " +
+			"contributes. Defaults: pre_window_min=240 (4h), post_window_min=60. Both bounded [0, 720].",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args WorkoutFuelingSummaryArgs) (*mcp.CallToolResult, any, error) {
 		return handleWorkoutFuelingSummary(ctx, c, args), nil, nil
 	})
