@@ -3,6 +3,7 @@ package summary
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ func NewHandlers(svc *Service, defaultTZ string, logger *slog.Logger) *Handlers 
 func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.GET("/summary/daily", h.daily)
 	rg.GET("/summary/range", h.rng)
+	rg.GET("/summary/rolling", h.rolling)
 }
 
 // daily godoc
@@ -127,6 +129,60 @@ func (h *Handlers) rng(c *gin.Context) {
 	}
 
 	out, err := h.svc.RangeFor(c.Request.Context(), RangeParams{From: from, To: to, Loc: loc, GroupBy: groupBy})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "summary_failed"})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// rolling godoc
+// @Summary      Rolling-window nutrition average
+// @Description  Returns the trailing-window average of nutrition totals as of `anchor_date`. The window is `[anchor_date − (window_days − 1) days, anchor_date]`, both inclusive, in the requested `tz`. **Averages are computed across days with logged meals (`days_with_data`), NOT across `total_days`** — a 7-day window with 5 logged days returns the 5-day mean, with both divisors exposed so a sparse window is loud. Per-day rows carry `has_data: bool` so "no meals logged" stays distinct from "logged zero." Adherence is computed against the goal resolved at `anchor_date` (honoring per-date overrides). `window_days` is bounded `[2, 30]`.
+// @Tags         summary
+// @Produce      json
+// @Param        anchor_date  query  string   true   "Calendar date in YYYY-MM-DD (the trailing window ends here)"
+// @Param        window_days  query  integer  true   "Window size in calendar days; range [2, 30]"
+// @Param        tz           query  string   false  "IANA timezone (defaults to DEFAULT_USER_TZ)"
+// @Success      200  {object}  Rolling
+// @Failure      400  {object}  map[string]interface{}  "anchor_date_required | anchor_date_invalid | window_days_required | window_days_invalid | tz_invalid"
+// @Security     BearerAuth
+// @Router       /summary/rolling [get]
+func (h *Handlers) rolling(c *gin.Context) {
+	anchorStr := c.Query("anchor_date")
+	if anchorStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "anchor_date_required"})
+		return
+	}
+	anchor, err := time.Parse("2006-01-02", anchorStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "anchor_date_invalid"})
+		return
+	}
+
+	windowStr := c.Query("window_days")
+	if windowStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "window_days_required"})
+		return
+	}
+	windowDays, err := strconv.Atoi(windowStr)
+	if err != nil || windowDays < RollingMinWindowDays || windowDays > RollingMaxWindowDays {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "window_days_invalid",
+			"range": gin.H{"min": RollingMinWindowDays, "max": RollingMaxWindowDays},
+		})
+		return
+	}
+
+	loc, err := h.resolveTZ(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tz_invalid"})
+		return
+	}
+
+	out, err := h.svc.RollingFor(c.Request.Context(), RollingParams{
+		AnchorDate: anchor, WindowDays: windowDays, Loc: loc,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "summary_failed"})
 		return

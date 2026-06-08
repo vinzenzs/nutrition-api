@@ -1590,6 +1590,60 @@
                 }
             }
         },
+        "/summary/rolling": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the trailing-window average of nutrition totals as of `anchor_date`. The window is `[anchor_date − (window_days − 1) days, anchor_date]`, both inclusive, in the requested `tz`. **Averages are computed across days with logged meals (`days_with_data`), NOT across `total_days`** — a 7-day window with 5 logged days returns the 5-day mean, with both divisors exposed so a sparse window is loud. Per-day rows carry `has_data: bool` so \"no meals logged\" stays distinct from \"logged zero.\" Adherence is computed against the goal resolved at `anchor_date` (honoring per-date overrides). `window_days` is bounded `[2, 30]`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "summary"
+                ],
+                "summary": "Rolling-window nutrition average",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Calendar date in YYYY-MM-DD (the trailing window ends here)",
+                        "name": "anchor_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Window size in calendar days; range [2, 30]",
+                        "name": "window_days",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/summary.Rolling"
+                        }
+                    },
+                    "400": {
+                        "description": "anchor_date_required | anchor_date_invalid | window_days_required | window_days_invalid | tz_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/weight": {
             "get": {
                 "security": [
@@ -3466,6 +3520,55 @@
                 },
                 "goal_source": {
                     "type": "string"
+                },
+                "totals": {
+                    "$ref": "#/definitions/summary.Totals"
+                }
+            }
+        },
+        "summary.Rolling": {
+            "type": "object",
+            "properties": {
+                "adherence": {
+                    "$ref": "#/definitions/summary.Adherence"
+                },
+                "anchor_date": {
+                    "type": "string"
+                },
+                "averages": {
+                    "$ref": "#/definitions/summary.Totals"
+                },
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/summary.RollingDay"
+                    }
+                },
+                "days_with_data": {
+                    "type": "integer"
+                },
+                "goal_source": {
+                    "type": "string"
+                },
+                "total_days": {
+                    "type": "integer"
+                },
+                "tz": {
+                    "type": "string"
+                },
+                "window_days": {
+                    "type": "integer"
+                }
+            }
+        },
+        "summary.RollingDay": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "has_data": {
+                    "type": "boolean"
                 },
                 "totals": {
                     "$ref": "#/definitions/summary.Totals"

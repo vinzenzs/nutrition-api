@@ -737,6 +737,38 @@ definitions:
       totals:
         $ref: '#/definitions/summary.Totals'
     type: object
+  summary.Rolling:
+    properties:
+      adherence:
+        $ref: '#/definitions/summary.Adherence'
+      anchor_date:
+        type: string
+      averages:
+        $ref: '#/definitions/summary.Totals'
+      days:
+        items:
+          $ref: '#/definitions/summary.RollingDay'
+        type: array
+      days_with_data:
+        type: integer
+      goal_source:
+        type: string
+      total_days:
+        type: integer
+      tz:
+        type: string
+      window_days:
+        type: integer
+    type: object
+  summary.RollingDay:
+    properties:
+      date:
+        type: string
+      has_data:
+        type: boolean
+      totals:
+        $ref: '#/definitions/summary.Totals'
+    type: object
   summary.Totals:
     properties:
       calcium_mg:
@@ -2025,6 +2057,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Daily totals across a date range
+      tags:
+      - summary
+  /summary/rolling:
+    get:
+      description: 'Returns the trailing-window average of nutrition totals as of
+        `anchor_date`. The window is `[anchor_date − (window_days − 1) days, anchor_date]`,
+        both inclusive, in the requested `tz`. **Averages are computed across days
+        with logged meals (`days_with_data`), NOT across `total_days`** — a 7-day
+        window with 5 logged days returns the 5-day mean, with both divisors exposed
+        so a sparse window is loud. Per-day rows carry `has_data: bool` so "no meals
+        logged" stays distinct from "logged zero." Adherence is computed against the
+        goal resolved at `anchor_date` (honoring per-date overrides). `window_days`
+        is bounded `[2, 30]`.'
+      parameters:
+      - description: Calendar date in YYYY-MM-DD (the trailing window ends here)
+        in: query
+        name: anchor_date
+        required: true
+        type: string
+      - description: Window size in calendar days; range [2, 30]
+        in: query
+        name: window_days
+        required: true
+        type: integer
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/summary.Rolling'
+        "400":
+          description: anchor_date_required | anchor_date_invalid | window_days_required
+            | window_days_invalid | tz_invalid
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rolling-window nutrition average
       tags:
       - summary
   /weight:

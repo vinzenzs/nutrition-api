@@ -473,6 +473,29 @@ curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # Per-meal-type breakdown across a range ("what's my average breakfast this week?")
 curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/summary/range?from=2026-06-01&to=2026-06-07&group_by=meal_type"
+
+# Trailing-window average — closes the "how am I doing this week / this block?"
+# question. Window is [anchor_date − (window_days − 1), anchor_date], both
+# inclusive, calendar-day buckets in the requested tz.
+# IMPORTANT: averages divide by days_with_data (logged days), not total_days.
+# Both divisors are exposed so a sparse window is loud.
+# Per-day rows carry has_data=true|false distinguishing "no meals logged" from
+# "logged a zero-kcal meal." window_days is bounded [2, 30].
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/rolling?anchor_date=2026-06-08&window_days=7&tz=Europe/Berlin"
+# → {
+#     "anchor_date": "2026-06-08", "window_days": 7, "tz": "Europe/Berlin",
+#     "averages":        { "kcal": 2280.5, "protein_g": 128.0, ... },
+#     "days_with_data": 6, "total_days": 7,        # sparse — one day was empty
+#     "days": [
+#       { "date": "2026-06-02", "totals": {...}, "has_data": true  },
+#       { "date": "2026-06-03", "totals": {...}, "has_data": true  },
+#       { "date": "2026-06-04", "totals": {...}, "has_data": false },
+#       ...
+#     ],
+#     "adherence":   { "protein_g": { "actual": 128.0, "target": {...}, "status": "on" }, ... },
+#     "goal_source": "default"
+#   }
 ```
 
 ### Goals
@@ -672,6 +695,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `delete_meal`                 | `DELETE /meals/{id}`                   | Remove a meal entry.                                          |
 | `daily_summary`               | `GET /summary/daily?date=…&tz=…&meal_type=…` | Per-day totals + entries; goal-based adherence when set.  |
 | `range_summary`               | `GET /summary/range?from=…&to=…&group_by=…`  | Per-day breakdown across an inclusive range (max 92 days). |
+| `rolling_summary`             | `GET /summary/rolling?anchor_date=…&window_days=…&tz=…` | Trailing-window nutrition average + per-day rows. Averages divide by `days_with_data`, not `total_days` (both exposed). Window bounded `[2, 30]`. |
 | `get_goals`                   | `GET /goals`                           | Read current goals.                                           |
 | `set_goals`                   | `PUT /goals`                           | Set/replace daily macro and micro targets.                    |
 | `set_daily_goal_override`     | `PUT /goals/overrides/{date}`          | Override default goals for one date (training / rest / race day). |

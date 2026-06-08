@@ -5,7 +5,7 @@ in the sense of "we commit to X by Y" — single-user project, no commitments.
 It's a staging area for ideas worth keeping while we wait for real-use data
 to confirm which ones matter most.
 
-Last updated: **2026-06-08** (post archive cycle — meal-workout-link, workout-fuel, weight-log, hydration, date-varying-goals, energy-availability all archived; T1 #1, #2, #4, T2 #6 delivered; carb-load-auto-apply added as the live T1 #3 proposal).
+Last updated: **2026-06-08** (post-archive of `add-carb-load-auto-apply` — T1 #3 closed, so T1 #1, #2, #3, #4 + T2 #6 are all delivered. The only unresolved T1 items are #5 templates, #1A training-phase, #1B rolling-window — and #1B now has a live proposal in `add-rolling-window-summaries`).
 
 ---
 
@@ -48,15 +48,19 @@ APPLYING / APPLIED (in flight):
   (none — clean queue post-archive cycle)
 
 PROPOSED (full artifacts, not yet applied):
-  add-meal-from-photo            (0/50 tasks — backend Claude Vision integration;
+  add-meal-from-photo            (backend Claude Vision integration;
                                    currently #1 in continuity.md "Up next")
-  add-carb-load-auto-apply       (delivers T1 #3 — `plan_carb_load(apply: true)`
-                                   atomically writes per-date overrides;
-                                   pure-compute default unchanged) [added 2026-06-08]
-  add-flutter-companion-app      (0/87 tasks — predates the endurance pivot;
-                                   may need revisit, see Meta #3)
+  add-rolling-window-summaries   (delivers T1 #1B — multi-day averages for
+                                   metrics that are actually multi-day phenomena
+                                   — protein/MPS, EA trend, sodium baseline,
+                                   carb-load window) [added 2026-06-08]
+  add-flutter-companion-app      (predates the endurance pivot; may need
+                                   revisit, see Meta #3)
 
 RECENTLY ARCHIVED (all 2026-06-08):
+  add-carb-load-auto-apply       (delivers T1 #3 — `plan_carb_load(apply: true)`
+                                   atomically writes per-date overrides;
+                                   pure-compute default unchanged)
   add-energy-availability        (delivers T1 #4 — Loucks EA over a window;
                                    pure composition over meals + workouts + weight)
   add-workout-fuel               (delivers T1 #2 — sibling capability to hydration
@@ -136,11 +140,15 @@ Fix shape: a `plan_and_apply_carb_load` tool (separate from `plan_carb_load`
 to keep the side effect explicit) that writes the overrides and returns what
 it set.
 
-**Status:** Proposed as `add-carb-load-auto-apply` (2026-06-08, in Backlog).
-The original deferral was "wait for real-use data showing the friction." That
-data has accumulated — every race-prep workflow today is compute-then-loop —
-so the auto-apply flag is now on the queue as an additive `apply: true` on
-the existing tool.
+**Status:** **Delivered** by `add-carb-load-auto-apply` (archived 2026-06-08).
+`POST /race-prep/carb-load/apply` (same params as the GET) computes the
+schedule and writes the per-day carb min-bound into the per-date goal
+overrides in one atomic transaction. Merges into existing overrides
+(preserving non-carb fields like training-day kcal/protein templates) via
+the new `OverridesRepo.UpsertPatch` repo primitive. MCP `plan_carb_load`
+gained an optional `apply: true` flag that routes to the POST endpoint;
+default-false stays pure-compute, so existing read-only callers are
+unaffected.
 
 ### 4. No Energy Availability (EA) computation or flagging
 
@@ -195,7 +203,13 @@ Fix shape: either extend `daily_summary` with a `rolling_avg: 7d` param, or
 add `rolling_summary(window_days, anchor_date)` returning averages over the
 trailing N days. T2 #6 sketches this for weight; it should generalize.
 
-**Status:** Cheap pure-function add; ship after Tier 1 mechanical items.
+**Status:** Proposed as `add-rolling-window-summaries` (2026-06-08, in
+Backlog). Shape decided as `GET /summary/rolling?anchor_date=…&window_days=N`
+— a dedicated endpoint over an extension to `daily_summary`, so the
+half-open vs inclusive-window semantics don't have to compete with the
+existing per-day shape. Now that T1 #1, #2, #3, #4 + T2 #6 have all shipped,
+this is the cheapest remaining T1 add — pure composition over primitives
+that already exist.
 
 ---
 
@@ -325,10 +339,11 @@ project intelligible.
    specific. Cheap update; sets expectations for future contributors
    (including future-you in 2027).
 
-2. **Five active changes, no documented sequencing.** With
-   `add-workouts-capability` joining the queue, dependency order matters
-   more. A short note inside this file (or a sibling `sequencing.md`)
-   would help.
+2. **Active changes have documented sequencing now** (see "Sequencing notes"
+   below) but no formal dependency graph. With the Tier-1 mechanical cluster
+   delivered, dependency order matters less today than it did during the
+   workouts/hydration/fuel ramp-up. Revisit if active-change count climbs
+   back above ~5.
 
 3. **The Flutter app proposal predates the endurance-training pivot.**
    Its three killer interactions (barcode, photo, hydration widget) don't
@@ -366,11 +381,14 @@ Not committed; just current best-guess order.
 ```
 Now:
   └ Queue is clean. add-meal-from-photo is #1 in continuity.md.
+    Tier-1 mechanical items (#1, #2, #3, #4) all shipped — what's left in
+    T1 is the templates/phase decision (#5 vs #1A) and rolling-window
+    (#1B, now proposed as add-rolling-window-summaries).
 
 Next 2-3 changes (any order):
   ├ add-meal-from-photo (independent backend feature; Flutter killer #2)
-  ├ add-carb-load-auto-apply (T1 #3; additive `apply: true` flag — small,
-  │   directly uses the goal-overrides layer that already exists)
+  ├ add-rolling-window-summaries (T1 #1B; pure composition over existing
+  │   primitives — the cheapest remaining T1 add)
   └ (open slot — propose the next leverage move when a real use surfaces it)
 
 Decide before building:

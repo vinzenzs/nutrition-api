@@ -153,6 +153,12 @@ curl -s -X POST \
 curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/summary/daily?date=$(date +%Y-%m-%d)&tz=Europe/Berlin" | jq .
 
+# Trailing 7-day rolling average. Averages divide by days_with_data (logged days),
+# not total_days — both are in the response so sparse weeks are loud.
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/rolling?anchor_date=$(date +%Y-%m-%d)&window_days=7&tz=Europe/Berlin" \
+    | jq '{anchor_date, window_days, days_with_data, total_days, averages_kcal: .averages.kcal, goal_source}'
+
 # Log a glass of water and check today's hydration total.
 curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     -H "Content-Type: application/json" \

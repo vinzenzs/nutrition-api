@@ -75,3 +75,48 @@ func TestRangeSummary_GroupByOmittedWhenEmpty(t *testing.T) {
 	_ = handleRangeSummary(context.Background(), c, RangeSummaryArgs{From: "2026-06-01", To: "2026-06-07"})
 	assert.NotContains(t, rec.rawQS, "group_by=")
 }
+
+// ----- rolling_summary -----
+
+func TestRollingSummary_BuildsCorrectQuery(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleRollingSummary(context.Background(), c, RollingSummaryArgs{
+		AnchorDate: "2026-06-08", WindowDays: 7, TZ: "Europe/Berlin",
+	})
+	assert.Equal(t, http.MethodGet, rec.method)
+	assert.Equal(t, "/summary/rolling", rec.path)
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "2026-06-08", values.Get("anchor_date"))
+	assert.Equal(t, "7", values.Get("window_days"))
+	assert.Equal(t, "Europe/Berlin", values.Get("tz"))
+}
+
+func TestRollingSummary_OmitsTZWhenEmpty(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleRollingSummary(context.Background(), c, RollingSummaryArgs{
+		AnchorDate: "2026-06-08", WindowDays: 7,
+	})
+	assert.NotContains(t, rec.rawQS, "tz=")
+}
+
+func TestRollingSummary_400Forwarded(t *testing.T) {
+	c, _ := newRecordingClient(t, 400, `{"error":"window_days_invalid","range":{"min":2,"max":30}}`)
+	r := handleRollingSummary(context.Background(), c, RollingSummaryArgs{
+		AnchorDate: "2026-06-08", WindowDays: 1,
+	})
+	assert.True(t, r.IsError)
+	tc := extractText(t, r)
+	assert.True(t, strings.Contains(tc, "window_days_invalid"))
+}
+
+func TestRollingSummary_SparseWindowPassesThroughVerbatim(t *testing.T) {
+	body := `{"anchor_date":"2026-06-08","window_days":7,"days_with_data":2,"total_days":7,"averages":{"kcal":1234.5}}`
+	c, _ := newRecordingClient(t, 200, body)
+	r := handleRollingSummary(context.Background(), c, RollingSummaryArgs{
+		AnchorDate: "2026-06-08", WindowDays: 7,
+	})
+	assert.False(t, r.IsError)
+	assert.Equal(t, body, extractText(t, r),
+		"wrapper must pass the body byte-for-byte without injecting any sparse-window warning")
+}
