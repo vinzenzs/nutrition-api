@@ -11,6 +11,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/vinzenzs/nutrition-api/internal/numfmt"
 )
 
@@ -153,20 +155,23 @@ func validate(p CarbLoadParams, today time.Time) error {
 
 // Service is a thin wrapper around PlanCarbLoad that carries a clock and a
 // user timezone. Tests inject their own clock / TZ; production wires
-// time.Now and the configured DEFAULT_USER_TZ.
+// time.Now and the configured DEFAULT_USER_TZ. The pool is required only by
+// ApplyCarbLoad; the read-only Plan path works without one (so tests for the
+// pure-compute paths can pass `nil`).
 type Service struct {
-	now func() time.Time
-	tz  *time.Location
+	now  func() time.Time
+	tz   *time.Location
+	pool *pgxpool.Pool
 }
 
-func NewService(now func() time.Time, tz *time.Location) *Service {
+func NewService(now func() time.Time, tz *time.Location, pool *pgxpool.Pool) *Service {
 	if now == nil {
 		now = time.Now
 	}
 	if tz == nil {
 		tz = time.UTC
 	}
-	return &Service{now: now, tz: tz}
+	return &Service{now: now, tz: tz, pool: pool}
 }
 
 // Plan calls PlanCarbLoad with "today" resolved from the service's clock and TZ.

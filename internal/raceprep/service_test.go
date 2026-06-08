@@ -211,6 +211,7 @@ func TestService_PlanUsesInjectedClock(t *testing.T) {
 	svc := raceprep.NewService(
 		func() time.Time { return fixedToday },
 		time.UTC,
+		nil,
 	)
 	out, err := svc.Plan(raceprep.CarbLoadParams{
 		RaceDate:          time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC),

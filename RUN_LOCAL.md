@@ -176,11 +176,13 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/weight/trend?from=$FROM&to=$(date +%Y-%m-%d)&window_days=7&tz=Europe/Berlin" \
     | jq '.points[-7:]'   # last week of the trend
 
-# Workout fueling round-trip (per add-meal-workout-link):
+# Workout fueling round-trip (per add-meal-workout-link, extended by add-workout-fuel):
 #   1. log a workout
 #   2. log a meal during the intra window, with workout_id set
 #   3. log a hydration sip during intra (no workout_id — time-window match still picks it up)
-#   4. fetch /workouts/{id}/fueling — pre/intra/post buckets with nutrition + hydration sub-objects
+#   4. log a workout-fuel entry (gel) during intra, with workout_id set
+#   5. fetch /workouts/{id}/fueling — three sub-objects per window
+#   6. fetch /summary/hydration/daily — confirm the gel's ml does NOT bleed in
 WID=$(curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{\"source\":\"manual\",\"sport\":\"bike\",\"started_at\":\"$(date -u -v-3H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)\",\"ended_at\":\"$(date -u -v-90M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '-90 minutes' +%Y-%m-%dT%H:%M:%SZ)\"}" \
@@ -200,9 +202,38 @@ curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     -d "{\"quantity_ml\":250,\"logged_at\":\"$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ)\"}" \
     http://localhost:8080/hydration | jq .
 
-# Fetch fueling. Both contributions land in intra (time-window match, not tag).
+# Workout-fuel entry: a Maurten gel with sodium + carbs + caffeine, tagged.
+curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d "{\"name\":\"Maurten Gel 100\",\"logged_at\":\"$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ)\",\"quantity_ml\":40,\"carbs_g\":25,\"sodium_mg\":120,\"caffeine_mg\":100,\"workout_id\":\"$WID\"}" \
+    http://localhost:8080/workout-fuel | jq .
+
+# Fetch fueling. All three sub-objects populate; intra_window.workout_fuel.entry_count = 1.
 curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/workouts/$WID/fueling" | jq .
+
+# Daily hydration: only the 250ml plain-water sip — the gel's 40ml does NOT count here
+# (the unit-isolation rule: workout_fuel owns its own totals, hydration owns its own).
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/hydration/daily?date=$(date +%Y-%m-%d)&tz=Europe/Berlin" | jq .
+
+# Energy Availability over a week — closes T1 #4. Pure composition over
+# meals + workouts + body weight; no new schema.
+#   1. Window from a week ago through today.
+#   2. Default path: relies on the stored body-weight entries (with body-fat % if logged).
+#   3. Override path: pass lean_mass_kg explicitly to force the highest-trust composition source.
+EA_FROM=$(date -u -v-7d +%Y-%m-%dT00:00:00Z 2>/dev/null || date -u -d '-7 days' +%Y-%m-%dT00:00:00Z)
+EA_TO=$(date -u +%Y-%m-%dT00:00:00Z)
+
+# Stored-composition path (composition.source should be "stored_body_fat" or "estimated_85pct"
+# depending on whether body-fat % is in the weight entries).
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/energy/availability?from=$EA_FROM&to=$EA_TO&tz=Europe/Berlin" | jq .
+
+# Explicit-lean-mass override (composition.source = "explicit_lean_mass"; body weight echoed for context).
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/energy/availability?from=$EA_FROM&to=$EA_TO&tz=Europe/Berlin&lean_mass_kg=62" | jq .
 ```
 
 ### Recipe + goals walkthrough
@@ -278,30 +309,34 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 
 ### Plan a race week
 
-The `race-prep` capability is a stateless computation primitive: it returns a
-carb-load schedule but writes nothing. Pair it with `PUT /goals/overrides/{date}`
-to put the per-day targets into the goals layer so adherence reflects them.
+The `race-prep` capability has two endpoints: a stateless `GET` returning the
+carb-load schedule, and a `POST /race-prep/carb-load/apply` that ALSO writes
+the per-day carb min-bound into the per-date goal overrides — in one round
+trip, inside a single transaction. The apply step merges into pre-existing
+overrides (e.g. training-day kcal/protein templates), touching only `carbs_g`.
 
 ```bash
-# 1. Compute the schedule for a race four weeks out.
-RACE_DATE=$(date -u -v+28d +%Y-%m-%d 2>/dev/null || date -u -d '+28 days' +%Y-%m-%d)
-SCHEDULE=$(curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
-    "http://localhost:8080/race-prep/carb-load?race_date=$RACE_DATE&body_weight_kg=70")
-echo "$SCHEDULE" | jq .
+# 1. (Optional) Preview the schedule for a race three days out — pure compute,
+#    no persistence. Useful for "what-if" exploration.
+RACE_DATE=$(date -u -v+3d +%Y-%m-%d 2>/dev/null || date -u -d '+3 days' +%Y-%m-%d)
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/race-prep/carb-load?race_date=$RACE_DATE&body_weight_kg=70" | jq .
 
-# 2. Push each schedule entry into a daily goal override so adherence on
-#    those days reflects the carb-load target. Each carb gram = 4 kcal, so we
-#    set kcal/carbs together; protein and fat stay at whatever the agent
-#    decided is appropriate for the rest of the day (kept simple here).
-echo "$SCHEDULE" | jq -c '.schedule[]' | while read -r entry; do
-    DATE=$(echo "$entry" | jq -r .date)
-    CARBS=$(echo "$entry" | jq -r .target_carbs_g)
-    curl -s -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "{\"carbs_g\":{\"min\":$CARBS,\"max\":$CARBS}}" \
-        "http://localhost:8080/goals/overrides/$DATE" > /dev/null
-    echo "set override for $DATE → ${CARBS}g carbs"
-done
+# 2. Compute AND apply: writes the carb_g goal min-bound for each schedule day
+#    into the per-date goal overrides. The response includes an `applied` array
+#    reporting per-date outcome (`created: true` = new row, `false` = merged).
+curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"race_date\":\"$RACE_DATE\",\"body_weight_kg\":70}" \
+    "http://localhost:8080/race-prep/carb-load/apply" | jq .
+
+# 3. Verify the override is now driving adherence on the first load day
+#    (today + 1 day in this example).
+LOAD_DAY=$(date -u -v+1d +%Y-%m-%d 2>/dev/null || date -u -d '+1 day' +%Y-%m-%d)
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/daily?date=$LOAD_DAY" | \
+    jq '{goal_source, carbs_target: .adherence.carbs_g.target}'
+# Expected: { "goal_source": "override", "carbs_target": { "min": 700 } }
 ```
 
 ### Cleaning up leftover products

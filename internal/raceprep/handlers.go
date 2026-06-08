@@ -1,7 +1,9 @@
 package raceprep
 
 import (
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,15 +13,25 @@ import (
 
 // Handlers wires the race-prep endpoints onto a Gin router group.
 type Handlers struct {
-	svc *Service
+	svc    *Service
+	logger *slog.Logger
 }
 
 func NewHandlers(svc *Service) *Handlers {
-	return &Handlers{svc: svc}
+	return &Handlers{svc: svc, logger: slog.Default()}
+}
+
+// SetLogger overrides the default logger used for apply-success log lines.
+// Exposed so the server wiring can pass the configured slog.Logger.
+func (h *Handlers) SetLogger(l *slog.Logger) {
+	if l != nil {
+		h.logger = l
+	}
 }
 
 func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.GET("/race-prep/carb-load", h.carbLoad)
+	rg.POST("/race-prep/carb-load/apply", h.carbLoadApply)
 }
 
 // carbLoad godoc
@@ -108,6 +120,102 @@ func (h *Handlers) carbLoad(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+// applyRequestBody is the JSON shape POST /race-prep/carb-load/apply accepts.
+// Optional fields are pointers so we can distinguish absent from zero (zero
+// would mean "use the default 0" but the validator rejects 0 for some fields).
+type applyRequestBody struct {
+	RaceDate          string   `json:"race_date"`
+	BodyWeightKg      *float64 `json:"body_weight_kg"`
+	DaysBefore        *int     `json:"days_before,omitempty"`
+	CarbsPerKgPerDay  *float64 `json:"carbs_per_kg_per_day,omitempty"`
+	RaceDayCarbsPerKg *float64 `json:"race_day_carbs_per_kg,omitempty"`
+}
+
+// carbLoadApply godoc
+// @Summary      Compute AND apply a carb-load schedule into per-date goal overrides
+// @Description  Same inputs as `GET /race-prep/carb-load`. Computes the schedule, then in a single transaction writes the per-day carb target into the `daily_goal_overrides` row for each schedule date — merging into existing overrides (preserving non-carb fields) or creating new rows. Returns the schedule plus a per-date `applied` outcome (`{date, carbs_g_min, created}`). On any per-date failure the whole transaction rolls back and zero overrides are persisted.
+// @Tags         race-prep
+// @Accept       json
+// @Produce      json
+// @Param        body  body  applyRequestBody  true  "Carb-load parameters (same as the GET endpoint)"
+// @Success      200  {object}  ApplyResponse
+// @Failure      400  {object}  map[string]interface{}  "race_date_required | body_weight_kg_required | race_date_invalid | race_date_in_past | body_weight_kg_invalid | days_before_invalid | carbs_per_kg_per_day_invalid | race_day_carbs_per_kg_invalid | invalid_json"
+// @Failure      500  {object}  map[string]string  "apply_failed"
+// @Security     BearerAuth
+// @Router       /race-prep/carb-load/apply [post]
+func (h *Handlers) carbLoadApply(c *gin.Context) {
+	var body applyRequestBody
+	if err := json.NewDecoder(c.Request.Body).Decode(&body); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid_json", nil)
+		return
+	}
+	if body.RaceDate == "" {
+		respondError(c, http.StatusBadRequest, "race_date_required", nil)
+		return
+	}
+	if body.BodyWeightKg == nil {
+		respondError(c, http.StatusBadRequest, "body_weight_kg_required", nil)
+		return
+	}
+	raceDate, err := time.ParseInLocation("2006-01-02", body.RaceDate, h.svc.TZ())
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "race_date_invalid", nil)
+		return
+	}
+	daysBefore := DefaultDaysBefore
+	if body.DaysBefore != nil {
+		daysBefore = *body.DaysBefore
+	}
+	carbsPerKgPerDay := DefaultCarbsPerKgPerDay
+	if body.CarbsPerKgPerDay != nil {
+		carbsPerKgPerDay = *body.CarbsPerKgPerDay
+	}
+	raceDayCarbsPerKg := DefaultRaceDayCarbsPerKg
+	if body.RaceDayCarbsPerKg != nil {
+		raceDayCarbsPerKg = *body.RaceDayCarbsPerKg
+	}
+
+	out, err := h.svc.ApplyCarbLoad(c.Request.Context(), ApplyRequest{
+		RaceDate:          raceDate,
+		BodyWeightKg:      *body.BodyWeightKg,
+		DaysBefore:        daysBefore,
+		CarbsPerKgPerDay:  carbsPerKgPerDay,
+		RaceDayCarbsPerKg: raceDayCarbsPerKg,
+	})
+	if err != nil {
+		// Service-level validation errors map 1:1 to 400s. Anything else is a 500.
+		if isValidationErr(err) {
+			respondServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "apply_failed"})
+		return
+	}
+
+	newCount := 0
+	for _, a := range out.Applied {
+		if a.Created {
+			newCount++
+		}
+	}
+	h.logger.Info("carb_load_applied",
+		"race_date", out.RaceDate,
+		"days_before", out.Params.DaysBefore,
+		"applied_count", len(out.Applied),
+		"new_count", newCount,
+	)
+
+	c.JSON(http.StatusOK, out)
+}
+
+func isValidationErr(err error) bool {
+	return errors.Is(err, ErrRaceDateInPast) ||
+		errors.Is(err, ErrBodyWeightKgInvalid) ||
+		errors.Is(err, ErrDaysBeforeInvalid) ||
+		errors.Is(err, ErrCarbsPerKgPerDayInvalid) ||
+		errors.Is(err, ErrRaceDayCarbsPerKgInvalid)
 }
 
 func respondError(c *gin.Context, status int, code string, rangeHint gin.H) {

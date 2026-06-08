@@ -236,6 +236,50 @@ curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     http://localhost:8080/hydration
 ```
 
+### Workout fuel
+
+In-session fueling — gels, electrolyte drinks, salt tabs, caffeine pre-race. Sibling to
+hydration, deliberately a separate table so the ml-only hydration totals never have to
+carry mg/g fields (the unit-isolation rationale that shipped with `add-hydration-tracking`).
+Routing rule: plain water / juice (volume only) → `/hydration`; anything with electrolytes,
+carbs, or caffeine → `/workout-fuel`. `name` is required (rehearsal data depends on knowing
+*what* you took); at least one of `quantity_ml`/`carbs_g`/`sodium_mg`/`potassium_mg`/`caffeine_mg`
+must be supplied. `caffeine_mg: 0` means "measured, no caffeine"; omitting means "not measured".
+
+```bash
+# Log a gel
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{"name":"Maurten Gel 100","logged_at":"2026-06-07T08:45:00Z","carbs_g":25,"sodium_mg":0,"caffeine_mg":100}' \
+    http://localhost:8080/workout-fuel
+
+# Log an electrolyte drink tagged to a workout
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: $(uuidgen)" \
+    -d '{"name":"Skratch","logged_at":"2026-06-07T08:30:00Z","quantity_ml":500,"carbs_g":20,"sodium_mg":380,"workout_id":"<workout-uuid>"}' \
+    http://localhost:8080/workout-fuel
+
+# List entries in a window (half-open [from, to), 92-day cap)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/workout-fuel?from=2026-06-07T00:00:00Z&to=2026-06-08T00:00:00Z"
+
+# Patch: change sodium; explicit null clears a column; "" on workout_id clears the link.
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"sodium_mg":420}' \
+    http://localhost:8080/workout-fuel/<uuid>
+
+# Delete
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/workout-fuel/<uuid>
+```
+
+Note: workout-fuel ml does NOT contribute to `/summary/hydration/daily` and workout-fuel
+carbs do NOT contribute to `/summary/daily` macro adherence. The two capabilities own
+their own totals; the workout-anchored `/workouts/{id}/fueling` is the only composer.
+
 ### Workouts
 
 A training session: sport, time window, optional intensity (`tss`) and burn (`kcal_burned`).
@@ -301,7 +345,8 @@ curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     http://localhost:8080/workouts/<uuid>
 
-# Workout fueling: pre / intra / post intake windows (per add-meal-workout-link).
+# Workout fueling: pre / intra / post intake windows (per add-meal-workout-link;
+# extended by add-workout-fuel with the workout_fuel sub-object).
 # Defaults: pre_window_min=240 (4h), post_window_min=60. Both bounded [0, 720].
 # Aggregation is by logged_at time-window — an UNTAGGED meal in the pre-window
 # still contributes; a tagged meal logged 8h before does NOT.
@@ -310,9 +355,20 @@ curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # → {
 #     "workout_id": "...",
 #     "started_at": "...", "ended_at": "...",
-#     "pre_window":   { "minutes": 180, "nutrition": {"totals": {...}, "entry_count": 1}, "hydration": {"total_ml": 0,   "entry_count": 0} },
-#     "intra_window": { "minutes":  90, "nutrition": {"totals": {...}, "entry_count": 0}, "hydration": {"total_ml": 500, "entry_count": 1} },
-#     "post_window":  { "minutes":  90, "nutrition": {"totals": {...}, "entry_count": 1}, "hydration": {"total_ml": 0,   "entry_count": 0} }
+#     "pre_window":   { "minutes": 180,
+#                       "nutrition":    {"totals": {...}, "entry_count": 1},
+#                       "hydration":    {"total_ml": 0,   "entry_count": 0},
+#                       "workout_fuel": {"totals": {},    "entry_count": 0} },
+#     "intra_window": { "minutes":  90,
+#                       "nutrition":    {"totals": {...}, "entry_count": 0},
+#                       "hydration":    {"total_ml": 500, "entry_count": 1},
+#                       "workout_fuel": {"totals": {"quantity_ml": 500, "carbs_g": 45,
+#                                                    "sodium_mg": 380, "caffeine_mg": 100},
+#                                        "entry_count": 2} },
+#     "post_window":  { "minutes":  90,
+#                       "nutrition":    {"totals": {...}, "entry_count": 1},
+#                       "hydration":    {"total_ml": 0,   "entry_count": 0},
+#                       "workout_fuel": {"totals": {},    "entry_count": 0} }
 #   }
 ```
 
@@ -352,6 +408,51 @@ curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     http://localhost:8080/weight/<uuid>
 curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     http://localhost:8080/weight/<uuid>
+```
+
+### Energy availability
+
+Per-day Energy Availability over a window, with Loucks band classification
+(`< 30 kcal/kg FFM/day` = low, `30..45` = sub-optimal, `>= 45` = adequate).
+Pure composition over `meals` (intake), `workouts.kcal_burned` (exercise burn),
+and `body_weight_entries` (composition). No new schema; nothing persisted.
+
+FFM resolution order (highest-trust first):
+1. `lean_mass_kg` query param (explicit, wins over everything).
+2. `body_fat_pct` query param + window-resolved body weight.
+3. Most recent in-window `body_weight_entries.body_fat_pct` + window-resolved body weight.
+4. `body_weight × 0.85` fallback (loudly flagged via `composition.composition_estimated: true`).
+
+Days with workouts missing `kcal_burned` are listed in `missing_burn_workout_ids`
+and **excluded** from `window.avg_ea` — silently zeroing low-data days would make
+them look healthier than they are, the most dangerous failure mode for this metric.
+
+```bash
+# Most common shape: relies on stored body weight + body-fat % from the smart scale
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/energy/availability?from=2026-06-01T00:00:00Z&to=2026-06-08T00:00:00Z&tz=Europe/Berlin"
+
+# Explicit lean mass — wins over any stored composition data
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/energy/availability?from=2026-06-01T00:00:00Z&to=2026-06-08T00:00:00Z&lean_mass_kg=62"
+
+# → {
+#     "from": "...", "to": "...", "tz": "Europe/Berlin",
+#     "days": [
+#       { "date": "2026-06-01",
+#         "intake_kcal": 2400, "exercise_energy_kcal": 600,
+#         "ea": 30.0, "band": "sub_optimal",
+#         "missing_burn_workout_ids": [], "complete_data": true },
+#       ...
+#     ],
+#     "window": { "avg_ea": 33.5, "band": "sub_optimal",
+#                 "days_with_complete_data": 7, "total_days": 7 },
+#     "composition": { "ffm_kg": 60.0, "source": "explicit_lean_mass",
+#                      "body_weight_kg": 72.0, "body_weight_source": "rolling_7d_avg" }
+#   }
+
+# Documented failure: no body-weight data AND no lean_mass_kg override
+# → 400 weight_data_missing
 ```
 
 ### Summaries
@@ -429,23 +530,33 @@ curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 
 ### Race prep
 
-One stateless primitive today: a carb-load schedule for a single race. No
-storage — the agent passes the race date and body weight, the API returns
-per-day carb targets in grams. The natural follow-up is to translate each
-schedule entry into a goal override (`PUT /goals/overrides/{date}`) so
-adherence on those days reflects the carb-load target.
+Two endpoints: a stateless carb-load schedule (`GET`) and an apply step
+(`POST`) that writes the schedule into per-date goal overrides in one round
+trip. The compute path is pure — same inputs always produce the same output
+— useful for "what-if" exploration. The apply path is the recommended way
+to lock a plan in.
 
 ```bash
-# Default protocol: 3 load days at 10 g carbs/kg/day + race day at 2 g/kg.
+# Compute only: stateless carb-load schedule. Default protocol: 3 load days
+# at 10 g carbs/kg/day + race day at 2 g/kg.
 curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/race-prep/carb-load?race_date=2026-07-24&body_weight_kg=70"
 
 # Custom protocol: 2-day mini-load for a sprint tri, lighter race-morning meal.
 curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/race-prep/carb-load?race_date=2026-07-24&body_weight_kg=70&days_before=2&carbs_per_kg_per_day=8&race_day_carbs_per_kg=2.5"
+
+# Compute AND apply: writes the carb_g goal min-bound for each schedule day
+# into the per-date goal overrides. Preserves any existing kcal/protein/
+# other macros on those dates (merge-only). Atomic: if any per-date write
+# fails, the whole apply rolls back.
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"race_date":"2026-07-24","body_weight_kg":70}' \
+    "http://localhost:8080/race-prep/carb-load/apply"
 ```
 
-Response shape:
+Compute response shape (`GET /race-prep/carb-load`):
 
 ```json
 {
@@ -457,6 +568,26 @@ Response shape:
     {"date": "2026-07-22", "days_before": 2, "target_carbs_g": 700, "rationale": "carb-load day 2 of 3"},
     {"date": "2026-07-23", "days_before": 1, "target_carbs_g": 700, "rationale": "carb-load day 3 of 3"},
     {"date": "2026-07-24", "days_before": 0, "target_carbs_g": 140, "rationale": "race morning, pre-race meal ~3-4h before start"}
+  ]
+}
+```
+
+Apply response shape (`POST /race-prep/carb-load/apply`): same as compute,
+plus an `applied` array reporting per-date outcome. `created: false` means
+the apply merged into a pre-existing override (e.g. a training-day kcal
+template stayed intact while only the carbs bound was updated).
+
+```json
+{
+  "race_date": "2026-07-24",
+  "body_weight_kg": 70,
+  "params": {"days_before": 3, "carbs_per_kg_per_day": 10, "race_day_carbs_per_kg": 2},
+  "schedule": [ ... same as above ... ],
+  "applied": [
+    {"date": "2026-07-21", "carbs_g_min": 700, "created": true},
+    {"date": "2026-07-22", "carbs_g_min": 700, "created": false},
+    {"date": "2026-07-23", "carbs_g_min": 700, "created": true},
+    {"date": "2026-07-24", "carbs_g_min": 140, "created": true}
   ]
 }
 ```
@@ -552,7 +683,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `patch_hydration`             | `PATCH /hydration/{id}`                | Edit volume / time / note.                                    |
 | `delete_hydration`            | `DELETE /hydration/{id}`               | Remove a hydration entry.                                     |
 | `daily_hydration_summary`     | `GET /summary/hydration/daily?date=…&tz=…` | Volume-only daily summary, separate from `daily_summary`. |
-| `plan_carb_load`              | `GET /race-prep/carb-load?race_date=…&body_weight_kg=…` | Stateless carb-load schedule for a race. Pair with `set_daily_goal_override` to apply it. |
+| `plan_carb_load`              | `GET /race-prep/carb-load?…` or `POST /race-prep/carb-load/apply` | Stateless carb-load schedule for a race. Pass `apply: true` to ALSO write the carb_g goal min-bound for each schedule day (merging into existing overrides — non-carb fields preserved). |
 | `log_workout`                 | `POST /workouts`                       | Record a workout (manual entries, sweat-rate windows). Garmin sessions come via `garmin.py`, not this tool. |
 | `list_workouts`               | `GET /workouts?from=…&to=…`            | List workouts in a 92-day window.                             |
 | `get_workout`                 | `GET /workouts/{id}`                   | Fetch a workout by id.                                        |
@@ -563,7 +694,12 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `patch_weight`                | `PATCH /weight/{id}`                   | Edit weight / body-fat % / logged_at / note.                  |
 | `delete_weight`               | `DELETE /weight/{id}`                  | Remove a body-weight entry.                                   |
 | `weight_trend`                | `GET /weight/trend?from=…&to=…&window_days=…` | Rolling-average weight trend; each point carries `sample_count`. |
-| `workout_fueling_summary`     | `GET /workouts/{id}/fueling?pre_window_min=…&post_window_min=…` | Pre/intra/post intake totals for a workout. `nutrition` (meals) and `hydration` (entries) sub-objects per window. |
+| `workout_fueling_summary`     | `GET /workouts/{id}/fueling?pre_window_min=…&post_window_min=…` | Pre/intra/post intake totals for a workout. Three sub-objects per window: `nutrition` (meals), `hydration` (hydration entries), `workout_fuel` (workout-fuel entries). |
+| `log_workout_fuel`            | `POST /workout-fuel`                   | Record an in-session fueling event — gel, electrolyte drink, salt tab, caffeine. Plain water belongs in `log_hydration`. |
+| `list_workout_fuel`           | `GET /workout-fuel?from=…&to=…`        | List workout-fuel entries in a half-open window (92-day cap).  |
+| `patch_workout_fuel`          | `PATCH /workout-fuel/{id}`             | Edit name / quantitative fields / note / workout link.         |
+| `delete_workout_fuel`         | `DELETE /workout-fuel/{id}`            | Remove a workout-fuel entry.                                   |
+| `weekly_energy_summary`       | `GET /energy/availability?from=…&to=…&tz=…&lean_mass_kg=…&body_fat_pct=…` | Per-day Energy Availability + window aggregate with Loucks bands. Days missing `kcal_burned` are flagged and excluded from `window.avg_ea`. |
 
 Write tools accept an optional `idempotency_key`. When omitted, the wrapper
 derives a stable key from the tool arguments so the agent's automatic retries
@@ -631,7 +767,9 @@ internal/meals/           repo, service, handlers
 internal/hydration/       volume-only intake log (CRUD + daily summary)
 internal/workouts/        training sessions (CRUD + bulk upsert) — writers translate sources here
 internal/bodyweight/      body-weight log + rolling-average trend (kg, optional body-fat %)
-internal/workoutfueling/  pre/intra/post fueling aggregation per workout (meals + hydration)
+internal/workoutfueling/  pre/intra/post fueling aggregation per workout (meals + hydration + workout-fuel)
+internal/workoutfuel/     in-session fueling log (gels, electrolyte drinks, caffeine) — sibling to hydration
+internal/energy/          Energy Availability over a window (kcal / kg FFM / day, Loucks bands)
 internal/summary/         daily + range computation
 internal/store/           shared pgx pool + embedded migrations
 internal/e2e/             single happy-path end-to-end test

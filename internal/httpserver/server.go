@@ -14,6 +14,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/auth"
 	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
 	"github.com/vinzenzs/nutrition-api/internal/config"
+	"github.com/vinzenzs/nutrition-api/internal/energy"
 	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/hydration"
 	"github.com/vinzenzs/nutrition-api/internal/idempotency"
@@ -23,6 +24,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/raceprep"
 	"github.com/vinzenzs/nutrition-api/internal/store"
 	"github.com/vinzenzs/nutrition-api/internal/summary"
+	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
 )
@@ -98,14 +100,18 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	// add-meal-workout-link).
 	mealsSvc.SetWorkoutsRepo(workoutsRepo)
 	hydrationSvc.SetWorkoutsRepo(workoutsRepo)
-	fuelingSvc := workoutfueling.NewService(workoutsRepo, mealsRepo, hydrationRepo)
+	workoutFuelRepo := workoutfuel.NewRepo(pool)
+	workoutFuelSvc := workoutfuel.NewService(workoutFuelRepo)
+	workoutFuelSvc.SetWorkoutsRepo(workoutsRepo)
+	fuelingSvc := workoutfueling.NewService(workoutsRepo, mealsRepo, hydrationRepo, workoutFuelRepo)
 	bodyWeightRepo := bodyweight.NewRepo(pool)
 	bodyWeightSvc := bodyweight.NewService(bodyWeightRepo)
+	energySvc := energy.NewService(mealsRepo, workoutsRepo, bodyWeightRepo)
 	userTZ, err := time.LoadLocation(cfg.DefaultUserTZ)
 	if err != nil {
 		return err
 	}
-	racePrepSvc := raceprep.NewService(time.Now, userTZ)
+	racePrepSvc := raceprep.NewService(time.Now, userTZ, pool)
 	idempRepo := idempotency.NewRepo(pool)
 
 	cleanupCtx, cleanupCancel := context.WithCancel(ctx)
@@ -139,10 +145,14 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	goals.NewOverridesHandlers(goalsOverridesRepo).Register(api)
 	hydration.NewHandlers(hydrationSvc).Register(api)
 	hydration.NewSummaryHandlers(hydrationSvc, cfg.DefaultUserTZ, logger).Register(api)
-	raceprep.NewHandlers(racePrepSvc).Register(api)
+	racePrepHandlers := raceprep.NewHandlers(racePrepSvc)
+	racePrepHandlers.SetLogger(logger)
+	racePrepHandlers.Register(api)
 	workouts.NewHandlers(workoutsSvc).Register(api)
 	workoutfueling.NewHandlers(fuelingSvc).Register(api)
+	workoutfuel.NewHandlers(workoutFuelSvc).Register(api)
 	bodyweight.NewHandlers(bodyWeightSvc, cfg.DefaultUserTZ, logger).Register(api)
+	energy.NewHandlers(energySvc, cfg.DefaultUserTZ).Register(api)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -27,6 +27,7 @@ func setup(t *testing.T) *gin.Engine {
 	svc := raceprep.NewService(
 		func() time.Time { return fixedNow },
 		time.UTC,
+		nil, // Plan path doesn't need a pool; apply tests build their own service with a real pool.
 	)
 	r := gin.New()
 	rg := r.Group("/")
@@ -186,7 +187,7 @@ func TestCarbLoad_DaysBeforeNonNumeric(t *testing.T) {
 // ----- auth -----
 
 func TestCarbLoad_MissingAuthReturns401(t *testing.T) {
-	svc := raceprep.NewService(func() time.Time { return fixedNow }, time.UTC)
+	svc := raceprep.NewService(func() time.Time { return fixedNow }, time.UTC, nil)
 	r := gin.New()
 	r.Use(auth.Middleware(auth.Config{
 		MobileToken: "mobile-token-aaaaaaaaaaaaaa",

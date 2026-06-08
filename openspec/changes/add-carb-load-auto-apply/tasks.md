@@ -1,0 +1,47 @@
+## 1. Goals capability — partial-update repo path
+
+- [x] 1.1 Add `UpsertPatch(ctx, date, patch *Goals) (created bool, err error)` to `internal/goals/overrides_repo.go` — fetches existing row via `GetOverride`, branches on `errors.Is(err, ErrOverrideNotFound)`, overlays non-nil fields from `patch` onto the existing `*Goals` (or treats `patch` as the new row on miss), calls existing `Upsert`. Add a doc comment noting "carb-load apply" as the current consumer and "promote to PATCH verb if a second consumer appears" as the rationale for not exposing it publicly today.
+- [x] 1.2 Unit tests on `UpsertPatch` in `internal/goals/overrides_repo_test.go`: patch into existing row preserves untouched fields; patch into empty (no row) creates new row with only patched fields; patch that overwrites an existing field replaces it; patch with same value is no-op-equivalent. Cover every nullable field on the Goals struct at least once across the test cases.
+- [x] 1.3 Verify the existing `Upsert` and `GetOverride` validators still cover the patched fields when `UpsertPatch` calls `Upsert` — if any validator only ran on the request-body path (not the repo path), move it down into the repo or duplicate the check. **Outcome**: validators live at the HTTP handler boundary (`goals/handlers.go validateGoals`), not the repo. The only `UpsertPatch` consumer is the race-prep apply handler, which builds the patch from `PlanCarbLoad` outputs — already validated upstream (positive finite floats from validated `body_weight_kg` × `carbs_per_kg_per_day`). No additional repo-side validator needed; the `UpsertPatch` godoc notes the caller-validation contract.
+
+## 2. Race-prep capability — apply orchestration
+
+- [x] 2.1 Add `internal/raceprep/apply.go` with `func (s *Service) ApplyCarbLoad(ctx context.Context, req ApplyRequest) (*ApplyResponse, error)`. Validates `req` (reuse the existing validator from the GET handler — extract to a shared `validateParams(req)` helper if not already shared). Computes the schedule via existing `PlanCarbLoad`. Opens `pool.Begin(ctx)`. Constructs a transaction-scoped `goals.OverridesRepo` over the `pgx.Tx`. Loops the schedule: for each entry, builds `*goals.Goals` with only `CarbsG: &goals.Range{Min: &entry.TargetCarbsG}` and calls `UpsertPatch`. Records `created: bool` per date by checking whether the pre-existing row was found (`errors.Is(err, ErrOverrideNotFound)` on a GetOverride before the upsert — or by having `UpsertPatch` return that bool). On error, defers/forces rollback and returns the error. On success, commits and returns the response.
+- [x] 2.2 Decide where `created` comes from. Two options: (a) `UpsertPatch` returns `(created bool, err error)`; (b) the apply handler calls `GetOverride` first and infers `created` from `ErrOverrideNotFound`. Pick (a) — it's one round-trip instead of two and the repo already knows. Update 1.1's signature accordingly and adjust the design.md UpsertPatch sketch to match.
+- [x] 2.3 Add `Service.ApplyCarbLoad` dependency on `*goals.OverridesRepo` and `*pgxpool.Pool` (for `Begin`). Update the service constructor in `internal/raceprep/service.go` to take these new dependencies; update the constructor's call site in `internal/httpserver/server.go` to pass them in.
+- [x] 2.4 Add `POST /race-prep/carb-load/apply` handler in `internal/raceprep/handlers.go`. Reuse the existing param-parsing logic from the GET handler (extract into a `parseAndValidateParams(c)` helper if not already shared). Call `Service.ApplyCarbLoad`. Map errors to HTTP codes consistent with the GET endpoint (400s for validation, 401 for missing auth — handled by middleware, 500 for transaction/rollback failures). Add the swag annotations matching the spec's response shape `{race_date, body_weight_kg, params, schedule, applied}`.
+- [x] 2.5 Register the new POST route in `internal/httpserver/server.go` alongside the existing `GET /race-prep/carb-load`. Verify auth + idempotency middleware apply (they do, by default — but spot-check).
+- [x] 2.6 Add log line at successful commit: structured log with `(race_date, days_before, applied_count, new_count)` — one line per apply.
+
+## 3. Race-prep capability — handler tests
+
+- [x] 3.1 Add tests in `internal/raceprep/handlers_test.go` (or a new `apply_test.go`) using the existing test-server scaffolding. Happy path: clean DB, apply for 70kg/race-day default → response has 4 `applied` entries all with `created: true`; verify 4 rows in `daily_goal_overrides` each with only `carbs_g_min` populated.
+- [x] 3.2 Merge path: pre-seed an override on one schedule date with `kcal: {min: 2090, max: 2310}` and `protein_g: {min: 150, max: 190}`; apply; verify that date's row has both the pre-seeded macros AND the new `carbs_g_min`; verify the `applied` entry for that date has `created: false`; verify the other 3 entries have `created: true`.
+- [x] 3.3 Replace path: pre-seed an override with `carbs_g: {min: 500, max: 600}`; apply; verify the row's `carbs_g_min == 700` and `carbs_g_max == NULL` (the apply writes min-only — the existing max gets cleared per the new-bounds semantics — confirm this matches the spec wording; the spec says "carbs_g is replaced with {min: 700}" which means max becomes null. Document this in a code comment if non-obvious).
+- [x] 3.4 Transactional rollback test. Hard-stub `UpsertPatch` to fail on the 3rd call (e.g. via a wrapper or by violating a constraint mid-loop). Verify: response is non-200; zero new rows in `daily_goal_overrides`; any pre-seeded rows are unchanged.
+- [x] 3.5 Validation tests: race_date in past → 400 race_date_in_past, no transaction opened (verify by row count); body_weight_kg=25 → 400 body_weight_kg_invalid; days_before=8 → 400 days_before_invalid. Each test asserts zero side effects.
+- [x] 3.6 Auth test: missing Authorization header → 401, no transaction opened.
+- [x] 3.7 Round-trip integration test: apply for race_date=today+3, then GET /summary/daily?date=today+1 → response includes `adherence.carbs_g.target = {min: 700}` and `goal_source: "override"`.
+
+## 4. MCP server — plan_carb_load tool gains apply flag
+
+- [x] 4.1 Update `PlanCarbLoadArgs` in `internal/mcpserver/tools_raceprep.go` (or wherever the args struct lives) to add `Apply *bool` (pointer so we can distinguish absent from false) and `IdempotencyKey *string`. Update the input-schema generation (likely in the same file or a JSON-schema marshalling helper) to reflect these as optional, with `apply` defaulting to false and `idempotency_key` documented as "used only when apply: true".
+- [x] 4.2 Branch in the `plan_carb_load` handler: when `Apply == nil || *Apply == false`, hit the existing GET path (no Idempotency-Key, no body). When `Apply != nil && *Apply == true`, hit `POST /race-prep/carb-load/apply`. Build the POST body from the same args minus `apply` and minus `idempotency_key`. Compute the derived idempotency key as `sha256_hex("plan_carb_load|" + canonical_json(<args minus apply, idempotency_key>))` unless the caller supplied `IdempotencyKey`.
+- [x] 4.3 Update the tool description string (the one returned in the tool metadata) to add the apply paragraph from `specs/mcp-server/spec.md` — describe the side effect, the `applied` array shape, that `apply: true` is the recommended path, and that existing kcal/protein/other macros on the target dates are preserved.
+- [x] 4.4 MCP wrapper tests in `internal/mcpserver/tools_raceprep_test.go`: apply=false (default) hits GET, no Idempotency-Key; apply=true hits POST, Idempotency-Key set (derived); apply=true with explicit idempotency_key forwards that key verbatim; response forwarding works for both branches (200 body forwarded, 400 forwarded with isError=true, 500 from rollback forwarded with isError=true).
+- [x] 4.5 Confirm `internal/mcpserver/mcp_integration_test.go` already lists `plan_carb_load` in the expected-tools assertion; no change needed there.
+
+## 5. Documentation regen + spot updates
+
+- [x] 5.1 Run `task swag` to regenerate `docs/swagger.{json,yaml}` and `docs/docs.go` with the new POST endpoint annotated.
+- [x] 5.2 Update `README.md` "Race prep" subsection (if it exists; otherwise add one) with two curl examples — one for the GET (unchanged), one for the POST /apply showing the `applied` array in the response.
+- [x] 5.3 Update `RUN_LOCAL.md` with an apply-plus-summary round-trip: apply for a race 3 days out, then `GET /summary/daily?date=today+1` showing the new `adherence.carbs_g` entry with `goal_source: "override"`.
+- [x] 5.4 If `docs/mcp-tools.md` or any agent-facing doc lists tool descriptions verbatim, regenerate that section to include the apply paragraph.
+
+## 6. Verify and hand off
+
+- [x] 6.1 Run `task test` (or equivalent) — all unit + handler + integration tests pass.
+- [x] 6.2 Run `task build` and exercise both branches via a manual curl (GET then POST /apply) against the local server — confirm the response shapes match the spec scenarios.
+- [x] 6.3 Verify `openspec status --change "add-carb-load-auto-apply"` reports all artifacts done and all tasks done.
+- [ ] 6.4 Commit (per the CLAUDE.md "commit after every /opsx:apply" convention): `feat(race-prep): add carb-load auto-apply via plan_carb_load apply flag` with the change directory + code + tests + docs included.
+- [ ] 6.5 Ready for `/opsx:archive add-carb-load-auto-apply` — at archive time the delta specs in `openspec/changes/add-carb-load-auto-apply/specs/` merge into `openspec/specs/race-prep/spec.md`, `openspec/specs/nutrition-goals/spec.md`, and `openspec/specs/mcp-server/spec.md`.

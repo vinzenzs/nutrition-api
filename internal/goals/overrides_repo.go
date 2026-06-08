@@ -75,6 +75,67 @@ func (r *OverridesRepo) Upsert(ctx context.Context, date time.Time, g *Goals) er
 	return nil
 }
 
+// UpsertPatch performs a merge-style upsert: it overlays ONLY the non-nil
+// Range fields from `patch` onto the existing override for `date`, then
+// writes the merged row. Fields that are nil on `patch` keep whatever value
+// the existing row had. If no override exists for `date`, the patch itself
+// becomes the new row (only the non-nil fields, every other field NULL).
+//
+// Returns `created == true` when no prior row existed (a new row was
+// inserted), `created == false` when an existing row was merged into.
+//
+// Current consumer: the race-prep carb-load apply endpoint (it writes only
+// `carbs_g`, preserving any prior `kcal`/`protein_g`/etc. on the same date).
+// Not exposed as a public REST verb yet — if a second consumer appears,
+// promote to `PATCH /goals/overrides/{date}` then. Validation of `patch`
+// fields is the caller's responsibility (mirrors the existing handler-side
+// `validateGoals` rules); this method is a repository primitive.
+func (r *OverridesRepo) UpsertPatch(ctx context.Context, date time.Time, patch *Goals) (bool, error) {
+	existing, err := r.GetOverride(ctx, date)
+	created := false
+	if err != nil {
+		if !errors.Is(err, ErrOverrideNotFound) {
+			return false, fmt.Errorf("upsert patch fetch: %w", err)
+		}
+		created = true
+		existing = &Goals{}
+	}
+	merged := mergeGoalsPatch(existing, patch)
+	if err := r.Upsert(ctx, date, merged); err != nil {
+		return false, err
+	}
+	return created, nil
+}
+
+// mergeGoalsPatch returns a new Goals where each Range field is the patch's
+// value if non-nil, otherwise the base's value. Timestamps from base are NOT
+// carried over — Upsert sets `updated_at = now()` itself.
+func mergeGoalsPatch(base, patch *Goals) *Goals {
+	pick := func(p, b *Range) *Range {
+		if p != nil {
+			return p
+		}
+		return b
+	}
+	return &Goals{
+		Kcal:          pick(patch.Kcal, base.Kcal),
+		ProteinG:      pick(patch.ProteinG, base.ProteinG),
+		CarbsG:        pick(patch.CarbsG, base.CarbsG),
+		FatG:          pick(patch.FatG, base.FatG),
+		FiberG:        pick(patch.FiberG, base.FiberG),
+		SugarG:        pick(patch.SugarG, base.SugarG),
+		SaltG:         pick(patch.SaltG, base.SaltG),
+		IronMg:        pick(patch.IronMg, base.IronMg),
+		CalciumMg:     pick(patch.CalciumMg, base.CalciumMg),
+		VitaminDMcg:   pick(patch.VitaminDMcg, base.VitaminDMcg),
+		VitaminB12Mcg: pick(patch.VitaminB12Mcg, base.VitaminB12Mcg),
+		VitaminCMg:    pick(patch.VitaminCMg, base.VitaminCMg),
+		MagnesiumMg:   pick(patch.MagnesiumMg, base.MagnesiumMg),
+		PotassiumMg:   pick(patch.PotassiumMg, base.PotassiumMg),
+		ZincMg:        pick(patch.ZincMg, base.ZincMg),
+	}
+}
+
 // Delete removes the override for `date`. Returns ErrOverrideNotFound if no row matched.
 func (r *OverridesRepo) Delete(ctx context.Context, date time.Time) error {
 	tag, err := r.q.Exec(ctx, `DELETE FROM `+overridesTable+` WHERE date = $1`, date)
