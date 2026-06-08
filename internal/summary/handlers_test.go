@@ -45,7 +45,7 @@ func setupSummary(t *testing.T, defaultTZ string) *fix {
 	mSvc := meals.NewService(pool, mRepo, pRepo)
 	gRepo := goals.NewRepo(pool)
 	goRepo := goals.NewOverridesRepo(pool)
-	resolver := goals.NewResolver(gRepo, goRepo)
+	resolver := goals.NewResolver(gRepo, goRepo, nil, nil)
 	sSvc := summary.NewService(pool, mRepo, resolver)
 	logBuf := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(logBuf, &slog.HandlerOptions{Level: slog.LevelWarn}))

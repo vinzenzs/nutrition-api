@@ -81,6 +81,171 @@ const docTemplate = `{
                 }
             }
         },
+        "/goal-templates": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "List all goal templates",
+                "responses": {
+                    "200": {
+                        "description": "{\\\"templates\\\": [Template]}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/goal-templates/{name}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Get a named goal template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"template\\\": Template}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full-replace semantics: absent nutrient bounds are stored as NULL. The template's ` + "`" + `name` + "`" + ` is the URL path segment (kebab-case-ish, user-chosen). ` + "`" + `Idempotency-Key` + "`" + ` is NOT accepted on PUT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Upsert a named goal template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Template bounds",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/trainingphases.templateBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"template\\\": Template}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "template_name_invalid | template_name_too_long | goal_value_invalid | goal_range_invalid | invalid_json | idempotency_unsupported_for_put",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Refused with 409 template_in_use if any phase references the template via default_template_id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Delete a goal template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "template_in_use with referencing_phases array",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/goals": {
             "get": {
                 "security": [
@@ -852,6 +1017,255 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/phases": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "List training phases intersecting a date window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive start date YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive end date YYYY-MM-DD; max 730 days from from",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"phases\\\": [Phase]}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "range_required | date_invalid | range_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "A phase is a named date range tagged with a training type. Optionally points at a goal template via default_template_id, which becomes the default daily goals for every date in [start_date, end_date]. Per-date overrides still win.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Create a training phase",
+                "parameters": [
+                    {
+                        "description": "Phase fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/trainingphases.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "{\\\"phase\\\": Phase}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "phase_name_invalid | phase_name_too_long | phase_type_invalid | date_range_invalid | date_invalid | invalid_json | template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/phases/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Get a training phase by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phase id (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"phase\\\": Phase}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "phase_id_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "phase_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Delete a training phase",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phase id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "400": {
+                        "description": "phase_id_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "phase_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tri-state on default_template_id: empty string clears, UUID sets, missing leaves unchanged.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "training-phases"
+                ],
+                "summary": "Partially update a training phase",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Phase id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/trainingphases.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"phase\\\": Phase}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "phase_id_invalid | invalid_json | patch_empty | phase_name_invalid | phase_name_too_long | phase_type_invalid | date_invalid | date_range_invalid | default_template_id_invalid | template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "phase_not_found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3479,6 +3893,9 @@ const docTemplate = `{
                 "meal_type": {
                     "type": "string"
                 },
+                "phase_name": {
+                    "type": "string"
+                },
                 "totals": {
                     "$ref": "#/definitions/summary.Totals"
                 },
@@ -3528,6 +3945,9 @@ const docTemplate = `{
                 "goal_source": {
                     "type": "string"
                 },
+                "phase_name": {
+                    "type": "string"
+                },
                 "totals": {
                     "$ref": "#/definitions/summary.Totals"
                 }
@@ -3555,6 +3975,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "goal_source": {
+                    "type": "string"
+                },
+                "phase_name": {
                     "type": "string"
                 },
                 "total_days": {
@@ -3629,6 +4052,105 @@ const docTemplate = `{
                 },
                 "zinc_mg": {
                     "type": "number"
+                }
+            }
+        },
+        "trainingphases.createRequest": {
+            "type": "object",
+            "properties": {
+                "default_template_id": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "trainingphases.patchRequest": {
+            "type": "object",
+            "properties": {
+                "default_template_id": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "trainingphases.templateBody": {
+            "type": "object",
+            "properties": {
+                "calcium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "carbs_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "fat_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "fiber_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "iron_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "kcal": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "magnesium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "potassium_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "protein_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "salt_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "sugar_g": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "vitamin_b12_mcg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "vitamin_c_mg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "vitamin_d_mcg": {
+                    "$ref": "#/definitions/goals.Range"
+                },
+                "zinc_mg": {
+                    "$ref": "#/definitions/goals.Range"
                 }
             }
         },

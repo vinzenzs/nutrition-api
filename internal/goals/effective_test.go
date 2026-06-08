@@ -17,7 +17,9 @@ func setupResolver(t *testing.T) (*goals.Resolver, *goals.Repo, *goals.Overrides
 	pool := storetest.NewPool(t)
 	defaults := goals.NewRepo(pool)
 	overrides := goals.NewOverridesRepo(pool)
-	return goals.NewResolver(defaults, overrides), defaults, overrides
+	// Tests that don't exercise phases pass nil for the phase + template
+	// lookups; the resolver short-circuits past the phase step when either is nil.
+	return goals.NewResolver(defaults, overrides, nil, nil), defaults, overrides
 }
 
 func TestEffectiveFor_OverrideWins(t *testing.T) {
@@ -32,9 +34,10 @@ func TestEffectiveFor_OverrideWins(t *testing.T) {
 		Kcal: &goals.Range{Min: ptr(2280.0), Max: ptr(2520.0)},
 	}))
 
-	g, source, err := res.EffectiveFor(ctx, date)
+	g, source, phaseName, err := res.EffectiveFor(ctx, date)
 	require.NoError(t, err)
 	assert.Equal(t, goals.GoalSourceOverride, source)
+	assert.Empty(t, phaseName)
 	require.NotNil(t, g.Kcal)
 	assert.InDelta(t, 2280, *g.Kcal.Min, 0.001)
 }
@@ -46,20 +49,22 @@ func TestEffectiveFor_DefaultUsedWhenNoOverride(t *testing.T) {
 		Kcal: &goals.Range{Min: ptr(2090.0), Max: ptr(2310.0)},
 	}))
 
-	g, source, err := res.EffectiveFor(ctx, time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC))
+	g, source, phaseName, err := res.EffectiveFor(ctx, time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	assert.Equal(t, goals.GoalSourceDefault, source)
+	assert.Empty(t, phaseName)
 	require.NotNil(t, g.Kcal)
 	assert.InDelta(t, 2090, *g.Kcal.Min, 0.001)
 }
 
 func TestEffectiveFor_NeitherReturnsNone(t *testing.T) {
 	res, _, _ := setupResolver(t)
-	g, source, err := res.EffectiveFor(context.Background(),
+	g, source, phaseName, err := res.EffectiveFor(context.Background(),
 		time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	assert.Nil(t, g)
 	assert.Equal(t, goals.GoalSourceNone, source)
+	assert.Empty(t, phaseName)
 }
 
 func TestEffectiveForRange_MixesAllSources(t *testing.T) {
@@ -73,7 +78,7 @@ func TestEffectiveForRange_MixesAllSources(t *testing.T) {
 		time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC),
 		&goals.Goals{Kcal: &goals.Range{Min: ptr(2400.0)}}))
 
-	effective, sources, err := res.EffectiveForRange(ctx,
+	effective, sources, phaseNames, err := res.EffectiveForRange(ctx,
 		time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
@@ -81,6 +86,8 @@ func TestEffectiveForRange_MixesAllSources(t *testing.T) {
 	assert.Equal(t, goals.GoalSourceDefault, sources["2026-06-15"])
 	assert.Equal(t, goals.GoalSourceOverride, sources["2026-06-16"])
 	assert.Equal(t, goals.GoalSourceDefault, sources["2026-06-17"])
+	// No phases configured — phaseNames map is empty.
+	assert.Empty(t, phaseNames)
 	// June 16 uses the override's kcal.
 	require.NotNil(t, effective["2026-06-16"].Kcal)
 	assert.InDelta(t, 2400, *effective["2026-06-16"].Kcal.Min, 0.001)
@@ -88,13 +95,14 @@ func TestEffectiveForRange_MixesAllSources(t *testing.T) {
 
 func TestEffectiveForRange_NoDefaultAndNoOverrideReturnsNone(t *testing.T) {
 	res, _, _ := setupResolver(t)
-	effective, sources, err := res.EffectiveForRange(context.Background(),
+	effective, sources, phaseNames, err := res.EffectiveForRange(context.Background(),
 		time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Len(t, sources, 2)
 	assert.Equal(t, goals.GoalSourceNone, sources["2026-06-15"])
 	assert.Equal(t, goals.GoalSourceNone, sources["2026-06-16"])
+	assert.Empty(t, phaseNames)
 	assert.Nil(t, effective["2026-06-15"])
 	assert.Nil(t, effective["2026-06-16"])
 }

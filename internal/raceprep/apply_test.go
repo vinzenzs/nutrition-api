@@ -407,14 +407,17 @@ func TestApply_RoundTripVisibleToResolver(t *testing.T) {
 		`{"race_date":"2026-07-24","body_weight_kg":70}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-	// Wire the same pool to the resolver used by /summary/daily.
+	// Wire the same pool to the resolver used by /summary/daily. This test
+	// doesn't exercise phases, so pass nil for the phase + template lookups
+	// — the resolver skips the phase step when either is nil.
 	resolver := goals.NewResolver(
 		goals.NewRepo(pool),
 		goals.NewOverridesRepo(pool),
+		nil, nil,
 	)
 	// applyFixedNow + 2 days = 2026-07-22, which is one of the load days.
 	checkDate := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
-	g, src, err := resolver.EffectiveFor(context.Background(), checkDate)
+	g, src, _, err := resolver.EffectiveFor(context.Background(), checkDate)
 	require.NoError(t, err)
 	assert.Equal(t, goals.GoalSourceOverride, src,
 		"applied carb-load row should show as override, not default")

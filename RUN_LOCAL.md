@@ -370,6 +370,57 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # Expected: { "goal_source": "override", "carbs_target": { "min": 700 } }
 ```
 
+### Set up a training phase with a goal template
+
+The phase + template pattern is the "I'm in build block 2, weeks 5-8 of my
+plan" story. A template is a reusable goal-set; a phase is a named date range
+that points at one. Editing the template propagates to every date inside the
+phase — no apply step. Per-date overrides still win.
+
+```bash
+# 1. Create a reusable template (PUT, name in URL is canonical).
+curl -s -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "kcal":     {"min": 2280, "max": 2520},
+         "protein_g":{"min": 160, "max": 200},
+         "carbs_g":  {"min": 350, "max": 450},
+         "notes":    "build block default targets"
+       }' \
+    http://localhost:8080/goal-templates/build-default | jq '.template | {name, id}'
+
+# 2. Create a build phase pointing at it. (For demo, start today and run 14 days.)
+TPL_ID=$(curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goal-templates/build-default | jq -r .template.id)
+START=$(date -u +%Y-%m-%d)
+END=$(date -u -v+14d +%Y-%m-%d 2>/dev/null || date -u -d '+14 days' +%Y-%m-%d)
+curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{
+         \"name\":\"build-block-demo\",
+         \"type\":\"build\",
+         \"start_date\":\"$START\",
+         \"end_date\":\"$END\",
+         \"default_template_id\":\"$TPL_ID\"
+       }" \
+    http://localhost:8080/phases | jq '.phase | {name, type, start_date, end_date, default_template_name}'
+
+# 3. Override one specific workout day inside the phase (per-date override wins).
+MID=$(date -u -v+3d +%Y-%m-%d 2>/dev/null || date -u -d '+3 days' +%Y-%m-%d)
+curl -s -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"carbs_g":{"min":700}}' \
+    http://localhost:8080/goals/overrides/$MID > /dev/null
+
+# 4. /summary/range shows the per-day mix: phase_template on most days,
+#    override on the workout day.
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/range?from=$START&to=$END" | \
+    jq '.days[] | {date, goal_source, phase_name}'
+# Expected mostly { "goal_source": "phase_template", "phase_name": "build-block-demo" }
+# with one { "goal_source": "override" } row on the workout day.
+```
+
 ### Cleaning up leftover products
 
 Test sessions leave products in the cache. List and delete them:

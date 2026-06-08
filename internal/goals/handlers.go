@@ -161,6 +161,12 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Code, e.Field)
 }
 
+// ValidateGoals runs the per-field validation rules used by PUT /goals,
+// PUT /goals/overrides/{date}, and (after add-training-phases-and-templates)
+// PUT /goal-templates/{name}. Exposed so adjacent capabilities apply the
+// same rules without drift.
+func ValidateGoals(g *Goals) error { return validateGoals(g) }
+
 func validateGoals(g *Goals) error {
 	check := func(name string, r *Range) error {
 		if r == nil {

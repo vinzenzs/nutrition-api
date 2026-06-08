@@ -524,8 +524,8 @@ curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 Per-date overrides sit on top of the default singleton. Use them when a single
 date (training day, rest day, race day) needs different targets. PUT is
 full-replace; absent fields stored as null. The summary endpoints carry a
-`goal_source: "override" | "default" | "none"` field so callers can see which
-set produced the day's adherence rows.
+`goal_source: "override" | "phase_template" | "default" | "none"` field so
+callers can see which set produced the day's adherence rows.
 
 ```bash
 # Training-day override
@@ -549,6 +549,72 @@ curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # Delete — date falls back to the default goals
 curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     http://localhost:8080/goals/overrides/2026-06-15
+```
+
+#### Training phases and goal templates
+
+A training phase is a named date range tagged with a training `type` (`base`,
+`build`, `peak`, `recovery`, `race_week`, `off_season`, `other`) and an
+optional `default_template_id` pointing at a reusable goal template. The
+effective-goals chain becomes **per-date override > phase template > default
+singleton > none** — phases describe intent over a period, per-date overrides
+describe deliberate exceptions, the singleton is the baseline. Templates are
+named, reusable goal-sets sharing the same `{min?, max?}` Range shape as the
+default goals. Editing a template's bounds propagates to every phase pointing
+at it on next adherence read (no apply step; intentionally cheap to evolve).
+
+```bash
+# Create a reusable template (PUT — name in URL is canonical, no Idempotency-Key)
+curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+         "kcal":     {"min": 2280, "max": 2520},
+         "protein_g":{"min": 160, "max": 200},
+         "carbs_g":  {"min": 350, "max": 450},
+         "notes":    "build-block default daily targets"
+       }' \
+    http://localhost:8080/goal-templates/build-default
+
+# Create a phase pointing at that template
+TPL_ID=$(curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goal-templates/build-default | jq -r .template.id)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{
+         \"name\":\"build-block-2\",
+         \"type\":\"build\",
+         \"start_date\":\"2026-07-01\",
+         \"end_date\":\"2026-07-28\",
+         \"default_template_id\":\"$TPL_ID\",
+         \"notes\":\"weeks 5-8 of 16-week plan\"
+       }" \
+    http://localhost:8080/phases
+
+# List phases intersecting a window (max 730 days)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/phases?from=2026-06-01&to=2026-09-30"
+
+# Now /summary/daily on dates inside the phase shows goal_source=phase_template
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/daily?date=2026-07-15" | \
+    jq '{goal_source, phase_name, kcal_target: .adherence.kcal.target}'
+# → {"goal_source":"phase_template","phase_name":"build-block-2","kcal_target":{"min":2280,"max":2520}}
+
+# Per-date overrides still win — set one for a single workout day
+curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"carbs_g":{"min":700}}' \
+    http://localhost:8080/goals/overrides/2026-07-15
+
+# Phase-with-template clearing: PATCH with empty-string sentinel
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"default_template_id":""}' \
+    http://localhost:8080/phases/<phase-uuid>
+
+# Delete a template — refused with 409 template_in_use if any phase references it
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    http://localhost:8080/goal-templates/build-default
 ```
 
 ### Race prep
@@ -724,6 +790,15 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `patch_workout_fuel`          | `PATCH /workout-fuel/{id}`             | Edit name / quantitative fields / note / workout link.         |
 | `delete_workout_fuel`         | `DELETE /workout-fuel/{id}`            | Remove a workout-fuel entry.                                   |
 | `weekly_energy_summary`       | `GET /energy/availability?from=…&to=…&tz=…&lean_mass_kg=…&body_fat_pct=…` | Per-day Energy Availability + window aggregate with Loucks bands. Days missing `kcal_burned` are flagged and excluded from `window.avg_ea`. |
+| `create_phase`                | `POST /phases`                         | Create a training phase (named date range tagged `base`/`build`/`peak`/`recovery`/`race_week`/`off_season`/`other`). Optional `default_template_id` makes the phase drive adherence. |
+| `list_phases`                 | `GET /phases?from=…&to=…`              | List phases intersecting a window (max 730 days). |
+| `get_phase`                   | `GET /phases/{id}`                     | Fetch one phase, including resolved `default_template_name`. |
+| `update_phase`                | `PATCH /phases/{id}`                   | Partial update. Tri-state on `default_template_id`: empty string clears, UUID sets, missing leaves unchanged. |
+| `delete_phase`                | `DELETE /phases/{id}`                  | Delete a phase. Dates that were inside fall through to override → singleton default. |
+| `set_goal_template`           | `PUT /goal-templates/{name}`           | Create or replace a named goal template. Full-replace; editing propagates to every phase pointing at it. |
+| `list_goal_templates`         | `GET /goal-templates`                  | List every template ordered by name. |
+| `get_goal_template`           | `GET /goal-templates/{name}`           | Fetch one template by name. |
+| `delete_goal_template`        | `DELETE /goal-templates/{name}`        | Refused with 409 `template_in_use` (referencing_phases echoed) if any phase points at it. |
 
 Write tools accept an optional `idempotency_key`. When omitted, the wrapper
 derives a stable key from the tool arguments so the agent's automatic retries

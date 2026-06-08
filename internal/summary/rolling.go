@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/meals"
 )
 
@@ -39,6 +40,7 @@ type Rolling struct {
 	Days             []RollingDay `json:"days"`
 	Adherence        Adherence    `json:"adherence,omitempty"`
 	GoalSource       string       `json:"goal_source,omitempty"`
+	PhaseName        string       `json:"phase_name,omitempty"`
 }
 
 // RollingParams scopes a rolling summary request. The handler validates
@@ -117,11 +119,14 @@ func (s *Service) RollingFor(ctx context.Context, p RollingParams) (*Rolling, er
 	// Adherence resolves against the goal at the anchor (honoring overrides
 	// on that exact date). The unrounded `avg` is what gets compared so the
 	// borderline decision is honest; newEntry rounds for presentation.
-	effective, source, err := s.goalsResolver.EffectiveFor(ctx, p.AnchorDate)
+	effective, source, phaseName, err := s.goalsResolver.EffectiveFor(ctx, p.AnchorDate)
 	if err != nil {
 		return nil, err
 	}
 	out.GoalSource = string(source)
+	if source == goals.GoalSourcePhaseTemplate {
+		out.PhaseName = phaseName
+	}
 	adherence := computeAdherenceFor(avg, effective, out.DaysWithData > 0)
 	if len(adherence) > 0 {
 		out.Adherence = adherence

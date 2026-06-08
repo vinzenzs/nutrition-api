@@ -702,6 +702,8 @@ definitions:
         type: string
       meal_type:
         type: string
+      phase_name:
+        type: string
       totals:
         $ref: '#/definitions/summary.Totals'
       tz:
@@ -734,6 +736,8 @@ definitions:
         type: string
       goal_source:
         type: string
+      phase_name:
+        type: string
       totals:
         $ref: '#/definitions/summary.Totals'
     type: object
@@ -752,6 +756,8 @@ definitions:
       days_with_data:
         type: integer
       goal_source:
+        type: string
+      phase_name:
         type: string
       total_days:
         type: integer
@@ -801,6 +807,71 @@ definitions:
         type: number
       zinc_mg:
         type: number
+    type: object
+  trainingphases.createRequest:
+    properties:
+      default_template_id:
+        type: string
+      end_date:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      start_date:
+        type: string
+      type:
+        type: string
+    type: object
+  trainingphases.patchRequest:
+    properties:
+      default_template_id:
+        type: string
+      end_date:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      start_date:
+        type: string
+      type:
+        type: string
+    type: object
+  trainingphases.templateBody:
+    properties:
+      calcium_mg:
+        $ref: '#/definitions/goals.Range'
+      carbs_g:
+        $ref: '#/definitions/goals.Range'
+      fat_g:
+        $ref: '#/definitions/goals.Range'
+      fiber_g:
+        $ref: '#/definitions/goals.Range'
+      iron_mg:
+        $ref: '#/definitions/goals.Range'
+      kcal:
+        $ref: '#/definitions/goals.Range'
+      magnesium_mg:
+        $ref: '#/definitions/goals.Range'
+      notes:
+        type: string
+      potassium_mg:
+        $ref: '#/definitions/goals.Range'
+      protein_g:
+        $ref: '#/definitions/goals.Range'
+      salt_g:
+        $ref: '#/definitions/goals.Range'
+      sugar_g:
+        $ref: '#/definitions/goals.Range'
+      vitamin_b12_mcg:
+        $ref: '#/definitions/goals.Range'
+      vitamin_c_mg:
+        $ref: '#/definitions/goals.Range'
+      vitamin_d_mcg:
+        $ref: '#/definitions/goals.Range'
+      zinc_mg:
+        $ref: '#/definitions/goals.Range'
     type: object
   workoutfuel.Entry:
     properties:
@@ -1049,6 +1120,115 @@ paths:
       summary: Energy Availability over a window
       tags:
       - energy
+  /goal-templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"templates\": [Template]}'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all goal templates
+      tags:
+      - training-phases
+  /goal-templates/{name}:
+    delete:
+      description: Refused with 409 template_in_use if any phase references the template
+        via default_template_id.
+      parameters:
+      - description: Template name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: template_in_use with referencing_phases array
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a goal template
+      tags:
+      - training-phases
+    get:
+      parameters:
+      - description: Template name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"template\": Template}'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a named goal template
+      tags:
+      - training-phases
+    put:
+      consumes:
+      - application/json
+      description: 'Full-replace semantics: absent nutrient bounds are stored as NULL.
+        The template''s `name` is the URL path segment (kebab-case-ish, user-chosen).
+        `Idempotency-Key` is NOT accepted on PUT.'
+      parameters:
+      - description: Template name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Template bounds
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/trainingphases.templateBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"template\": Template}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: template_name_invalid | template_name_too_long | goal_value_invalid
+            | goal_range_invalid | invalid_json | idempotency_unsupported_for_put
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a named goal template
+      tags:
+      - training-phases
   /goals:
     get:
       produces:
@@ -1557,6 +1737,173 @@ paths:
       summary: Log a freeform meal entry (no product lookup)
       tags:
       - meals
+  /phases:
+    get:
+      parameters:
+      - description: Inclusive start date YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive end date YYYY-MM-DD; max 730 days from from
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"phases\": [Phase]}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: range_required | date_invalid | range_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List training phases intersecting a date window
+      tags:
+      - training-phases
+    post:
+      consumes:
+      - application/json
+      description: A phase is a named date range tagged with a training type. Optionally
+        points at a goal template via default_template_id, which becomes the default
+        daily goals for every date in [start_date, end_date]. Per-date overrides still
+        win.
+      parameters:
+      - description: Phase fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/trainingphases.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: '{\"phase\": Phase}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: phase_name_invalid | phase_name_too_long | phase_type_invalid
+            | date_range_invalid | date_invalid | invalid_json | template_not_found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a training phase
+      tags:
+      - training-phases
+  /phases/{id}:
+    delete:
+      parameters:
+      - description: Phase id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "400":
+          description: phase_id_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: phase_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a training phase
+      tags:
+      - training-phases
+    get:
+      parameters:
+      - description: Phase id (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"phase\": Phase}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: phase_id_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: phase_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a training phase by id
+      tags:
+      - training-phases
+    patch:
+      consumes:
+      - application/json
+      description: 'Tri-state on default_template_id: empty string clears, UUID sets,
+        missing leaves unchanged.'
+      parameters:
+      - description: Phase id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/trainingphases.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"phase\": Phase}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: phase_id_invalid | invalid_json | patch_empty | phase_name_invalid
+            | phase_name_too_long | phase_type_invalid | date_invalid | date_range_invalid
+            | default_template_id_invalid | template_not_found
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: phase_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a training phase
+      tags:
+      - training-phases
   /products:
     get:
       description: Returns the product cache as a paginated list, ordered last_logged_at

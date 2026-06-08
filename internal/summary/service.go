@@ -82,6 +82,7 @@ type Daily struct {
 	Entries    []*meals.MealEntry `json:"entries"`
 	Adherence  Adherence          `json:"adherence,omitempty"`
 	GoalSource string             `json:"goal_source,omitempty"`
+	PhaseName  string             `json:"phase_name,omitempty"`
 }
 
 // RangeDay is one day of a range summary. Exactly one of Totals or ByMealType
@@ -92,6 +93,7 @@ type RangeDay struct {
 	ByMealType map[string]Totals  `json:"by_meal_type,omitempty"`
 	Adherence  Adherence          `json:"adherence,omitempty"`
 	GoalSource string             `json:"goal_source,omitempty"`
+	PhaseName  string             `json:"phase_name,omitempty"`
 }
 
 // Range is the response shape for GET /summary/range.
@@ -153,12 +155,15 @@ func (s *Service) DailyFor(ctx context.Context, p DailyParams) (*Daily, error) {
 		return out, nil
 	}
 
-	// Resolve which goal set applies to this date (override beats default).
-	effective, source, err := s.goalsResolver.EffectiveFor(ctx, p.Date)
+	// Resolve which goal set applies to this date: override > phase template > default.
+	effective, source, phaseName, err := s.goalsResolver.EffectiveFor(ctx, p.Date)
 	if err != nil {
 		return nil, err
 	}
 	out.GoalSource = string(source)
+	if source == goals.GoalSourcePhaseTemplate {
+		out.PhaseName = phaseName
+	}
 
 	// Adherence runs against UNROUNDED totals so the status decision is
 	// honest at the borderline; newEntry rounds the actual/target/delta_pct
@@ -196,14 +201,16 @@ func (s *Service) RangeFor(ctx context.Context, p RangeParams) (*Range, error) {
 		buckets[key] = append(buckets[key], e)
 	}
 
-	// Pre-fetch effective goals (override-or-default) once for every day in
-	// the window if we'll need adherence (i.e. not grouped).
+	// Pre-fetch effective goals once for every day in the window if we'll
+	// need adherence (i.e. not grouped). Resolution chain per day: per-date
+	// override > phase template > singleton default.
 	var (
-		effective map[string]*goals.Goals
-		sources   map[string]goals.GoalSource
+		effective  map[string]*goals.Goals
+		sources    map[string]goals.GoalSource
+		phaseNames map[string]string
 	)
 	if p.GroupBy == "" {
-		effective, sources, err = s.goalsResolver.EffectiveForRange(ctx, p.From, p.To)
+		effective, sources, phaseNames, err = s.goalsResolver.EffectiveForRange(ctx, p.From, p.To)
 		if err != nil {
 			return nil, err
 		}
@@ -250,6 +257,9 @@ func (s *Service) RangeFor(ctx context.Context, p RangeParams) (*Range, error) {
 				day.Adherence = adherence
 			}
 			day.GoalSource = string(sources[key])
+			if sources[key] == goals.GoalSourcePhaseTemplate {
+				day.PhaseName = phaseNames[key]
+			}
 		}
 		out.Days = append(out.Days, day)
 	}

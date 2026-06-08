@@ -24,6 +24,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/raceprep"
 	"github.com/vinzenzs/nutrition-api/internal/store"
 	"github.com/vinzenzs/nutrition-api/internal/summary"
+	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
@@ -89,7 +90,15 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	mealsSvc := meals.NewService(pool, mealsRepo, productsRepo)
 	goalsRepo := goals.NewRepo(pool)
 	goalsOverridesRepo := goals.NewOverridesRepo(pool)
-	goalsResolver := goals.NewResolver(goalsRepo, goalsOverridesRepo)
+	templatesRepo := trainingphases.NewTemplatesRepo(pool)
+	templatesSvc := trainingphases.NewTemplatesService(templatesRepo)
+	phasesRepo := trainingphases.NewPhasesRepo(pool)
+	phasesSvc := trainingphases.NewPhasesService(phasesRepo, templatesRepo)
+	goalsResolver := goals.NewResolver(
+		goalsRepo, goalsOverridesRepo,
+		trainingphases.NewPhaseLookupAdapter(phasesRepo),
+		trainingphases.NewTemplateLookupAdapter(templatesRepo),
+	)
 	summarySvc := summary.NewService(pool, mealsRepo, goalsResolver)
 	hydrationRepo := hydration.NewRepo(pool)
 	hydrationSvc := hydration.NewService(hydrationRepo)
@@ -143,6 +152,8 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	summary.NewHandlers(summarySvc, cfg.DefaultUserTZ, logger).Register(api)
 	goals.NewHandlers(goalsRepo).Register(api)
 	goals.NewOverridesHandlers(goalsOverridesRepo).Register(api)
+	trainingphases.NewTemplatesHandlers(templatesSvc).Register(api)
+	trainingphases.NewPhasesHandlers(phasesSvc).Register(api)
 	hydration.NewHandlers(hydrationSvc).Register(api)
 	hydration.NewSummaryHandlers(hydrationSvc, cfg.DefaultUserTZ, logger).Register(api)
 	racePrepHandlers := raceprep.NewHandlers(racePrepSvc)

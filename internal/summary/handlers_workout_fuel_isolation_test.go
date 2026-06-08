@@ -34,7 +34,7 @@ func TestDailySummary_ExcludesWorkoutFuelCarbs(t *testing.T) {
 	mSvc := meals.NewService(pool, mRepo, pRepo)
 	gRepo := goals.NewRepo(pool)
 	goRepo := goals.NewOverridesRepo(pool)
-	resolver := goals.NewResolver(gRepo, goRepo)
+	resolver := goals.NewResolver(gRepo, goRepo, nil, nil)
 	sSvc := summary.NewService(pool, mRepo, resolver)
 	fuelRepo := workoutfuel.NewRepo(pool)
 
