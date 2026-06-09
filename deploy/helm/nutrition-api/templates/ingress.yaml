@@ -1,0 +1,40 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "nutrition-api.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- $tlsSecretName := default (printf "%s-tls" $fullName) .Values.ingress.tls.secretName -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "nutrition-api.labels" . | nindent 4 }}
+  annotations:
+    # 10m matches the default MEAL_FROM_PHOTO_MAX_BYTES (10485760 = 10 MiB)
+    # so the ingress never truncates a photo before the app sees it.
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    {{- if .Values.ingress.tls.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.issuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.extraAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ $tlsSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+{{- end }}

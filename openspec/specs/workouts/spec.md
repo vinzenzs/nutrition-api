@@ -24,6 +24,8 @@ The system SHALL persist workouts in a `workouts` table independent of meals, hy
   - `kcal_burned` (NUMERIC(10, 1) NULL, CHECK `kcal_burned IS NULL OR kcal_burned > 0`)
   - `avg_hr` (INTEGER NULL, CHECK `avg_hr IS NULL OR avg_hr > 0`)
   - `tss` (NUMERIC(10, 2) NULL, CHECK `tss IS NULL OR tss >= 0`)
+  - `rpe` (INTEGER NULL, CHECK `rpe IS NULL OR (rpe BETWEEN 1 AND 10)`)
+  - `gi_distress_score` (INTEGER NULL, CHECK `gi_distress_score IS NULL OR (gi_distress_score BETWEEN 1 AND 5)`)
   - `notes` (TEXT NULL)
   - `created_at` (TIMESTAMPTZ NOT NULL DEFAULT now())
   - `updated_at` (TIMESTAMPTZ NOT NULL DEFAULT now())
@@ -32,9 +34,16 @@ The system SHALL persist workouts in a `workouts` table independent of meals, hy
 - **AND** a partial UNIQUE index exists on `(external_id) WHERE external_id IS NOT NULL`
 - **AND** there is NO `intensity` column (TSS is the intensity signal; downstream tools derive bands at call time)
 
+#### Scenario: rpe and gi_distress_score are nullable per session
+
+- **WHEN** the migration is applied to a database with existing `workouts` rows
+- **THEN** every existing row carries `rpe = NULL` and `gi_distress_score = NULL`
+- **AND** the migration succeeds without back-filling either column
+- **AND** subsequent INSERT/UPSERT/PATCH paths default both fields to NULL when omitted
+
 ### Requirement: POST /workouts creates or updates a workout via external_id UPSERT
 
-The system SHALL expose `POST /workouts` that accepts a workout body and persists it. When `external_id` is present and a row already exists with the same `external_id`, the system UPDATES that row (full-replace of the mutable fields); otherwise the system INSERTS a new row. This semantic lets an external writer "POST every activity it sees" without tracking what is already synced.
+The system SHALL expose `POST /workouts` that accepts a workout body and persists it. When `external_id` is present and a row already exists with the same `external_id`, the system UPDATES that row (full-replace of the mutable fields); otherwise the system INSERTS a new row. The mutable field set includes `rpe` and `gi_distress_score` as optional integer-valued per-session signals (1..10 and 1..5 respectively). This semantic lets an external writer "POST every activity it sees" without tracking what is already synced.
 
 #### Scenario: First POST with external_id inserts a new row
 
@@ -96,6 +105,42 @@ The system SHALL expose `POST /workouts` that accepts a workout body and persist
 - **WHEN** the client posts `tss` that is negative
 - **THEN** the system returns `400 Bad Request` with `{"error":"tss_invalid"}`
 
+#### Scenario: POST with rpe and gi_distress_score stores the values
+
+- **WHEN** the client posts `{"source":"manual","sport":"bike","started_at":"2026-07-15T08:00:00Z","ended_at":"2026-07-15T09:30:00Z","rpe":7,"gi_distress_score":2}`
+- **THEN** the system creates a row with `rpe = 7` and `gi_distress_score = 2`
+- **AND** returns `201 Created` with the response body echoing both fields
+
+#### Scenario: POST omitting rpe and gi_distress_score stores NULL
+
+- **WHEN** the client posts a workout body that omits both fields
+- **THEN** the row is created with both columns `NULL`
+- **AND** the response body's JSON omits both fields (omitempty pattern matching `kcal_burned`, `avg_hr`, `tss`, `notes`)
+
+#### Scenario: POST with rpe out of range is rejected
+
+- **WHEN** the client posts `{"source":"manual","sport":"bike",…,"rpe":0}` or `{"…","rpe":11}` or `{"…","rpe":-1}`
+- **THEN** the system returns `400 Bad Request` with `{"error":"rpe_invalid","range":{"min":1,"max":10}}`
+- **AND** no row is inserted
+
+#### Scenario: POST with gi_distress_score out of range is rejected
+
+- **WHEN** the client posts a workout body with `gi_distress_score` set to `0` or `6` or `-2` or `100`
+- **THEN** the system returns `400 Bad Request` with `{"error":"gi_distress_score_invalid","range":{"min":1,"max":5}}`
+- **AND** no row is inserted
+
+#### Scenario: POST with non-integer rpe / gi_distress_score is rejected
+
+- **WHEN** the client posts with `rpe: "seven"` or `rpe: 7.5` or `gi_distress_score: "mild"`
+- **THEN** the system returns `400 Bad Request` with `{"error":"rpe_invalid"}` or `{"error":"gi_distress_score_invalid"}` respectively
+- **AND** no row is inserted
+
+#### Scenario: Garmin import path passes through with NULLs on rehearsal fields
+
+- **WHEN** the Garmin importer POSTs a workout body that does not include `rpe` or `gi_distress_score` (Garmin does not surface either)
+- **THEN** the row is created with both fields `NULL`
+- **AND** the user can subsequently PATCH the row to add the rehearsal signals
+
 ### Requirement: GET /workouts lists workouts in a window
 
 The system SHALL expose `GET /workouts?from=<rfc3339>&to=<rfc3339>` that returns workouts whose `started_at` falls in the inclusive window, ordered by `started_at` ascending.
@@ -126,9 +171,15 @@ The system SHALL expose `GET /workouts?from=<rfc3339>&to=<rfc3339>` that returns
 - **WHEN** the request is valid
 - **THEN** the response body has the shape `{"workouts": [Workout, ...]}` (consistent with `/meals` and `/hydration`)
 
+#### Scenario: List includes rehearsal fields per row
+
+- **WHEN** the client lists workouts in a window containing one rehearsal-tagged ride (with `rpe`/`gi_distress_score` set) and one Garmin-imported ride (both fields `NULL`)
+- **THEN** the rehearsal-tagged ride's entry includes `rpe` and `gi_distress_score`
+- **AND** the Garmin-imported ride's entry omits both fields (omitempty)
+
 ### Requirement: GET /workouts/{id} returns a single workout
 
-The system SHALL expose `GET /workouts/{id}` returning the workout row.
+The system SHALL expose `GET /workouts/{id}` returning the workout row. The response carries `rpe` and `gi_distress_score` when set on the underlying row; both follow the omitempty pattern when NULL.
 
 #### Scenario: Existing id returns the workout
 
@@ -140,9 +191,21 @@ The system SHALL expose `GET /workouts/{id}` returning the workout row.
 - **WHEN** the client calls `GET /workouts/<unknown-id>`
 - **THEN** the system returns `404 Not Found` with `{"error":"workout_not_found"}`
 
+#### Scenario: GET on a workout with rpe and gi_distress_score returns them
+
+- **WHEN** a workout has `rpe = 7` and `gi_distress_score = 2`
+- **AND** the client calls `GET /workouts/{id}`
+- **THEN** the response is `200 OK` with body that includes `"rpe": 7` and `"gi_distress_score": 2`
+
+#### Scenario: GET on a workout with NULL rehearsal fields omits them
+
+- **WHEN** a workout has both fields `NULL`
+- **AND** the client calls `GET /workouts/{id}`
+- **THEN** the response body does NOT include the `rpe` or `gi_distress_score` keys
+
 ### Requirement: PATCH /workouts/{id} updates the mutable subset
 
-The system SHALL expose `PATCH /workouts/{id}` accepting partial updates of `name`, `notes`, `kcal_burned`, `avg_hr`, and `tss`. Validation rules match the POST endpoint for the same fields. The fields `source`, `external_id`, `sport`, `started_at`, and `ended_at` are IMMUTABLE via PATCH.
+The system SHALL expose `PATCH /workouts/{id}` accepting partial updates of `name`, `notes`, `kcal_burned`, `avg_hr`, `tss`, `rpe`, and `gi_distress_score`. Validation rules match the POST endpoint for the same fields. The fields `source`, `external_id`, `sport`, `started_at`, and `ended_at` are IMMUTABLE via PATCH. PATCH supports tri-state semantics on the two integer rehearsal fields: `unchanged` when absent from the body, `set` when present with an integer value, and `cleared to NULL` when present with explicit JSON `null`.
 
 #### Scenario: Partial update changes only supplied mutable fields
 
@@ -164,6 +227,33 @@ The system SHALL expose `PATCH /workouts/{id}` accepting partial updates of `nam
 
 - **WHEN** the client patches an id that does not exist
 - **THEN** the system returns `404 Not Found` with `{"error":"workout_not_found"}`
+
+#### Scenario: PATCH sets rpe and gi_distress_score on an existing workout
+
+- **WHEN** a workout exists with both fields `NULL`
+- **AND** the client patches `{"rpe": 7, "gi_distress_score": 2}`
+- **THEN** the row's `rpe = 7` and `gi_distress_score = 2`
+- **AND** the response is `200 OK` with the updated workout
+
+#### Scenario: PATCH absent rehearsal fields leaves them unchanged
+
+- **WHEN** a workout has `rpe = 7` and `gi_distress_score = 2`
+- **AND** the client patches `{"notes": "felt strong"}` (no rpe / no gi_distress_score)
+- **THEN** the row's `rpe` and `gi_distress_score` are unchanged
+- **AND** `notes` is updated to `"felt strong"`
+
+#### Scenario: PATCH explicit null clears the rehearsal field to NULL
+
+- **WHEN** a workout has `rpe = 7`
+- **AND** the client patches `{"rpe": null}`
+- **THEN** the row's `rpe` becomes `NULL`
+- **AND** subsequent GET responses omit the `rpe` field
+
+#### Scenario: PATCH rpe out of range is rejected without touching other fields
+
+- **WHEN** the client patches `{"rpe": 11, "gi_distress_score": 3}`
+- **THEN** the system returns `400 Bad Request` with `{"error":"rpe_invalid","range":{"min":1,"max":10}}`
+- **AND** no field is updated (transactional validation — the GI score is NOT written even though it's valid)
 
 ### Requirement: DELETE /workouts/{id} removes the row
 
@@ -344,3 +434,26 @@ The system SHALL expose `GET /workouts/{id}/fueling?pre_window_min=<int>&post_wi
 - **WHEN** any aggregated total resolves to `419.7666…`
 - **THEN** the response shows `419.8` (matching the existing nutrient-rounding rule)
 - **AND** hydration `total_ml` and workout_fuel `quantity_ml` are rounded to 1 decimal place
+
+### Requirement: GET /workouts/{id}/fueling surfaces rehearsal signals on the workout
+
+The system SHALL include `rpe` and `gi_distress_score` on the `GET /workouts/{id}/fueling` response so the agent can read the rehearsal-outcome signals alongside the fueling totals in a single call. The two fields are echoed at the top level of the response, alongside `workout_id`, `started_at`, `ended_at`, and follow the same omitempty rule as everywhere else — absent when NULL on the underlying workout row.
+
+#### Scenario: Fueling response carries rpe and gi_distress_score when set
+
+- **WHEN** a workout has `rpe = 7` and `gi_distress_score = 2`
+- **AND** the client calls `GET /workouts/{id}/fueling`
+- **THEN** the response body includes `"rpe": 7` and `"gi_distress_score": 2` at the top level (alongside `workout_id`, `started_at`, `ended_at`, `pre_window`, `intra_window`, `post_window`)
+
+#### Scenario: Fueling response omits the fields when NULL
+
+- **WHEN** a workout has both fields `NULL`
+- **AND** the client calls `GET /workouts/{id}/fueling`
+- **THEN** the response body omits the `rpe` and `gi_distress_score` keys
+- **AND** the fueling window shapes are otherwise unchanged
+
+#### Scenario: Fueling endpoint requires no new query params for the new fields
+
+- **WHEN** the client calls `GET /workouts/{id}/fueling`
+- **THEN** the existing `pre_window_min` / `post_window_min` query semantics apply unchanged
+- **AND** no `include_rehearsal` opt-in is required — the fields are always present (or always omitted via omitempty)

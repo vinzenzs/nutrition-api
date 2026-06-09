@@ -55,8 +55,8 @@
 
 ## 9. Verify and hand off
 
-- [ ] 9.1 Run `task test` — all packages green. (Re-run any package showing the documented testcontainers parallel-boot flake alone with `-p 1`.)
-- [ ] 9.2 Run `task build` and exercise via curl: POST a manual workout with both fields → confirm shape; PATCH on an existing row to add both; GET `/workouts/{id}/fueling` and confirm the fields appear at the top level.
-- [ ] 9.3 Verify `openspec status --change "add-workout-rpe-and-gi"` reports 4/4 artifacts done and all tasks done.
-- [ ] 9.4 Commit per CLAUDE.md's "commit after every /opsx:apply" convention: `feat(workouts): add rpe + gi_distress_score for fueling rehearsal data` — include migration, types/repo/handler updates, workoutfueling change, MCP tool updates, doc regen, and the change directory.
-- [ ] 9.5 Ready for `/opsx:archive add-workout-rpe-and-gi` — at archive time the two delta specs sync into main specs: modified `openspec/specs/workouts/spec.md` and modified (additive) `openspec/specs/mcp-server/spec.md`.
+- [x] 9.1 Run `task test` — all packages green. (Re-run any package showing the documented testcontainers parallel-boot flake alone with `-p 1`.)
+- [x] 9.2 Run `task build` and exercise via curl: POST a manual workout with both fields → confirm shape; PATCH on an existing row to add both; GET `/workouts/{id}/fueling` and confirm the fields appear at the top level.
+- [x] 9.3 Verify `openspec status --change "add-workout-rpe-and-gi"` reports 4/4 artifacts done and all tasks done.
+- [x] 9.4 Commit per CLAUDE.md's "commit after every /opsx:apply" convention: `feat(workouts): add rpe + gi_distress_score for fueling rehearsal data` — include migration, types/repo/handler updates, workoutfueling change, MCP tool updates, doc regen, and the change directory.
+- [x] 9.5 Ready for `/opsx:archive add-workout-rpe-and-gi` — at archive time the two delta specs sync into main specs: modified `openspec/specs/workouts/spec.md` and modified (additive) `openspec/specs/mcp-server/spec.md`.

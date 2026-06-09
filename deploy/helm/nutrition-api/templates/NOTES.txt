@@ -1,0 +1,25 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} installed as release {{ .Release.Name }}.
+
+Image: {{ include "nutrition-api.image" . }}
+
+Secrets:
+{{- if .Values.existingSecret }}
+  Using externally-managed Secret: {{ .Values.existingSecret }}
+  Verify it carries these keys: DATABASE_URL, MOBILE_API_TOKEN, AGENT_API_TOKEN, ANTHROPIC_API_KEY (optional)
+{{- else }}
+  Chart-managed Secret: {{ include "nutrition-api.fullname" . }}
+{{- end }}
+
+Reach the API:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}/healthz
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "nutrition-api.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/healthz
+{{- end }}
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "nutrition-api.fullname" . }}
+
+Print version embedded in the running image:
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "nutrition-api.fullname" . }} -- /app/nutrition-api version

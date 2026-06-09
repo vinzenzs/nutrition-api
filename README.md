@@ -1012,6 +1012,26 @@ The MCP integration test (`go test -tags=integration ./internal/mcpserver/`)
 builds the binary, spawns `nutrition-api mcp`, exchanges `initialize` +
 `tools/list` over stdio, and asserts the expected tools are announced.
 
+## Deploying
+
+The repo ships a `Dockerfile`, a Helm chart at
+[`deploy/helm/nutrition-api/`](deploy/helm/nutrition-api/README.md),
+and three GitHub Actions workflows under
+[`.github/workflows/`](.github/workflows/) — see the
+[chart README](deploy/helm/nutrition-api/README.md) for the install /
+upgrade walkthrough.
+
+Container images publish to:
+
+- `ghcr.io/vinzenzs/nutrition-api:main` — rolling tip-of-main
+- `ghcr.io/vinzenzs/nutrition-api:sha-<short>` — per-commit pin
+- `ghcr.io/vinzenzs/nutrition-api:vX.Y.Z` + `:latest` — tagged releases
+
+Packaged Helm charts publish on `v*` tags to
+`oci://ghcr.io/vinzenzs/charts/nutrition-api`. The chart assumes an
+externally provisioned Postgres reachable via `DATABASE_URL` — there is
+no in-chart database.
+
 ## Development
 
 ```bash

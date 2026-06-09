@@ -1,0 +1,44 @@
+# Build cache + binaries
+bin/
+build/
+
+# Local env / secrets
+.env
+.env.*
+
+# Repo-internal toolchain artefacts not needed by the build
+.git/
+.gitignore
+.gitattributes
+
+# Other clients live in this monorepo but are not part of the API image
+apps/
+extensions/
+
+# Spec-driven workflow files — not source code
+openspec/
+continuity.md
+roadmap.md
+
+# CI + deploy configs (referenced by humans, not by the build)
+.github/
+deploy/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Misc docs that don't change behaviour
+*.md
+LICENSE
+
+# Test fixtures the runtime doesn't need
+testdata/
+
+# Container build inputs we never want copied in
+Dockerfile
+.dockerignore
+compose.yml
+Taskfile.yml

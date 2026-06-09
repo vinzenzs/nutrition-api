@@ -1,14 +1,18 @@
 # Project Roadmap
 
-_Generated from OpenSpec changes. Last refreshed: 2026-06-09 by the `roadmap` skill._
+_Generated from OpenSpec changes. Last refreshed: 2026-06-09 (evening) by the `roadmap` skill._
 
 ## Implemented
 
 | Date | Change | Summary | Implementer(s) | Commit |
 |---|---|---|---|---|
-| 2026-06-09 | add-daily-context-aggregator | The agent currently makes 5–7 separate MCP calls to start every conversation: "what's today's adherence?", "what did I drink?", "what workouts are logged?", "any weight log?", "what training phase am  | Vinzenz Stadtmueller | _uncommitted_ |
-| 2026-06-09 | add-protein-distribution | For an athlete in a deficit, the *daily protein total* is necessary-but-not-sufficient. Muscle protein synthesis (MPS) is triggered per-meal, not per-day: the well-validated number is **~0.3 g of prot | Vinzenz Stadtmueller | _uncommitted_ |
-| 2026-06-09 | add-training-phases-and-templates | Today every day is identical to the system. The user is mid-way through a 16-week build/peak/recovery plan — the agent has to carry "I'm in build block 2, weeks 3–6" implicitly across conversations, a | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-09 | add-meal-from-photo | The Flutter companion app's second killer interaction is **photo-of-meal**: the user is about to eat something that has no barcode and no obvious analog in the cache (a restaurant plate, a homemade di | Vinzenz Stadtmueller | [`68d0f0c`](https://github.com/vinzenzs/nutrition-api/commit/68d0f0c) |
+| 2026-06-09 | add-workout-rpe-and-gi | The 70.3 build phase mandates fueling rehearsal on every long ride from Week 9 onward. The API records *what* was consumed (`workout_fuel_entries` with carbs_g, sodium_mg, caffeine_mg, etc.) but nothi | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-09 | add-rolling-window-summaries | Almost every nutrition-science recommendation an endurance athlete cares about is a multi-day average, not a single-day total: | Vinzenz Stadtmueller | [`e8c33b6`](https://github.com/vinzenzs/nutrition-api/commit/e8c33b6) |
+| 2026-06-09 | add-recommend-workout-fuel | `plan_carb_load` answers "how should I eat in the 1–4 days *before* my race." `daily_summary` + the phase template answer "what's my macro target for *today's training block*." `workout_fueling_summar | Vinzenz Stadtmueller | [`66a2085`](https://github.com/vinzenzs/nutrition-api/commit/66a2085) |
+| 2026-06-09 | add-daily-context-aggregator | The agent currently makes 5–7 separate MCP calls to start every conversation: "what's today's adherence?", "what did I drink?", "what workouts are logged?", "any weight log?", "what training phase am  | Vinzenz Stadtmueller | [`8e51019`](https://github.com/vinzenzs/nutrition-api/commit/8e51019) |
+| 2026-06-09 | add-protein-distribution | For an athlete in a deficit, the *daily protein total* is necessary-but-not-sufficient. Muscle protein synthesis (MPS) is triggered per-meal, not per-day: the well-validated number is **~0.3 g of prot | Vinzenz Stadtmueller | [`8e51019`](https://github.com/vinzenzs/nutrition-api/commit/8e51019) |
+| 2026-06-09 | add-training-phases-and-templates | Today every day is identical to the system. The user is mid-way through a 16-week build/peak/recovery plan — the agent has to carry "I'm in build block 2, weeks 3–6" implicitly across conversations, a | Vinzenz Stadtmueller | [`8e51019`](https://github.com/vinzenzs/nutrition-api/commit/8e51019) |
 | 2026-06-08 | add-carb-load-auto-apply | `plan_carb_load` returns a deterministic per-day carb-load schedule but stops there — the agent then has to issue N separate `set_daily_goal_override` calls to actually put those numbers into the goal | Vinzenz Stadtmueller | [`4026c8e`](https://github.com/vinzenzs/nutrition-api/commit/4026c8e) |
 | 2026-06-08 | add-date-varying-goals | A real endurance-training day looks nothing like a rest day in calories or carbs. The user's working numbers are roughly 2200 kcal training / 1900 kcal rest — same target shape, different values. | Vinzenz Stadtmueller | [`5d141a1`](https://github.com/vinzenzs/nutrition-api/commit/5d141a1) |
 | 2026-06-08 | add-energy-availability | For an endurance athlete in a deficit, Energy Availability (EA) is the single most important number — it predicts both performance ceiling and longer-term hormonal/bone health. The Loucks bands are co | Vinzenz Stadtmueller | [`5d141a1`](https://github.com/vinzenzs/nutrition-api/commit/5d141a1) |
@@ -33,9 +37,8 @@ _Generated from OpenSpec changes. Last refreshed: 2026-06-09 by the `roadmap` sk
 
 | Change | Summary | Proposed by | Proposed |
 |---|---|---|---|
+| add-deployment-pipeline | The API has shipped 17+ change-driven features but still lives only on the | Vinzenz Stadtmueller | uncommitted |
 | add-flutter-companion-app | The system was designed for two clients from day one — agent (via MCP) and mobile (`MOBILE_API_TOKEN`) — but only the agent client has materialized. The agent is great at conversation: parsing freefor | Vinzenz Stadtmueller | 2026-06-08 |
-| add-meal-from-photo | The Flutter companion app's second killer interaction is **photo-of-meal**: the user is about to eat something that has no barcode and no obvious analog in the cache (a restaurant plate, a homemade di | Vinzenz Stadtmueller | 2026-06-08 |
-| add-rolling-window-summaries | Almost every nutrition-science recommendation an endurance athlete cares about is a multi-day average, not a single-day total: | Vinzenz Stadtmueller | 2026-06-08 |
 
 ---
 _To regenerate: ask Claude "update the roadmap"._

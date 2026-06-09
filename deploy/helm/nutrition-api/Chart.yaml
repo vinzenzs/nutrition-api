@@ -1,0 +1,18 @@
+apiVersion: v2
+name: nutrition-api
+description: Personal nutrition + endurance-training-fueling REST API (Go + Gin + Postgres). Ships the serve container only; expects a Postgres reachable via DATABASE_URL.
+type: application
+# Chart version and appVersion are kept in lockstep by .github/workflows/release.yml
+# on `v*` tags. Local edits stay at 0.1.0 until the first release.
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/vinzenzs/nutrition-api
+sources:
+  - https://github.com/vinzenzs/nutrition-api
+maintainers:
+  - name: vinzenz
+    url: https://github.com/vinzenzs
+keywords:
+  - nutrition
+  - personal
+  - api

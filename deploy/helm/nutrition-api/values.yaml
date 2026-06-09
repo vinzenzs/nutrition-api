@@ -1,0 +1,136 @@
+# Default values for nutrition-api.
+# See README.md for the install / upgrade walkthrough.
+
+# -- Container image. tag defaults to the chart's appVersion when empty.
+image:
+  repository: ghcr.io/vinzenzs/nutrition-api
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets (set if the registry isn't public).
+imagePullSecrets: []
+#   - name: ghcr-pull
+
+# -- Override the release name in template-rendered object names.
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Single-replica is the only supported topology in v1. See
+#    openspec/specs/deployment-pipeline — Recreate + replicas=1 means the
+#    in-process migration on startup is safe.
+replicaCount: 1
+
+# -- Pod-level securityContext. Distroless-nonroot image runs as 65532.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+# -- Container-level securityContext.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -- Resource requests / limits. Defaults sized for a personal cluster.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+service:
+  type: ClusterIP
+  port: 80
+  # -- Pod port. Matches the EXPOSE 8080 in the Dockerfile.
+  targetPort: 8080
+
+ingress:
+  # -- Set true to render an Ingress. Defaults off so the chart works on
+  #    clusters without ingress-nginx installed.
+  enabled: false
+  # -- Defaults to "nginx"; override for clusters with a different class.
+  className: nginx
+  # -- Fully-qualified host the API will be reached at.
+  host: nutrition.example.com
+  # -- Extra annotations merged into the Ingress. The chart adds:
+  #     nginx.ingress.kubernetes.io/proxy-body-size: 10m
+  #    automatically so /meals/from_photo uploads aren't truncated.
+  extraAnnotations: {}
+  tls:
+    # -- When true, the Ingress carries a tls: section and the
+    #    cert-manager.io/cluster-issuer annotation is set.
+    enabled: false
+    # -- Name of a cert-manager ClusterIssuer that mints the cert.
+    issuer: letsencrypt-prod
+    # -- Secret to store the cert in. Defaults to "<fullname>-tls".
+    secretName: ""
+
+# -- Non-secret config. Mirrors the env vars README.md "Configuration" table.
+config:
+  defaultUserTz: UTC
+  migrateOnStart: true
+  swaggerEnabled: false
+  offTimeoutSeconds: 5
+  offUserAgentContact: "+https://github.com/vinzenzs/nutrition-api"
+  idempotencyTtlHours: 24
+  claudeVisionModel: claude-sonnet-4-6
+  visionTimeoutSeconds: 15
+  mealFromPhotoMaxBytes: 10485760
+
+# -- Reference an externally-managed Secret. When set, the chart will NOT
+#    render its own Secret; the Deployment's envFrom uses this name.
+#    The Secret must contain keys: DATABASE_URL, MOBILE_API_TOKEN,
+#    AGENT_API_TOKEN (and optionally ANTHROPIC_API_KEY).
+existingSecret: ""
+
+# -- Secret values populated into a chart-managed Secret.
+#    REQUIRED when existingSecret is empty:
+#       databaseUrl, mobileApiToken, agentApiToken
+#    OPTIONAL:
+#       anthropicApiKey — empty falls back to 503 vision_unavailable on
+#                          /meals/from_photo (existing handler behaviour).
+secrets:
+  databaseUrl: ""
+  mobileApiToken: ""
+  agentApiToken: ""
+  anthropicApiKey: ""
+
+# -- Liveness probe — see openspec/specs/deployment-pipeline for tuning rationale.
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# -- Readiness probe — fast to flip pods out of Service endpoints if
+#    Postgres becomes unreachable.
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 3
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# -- ServiceAccount for the pod.
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
