@@ -498,6 +498,36 @@ curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 #   }
 ```
 
+#### Daily context bundle
+
+One read returns everything the agent needs to start a session: adherence,
+nutrition totals, hydration ml, today's workouts, fuel entries, the latest
+body-weight reading (with `is_carryover` when the entry is from a previous
+day), the training phase covering the date, and whether a goal override is
+in force. Composition-only over existing primitives — no schema, no writes.
+
+```bash
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/context/daily?date=2026-07-15&tz=Europe/Berlin"
+# → {
+#     "date": "2026-07-15", "tz": "Europe/Berlin",
+#     "adherence":    { "goal_source": "phase_template", "phase_name": "build-block-2",
+#                       "adherence": { "kcal": {...}, "protein_g": {...}, ... } },
+#     "nutrition":    { "totals": {...}, "entries_count": 3 },
+#     "hydration":    { "total_ml": 2100, "entries_count": 5 },
+#     "workouts":     [ { "id":"...", "sport":"bike", "duration_min": 75, "kcal_burned": 720 } ],
+#     "workout_fuel": [ { "id":"...", "name":"gel", "carbs_g": 25, "workout_id": "..." } ],
+#     "weight":       { "weight_kg": 70.5, "body_fat_pct": 14.2, "is_carryover": false },
+#     "phase":        { "name":"build-block-2", "type":"build",
+#                       "start_date":"...","end_date":"...","default_template_name":"build-default" },
+#     "goal_override":{ "present": false, "goals": null }
+#   }
+```
+
+For deep dives into one slice (per-entry breakdowns, full meal lists, range
+queries), use the dedicated endpoints — `/summary/daily`, `/workouts`, etc.
+The aggregator deliberately omits per-entry detail to keep the bundle agent-readable.
+
 ### Goals
 
 ```bash
@@ -799,6 +829,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `list_goal_templates`         | `GET /goal-templates`                  | List every template ordered by name. |
 | `get_goal_template`           | `GET /goal-templates/{name}`           | Fetch one template by name. |
 | `delete_goal_template`        | `DELETE /goal-templates/{name}`        | Refused with 409 `template_in_use` (referencing_phases echoed) if any phase points at it. |
+| `daily_context`               | `GET /context/daily?date=…&tz=…`       | One call returns adherence + totals + hydration + today's workouts + fuel + weight + phase + goal-override presence. Recommended first call of a session. |
 
 Write tools accept an optional `idempotency_key`. When omitted, the wrapper
 derives a stable key from the tool arguments so the agent's automatic retries

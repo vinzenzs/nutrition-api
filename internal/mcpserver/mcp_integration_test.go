@@ -153,6 +153,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"list_goal_templates",
 		"get_goal_template",
 		"delete_goal_template",
+		"daily_context",
 	} {
 		assert.True(t, names[want], "tool %q should be announced", want)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/auth"
 	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
 	"github.com/vinzenzs/nutrition-api/internal/config"
+	"github.com/vinzenzs/nutrition-api/internal/dailycontext"
 	"github.com/vinzenzs/nutrition-api/internal/energy"
 	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/hydration"
@@ -164,6 +165,11 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	workoutfuel.NewHandlers(workoutFuelSvc).Register(api)
 	bodyweight.NewHandlers(bodyWeightSvc, cfg.DefaultUserTZ, logger).Register(api)
 	energy.NewHandlers(energySvc, cfg.DefaultUserTZ).Register(api)
+	dailyCtxSvc := dailycontext.NewService(
+		summarySvc, hydrationRepo, workoutsRepo, workoutFuelRepo,
+		bodyWeightRepo, goalsOverridesRepo, phasesRepo,
+	)
+	dailycontext.NewHandlers(dailyCtxSvc, cfg.DefaultUserTZ, logger).Register(api)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

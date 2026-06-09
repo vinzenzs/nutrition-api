@@ -63,6 +63,137 @@ definitions:
       weight_kg:
         type: number
     type: object
+  dailycontext.AdherenceBlock:
+    properties:
+      adherence:
+        $ref: '#/definitions/summary.Adherence'
+      goal_source:
+        type: string
+      phase_name:
+        type: string
+    type: object
+  dailycontext.DailyContext:
+    properties:
+      adherence:
+        $ref: '#/definitions/dailycontext.AdherenceBlock'
+      date:
+        type: string
+      goal_override:
+        $ref: '#/definitions/dailycontext.GoalOverrideBlock'
+      hydration:
+        $ref: '#/definitions/dailycontext.HydrationBlock'
+      nutrition:
+        $ref: '#/definitions/dailycontext.NutritionBlock'
+      phase:
+        allOf:
+        - $ref: '#/definitions/dailycontext.PhaseBlock'
+        description: nil when no phase covers the date
+      tz:
+        type: string
+      weight:
+        allOf:
+        - $ref: '#/definitions/dailycontext.WeightBlock'
+        description: nil when no entry ever logged
+      workout_fuel:
+        description: never nil; empty array on quiet days
+        items:
+          $ref: '#/definitions/dailycontext.WorkoutFuelLite'
+        type: array
+      workouts:
+        description: never nil; empty array on quiet days
+        items:
+          $ref: '#/definitions/dailycontext.WorkoutLite'
+        type: array
+    type: object
+  dailycontext.GoalOverrideBlock:
+    properties:
+      goals:
+        $ref: '#/definitions/goals.Goals'
+      present:
+        type: boolean
+    type: object
+  dailycontext.HydrationBlock:
+    properties:
+      entries_count:
+        type: integer
+      total_ml:
+        type: number
+    type: object
+  dailycontext.NutritionBlock:
+    properties:
+      entries_count:
+        type: integer
+      totals:
+        $ref: '#/definitions/summary.Totals'
+    type: object
+  dailycontext.PhaseBlock:
+    properties:
+      default_template_id:
+        type: string
+      default_template_name:
+        type: string
+      end_date:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      start_date:
+        type: string
+      type:
+        $ref: '#/definitions/trainingphases.PhaseType'
+    type: object
+  dailycontext.WeightBlock:
+    properties:
+      body_fat_pct:
+        type: number
+      is_carryover:
+        type: boolean
+      logged_at:
+        type: string
+      weight_kg:
+        type: number
+    type: object
+  dailycontext.WorkoutFuelLite:
+    properties:
+      caffeine_mg:
+        type: number
+      carbs_g:
+        type: number
+      id:
+        type: string
+      logged_at:
+        type: string
+      name:
+        type: string
+      potassium_mg:
+        type: number
+      quantity_ml:
+        type: number
+      sodium_mg:
+        type: number
+      workout_id:
+        type: string
+    type: object
+  dailycontext.WorkoutLite:
+    properties:
+      duration_min:
+        type: number
+      ended_at:
+        type: string
+      id:
+        type: string
+      kcal_burned:
+        type: number
+      notes:
+        type: string
+      sport:
+        type: string
+      started_at:
+        type: string
+    type: object
   energy.Availability:
     properties:
       composition:
@@ -808,6 +939,24 @@ definitions:
       zinc_mg:
         type: number
     type: object
+  trainingphases.PhaseType:
+    enum:
+    - base
+    - build
+    - peak
+    - recovery
+    - race_week
+    - off_season
+    - other
+    type: string
+    x-enum-varnames:
+    - PhaseTypeBase
+    - PhaseTypeBuild
+    - PhaseTypePeak
+    - PhaseTypeRecovery
+    - PhaseTypeRaceWeek
+    - PhaseTypeOffSeason
+    - PhaseTypeOther
   trainingphases.createRequest:
     properties:
       default_template_id:
@@ -1070,6 +1219,48 @@ info:
   title: Nutrition API
   version: 0.1.0
 paths:
+  /context/daily:
+    get:
+      description: One read that returns the day's adherence + nutrition totals +
+        hydration ml + workouts + workout-fuel entries + body-weight state + training-phase
+        context + goal-override presence. Composition-only over existing primitives
+        — use this as the first call of a session; for deep dives into one slice,
+        use the dedicated tools (daily_summary, list_workouts, etc.) which include
+        the per-entry detail this aggregator omits.
+      parameters:
+      - description: Calendar date in YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dailycontext.DailyContext'
+        "400":
+          description: date_invalid | tz_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: context_failed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Daily context bundle
+      tags:
+      - daily-context
   /energy/availability:
     get:
       description: 'Per-day EA values + window aggregate, computed from meals (intake),

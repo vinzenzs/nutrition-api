@@ -421,6 +421,42 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # with one { "goal_source": "override" } row on the workout day.
 ```
 
+### One read: today's full context
+
+`GET /context/daily` (and the matching MCP tool `daily_context`) is the
+"one tool, many sources" frame. The agent calls it once at the start of a
+session and gets adherence + totals + hydration + today's workouts + fuel
+entries + body-weight state + training phase + goal-override presence —
+the same data that would otherwise require 5-7 separate tool calls.
+
+```bash
+TODAY=$(date -u +%Y-%m-%d)
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/context/daily?date=$TODAY" | jq '
+      {
+        adherence:    .adherence.goal_source,
+        phase:        .phase.name,
+        kcal_total:   .nutrition.totals.kcal,
+        hydration_ml: .hydration.total_ml,
+        workouts:     (.workouts | length),
+        weight:       (.weight | {weight_kg, is_carryover}),
+        override:     .goal_override.present
+      }'
+# Expected (depends on what you have seeded):
+# {
+#   "adherence": "phase_template",
+#   "phase":     "build-block-demo",
+#   "kcal_total": 1820,
+#   "hydration_ml": 1500,
+#   "workouts": 1,
+#   "weight":   { "weight_kg": 72.5, "is_carryover": false },
+#   "override": false
+# }
+```
+
+For per-entry detail (full meal list, individual hydration entries, etc.),
+use the dedicated endpoints — the aggregator deliberately omits them.
+
 ### Cleaning up leftover products
 
 Test sessions leave products in the cache. List and delete them:
