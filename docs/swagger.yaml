@@ -840,6 +840,44 @@ definitions:
       tz:
         type: string
     type: object
+  summary.ProteinDistribution:
+    properties:
+      body_weight_kg:
+        type: number
+      body_weight_source:
+        type: string
+      date:
+        type: string
+      meal_count:
+        type: integer
+      meals:
+        items:
+          $ref: '#/definitions/summary.ProteinMeal'
+        type: array
+      mps_effective_meal_count:
+        type: integer
+      mps_threshold_g:
+        type: number
+      total_protein_g:
+        type: number
+      tz:
+        type: string
+    type: object
+  summary.ProteinMeal:
+    properties:
+      gap_minutes_since_previous:
+        type: integer
+      logged_at:
+        type: string
+      logged_at_hour:
+        type: integer
+      meal_type:
+        type: string
+      mps_effective:
+        type: boolean
+      protein_g:
+        type: number
+    type: object
   summary.Range:
     properties:
       days:
@@ -2558,6 +2596,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Daily hydration total + entries
+      tags:
+      - summary
+  /summary/protein-distribution:
+    get:
+      description: 'Returns one row per `meal_entries` row on `date`, annotated with
+        `mps_effective: bool` (against the 0.3 g/kg body-weight muscle-protein-synthesis
+        threshold) plus `logged_at_hour` and `gap_minutes_since_previous` for circadian
+        + meal-spacing context. The headline metric is `mps_effective_meal_count /
+        meal_count`. Body weight resolution order: explicit `body_weight_kg` query
+        param > rolling 7-day mean of stored entries ending at `date` (inclusive)
+        > most-recent stored entry strictly before `date`. With no stored data and
+        no override, returns `400 weight_data_missing`.'
+      parameters:
+      - description: Calendar date in YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: IANA timezone (defaults to DEFAULT_USER_TZ)
+        in: query
+        name: tz
+        type: string
+      - description: Explicit body weight override; > 0
+        in: query
+        name: body_weight_kg
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/summary.ProteinDistribution'
+        "400":
+          description: date_required | date_invalid | tz_invalid | body_weight_kg_invalid
+            | weight_data_missing
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Per-meal protein distribution with MPS-threshold annotations
       tags:
       - summary
   /summary/range:

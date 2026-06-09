@@ -30,6 +30,16 @@ type RollingSummaryArgs struct {
 	TZ         string `json:"tz,omitempty" jsonschema:"IANA timezone (e.g. Europe/Berlin). If omitted, the REST server uses DEFAULT_USER_TZ."`
 }
 
+// ProteinDistributionArgs is the input shape for `protein_distribution`.
+// Returns per-meal protein with `mps_effective` annotations against the
+// 0.3 g/kg body-weight MPS threshold. Body weight is resolved from the stored
+// log unless an explicit override is supplied.
+type ProteinDistributionArgs struct {
+	Date         string   `json:"date" jsonschema:"calendar date in YYYY-MM-DD"`
+	TZ           string   `json:"tz,omitempty" jsonschema:"IANA timezone (e.g. Europe/Berlin). If omitted, the REST server uses DEFAULT_USER_TZ."`
+	BodyWeightKg *float64 `json:"body_weight_kg,omitempty" jsonschema:"explicit body weight in kg; > 0. Wins over stored body-weight entries. Omit to use the rolling 7-day stored average (or the most-recent stored entry if none in the window)."`
+}
+
 func handleDailySummary(ctx context.Context, c *apiClient, args DailySummaryArgs) *mcp.CallToolResult {
 	q := url.Values{}
 	q.Set("date", args.Date)
@@ -68,6 +78,19 @@ func handleRollingSummary(ctx context.Context, c *apiClient, args RollingSummary
 	return toToolResult(status, body, err)
 }
 
+func handleProteinDistribution(ctx context.Context, c *apiClient, args ProteinDistributionArgs) *mcp.CallToolResult {
+	q := url.Values{}
+	q.Set("date", args.Date)
+	if args.TZ != "" {
+		q.Set("tz", args.TZ)
+	}
+	if args.BodyWeightKg != nil {
+		q.Set("body_weight_kg", strconv.FormatFloat(*args.BodyWeightKg, 'f', -1, 64))
+	}
+	status, body, err := c.Get(ctx, "/summary/protein-distribution", q)
+	return toToolResult(status, body, err)
+}
+
 func registerSummaryTools(server *mcp.Server, c *apiClient) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "daily_summary",
@@ -85,6 +108,22 @@ func registerSummaryTools(server *mcp.Server, c *apiClient) {
 			"default timezone.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args RangeSummaryArgs) (*mcp.CallToolResult, any, error) {
 		return handleRangeSummary(ctx, c, args), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "protein_distribution",
+		Description: "Return per-meal protein for one calendar date with `mps_effective: bool` flags " +
+			"against the muscle-protein-synthesis (MPS) threshold of ~0.3 g protein per kg body weight " +
+			"per meal. The headline metric is `mps_effective_meal_count / meal_count` — surface that " +
+			"to the user when it's not 1.0. Each row also carries `gap_minutes_since_previous` (null on " +
+			"the first meal) and `logged_at_hour` (local hour in the requested `tz`) so you can flag " +
+			"meal-timing issues — the MPS sweet spot is 3–5h between protein doses; gaps under 3h aren't " +
+			"independent triggers and gaps over 5h close the MPS window. Body-weight resolution order: " +
+			"explicit `body_weight_kg` arg > rolling 7-day mean of stored weights ending at `date` " +
+			"(inclusive) > most-recent stored entry strictly before `date`. With no stored data and no " +
+			"override, returns `400 weight_data_missing`. Read-only; no idempotency-key.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ProteinDistributionArgs) (*mcp.CallToolResult, any, error) {
+		return handleProteinDistribution(ctx, c, args), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

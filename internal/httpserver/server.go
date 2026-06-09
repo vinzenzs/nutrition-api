@@ -117,6 +117,10 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	bodyWeightRepo := bodyweight.NewRepo(pool)
 	bodyWeightSvc := bodyweight.NewService(bodyWeightRepo)
 	energySvc := energy.NewService(mealsRepo, workoutsRepo, bodyWeightRepo)
+	// Protein-distribution needs to resolve weight at the queried date. Same
+	// optional-setter pattern that meals/hydration use for SetWorkoutsRepo
+	// (add-meal-workout-link).
+	summarySvc.SetBodyWeightRepo(bodyWeightRepo)
 	userTZ, err := time.LoadLocation(cfg.DefaultUserTZ)
 	if err != nil {
 		return err

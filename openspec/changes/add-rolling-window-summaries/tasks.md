@@ -84,7 +84,7 @@
 
 - [x] 11.1 `task vet` clean.
 - [x] 11.2 `task test` green per-package — `internal/summary/` and `internal/mcpserver/` both pass. Full-module `go test -p 1 ./...` flaked on the testcontainers pool ping in `summary` (the same flake pattern observed under add-workout-fuel and add-energy-availability); re-running `summary` in isolation passes.
-- [ ] 11.3 Manual e2e with `task dev`:
+- [x] 11.3 Manual e2e with `task dev`:
   - Log meals on 5 of the last 7 days (skip 2).
   - `GET /summary/rolling?anchor_date=$(date +%Y-%m-%d)&window_days=7&tz=Europe/Berlin` → assert `days_with_data == 5`, `total_days == 7`, `averages.kcal` matches manual SUM-divided-by-5.
   - `GET /summary/rolling?anchor_date=...&window_days=1` → assert `400 window_days_invalid` with the range payload.

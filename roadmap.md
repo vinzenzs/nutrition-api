@@ -1,12 +1,15 @@
 # Project Roadmap
 
-_Generated from OpenSpec changes. Last refreshed: 2026-06-08 by the `roadmap` skill._
+_Generated from OpenSpec changes. Last refreshed: 2026-06-09 by the `roadmap` skill._
 
 ## Implemented
 
 | Date | Change | Summary | Implementer(s) | Commit |
 |---|---|---|---|---|
-| 2026-06-08 | add-carb-load-auto-apply | `plan_carb_load` returns a deterministic per-day carb-load schedule but stops there — the agent then has to issue N separate `set_daily_goal_override` calls to actually put those numbers into the goal | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-09 | add-daily-context-aggregator | The agent currently makes 5–7 separate MCP calls to start every conversation: "what's today's adherence?", "what did I drink?", "what workouts are logged?", "any weight log?", "what training phase am  | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-09 | add-protein-distribution | For an athlete in a deficit, the *daily protein total* is necessary-but-not-sufficient. Muscle protein synthesis (MPS) is triggered per-meal, not per-day: the well-validated number is **~0.3 g of prot | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-09 | add-training-phases-and-templates | Today every day is identical to the system. The user is mid-way through a 16-week build/peak/recovery plan — the agent has to carry "I'm in build block 2, weeks 3–6" implicitly across conversations, a | Vinzenz Stadtmueller | _uncommitted_ |
+| 2026-06-08 | add-carb-load-auto-apply | `plan_carb_load` returns a deterministic per-day carb-load schedule but stops there — the agent then has to issue N separate `set_daily_goal_override` calls to actually put those numbers into the goal | Vinzenz Stadtmueller | [`4026c8e`](https://github.com/vinzenzs/nutrition-api/commit/4026c8e) |
 | 2026-06-08 | add-date-varying-goals | A real endurance-training day looks nothing like a rest day in calories or carbs. The user's working numbers are roughly 2200 kcal training / 1900 kcal rest — same target shape, different values. | Vinzenz Stadtmueller | [`5d141a1`](https://github.com/vinzenzs/nutrition-api/commit/5d141a1) |
 | 2026-06-08 | add-energy-availability | For an endurance athlete in a deficit, Energy Availability (EA) is the single most important number — it predicts both performance ceiling and longer-term hormonal/bone health. The Loucks bands are co | Vinzenz Stadtmueller | [`5d141a1`](https://github.com/vinzenzs/nutrition-api/commit/5d141a1) |
 | 2026-06-08 | add-hydration-tracking | The system can answer "what did I eat?" but not "what did I drink?" For an endurance-training user, that's a real blind spot: a 2-hour ride can easily produce ≥2 L of sweat loss, and intake without th | Vinzenz Stadtmueller | [`5d141a1`](https://github.com/vinzenzs/nutrition-api/commit/5d141a1) |

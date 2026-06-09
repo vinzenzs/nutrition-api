@@ -528,6 +528,49 @@ For deep dives into one slice (per-entry breakdowns, full meal lists, range
 queries), use the dedicated endpoints — `/summary/daily`, `/workouts`, etc.
 The aggregator deliberately omits per-entry detail to keep the bundle agent-readable.
 
+### Protein distribution (MPS per meal)
+
+One row per logged meal, annotated with `mps_effective: bool` against the
+0.3 g/kg body-weight muscle-protein-synthesis threshold. The headline metric
+is `mps_effective_meal_count / meal_count` — a daily total of 180 g doesn't
+matter if it landed as 20/20/140, since MPS triggers per-meal, not per-day.
+
+Body weight resolution order: explicit `body_weight_kg` query param > rolling
+7-day mean of stored entries ending at `date` (inclusive) > most-recent
+stored entry strictly before `date`. With no stored data and no override:
+`400 weight_data_missing`.
+
+```bash
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/protein-distribution?date=2026-06-09&tz=Europe/Berlin"
+
+# Override the resolved body weight:
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/protein-distribution?date=2026-06-09&tz=Europe/Berlin&body_weight_kg=72.5"
+# → {
+#     "date": "2026-06-09", "tz": "Europe/Berlin",
+#     "body_weight_kg": 72.5, "body_weight_source": "explicit",
+#     "mps_threshold_g": 21.8,
+#     "total_protein_g": 123.0,
+#     "meal_count": 4, "mps_effective_meal_count": 3,
+#     "meals": [
+#       { "logged_at": "2026-06-09T07:30:00Z", "logged_at_hour": 9,
+#         "meal_type": "breakfast", "protein_g": 28.0,
+#         "mps_effective": true,  "gap_minutes_since_previous": null },
+#       { "logged_at": "2026-06-09T11:00:00Z", "logged_at_hour": 13,
+#         "meal_type": "lunch",     "protein_g": 18.0,
+#         "mps_effective": false, "gap_minutes_since_previous": 210 },
+#       ...
+#     ]
+#   }
+```
+
+`gap_minutes_since_previous` is `null` on the first meal. The MPS-trigger
+sweet spot is 3–5 hours between protein doses; gaps under 3h aren't
+independent triggers, gaps over 5h close the MPS window. The endpoint
+returns the raw number — "this gap is short / long / fine" framing is
+agent-side.
+
 ### Goals
 
 ```bash
@@ -792,6 +835,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `daily_summary`               | `GET /summary/daily?date=…&tz=…&meal_type=…` | Per-day totals + entries; goal-based adherence when set.  |
 | `range_summary`               | `GET /summary/range?from=…&to=…&group_by=…`  | Per-day breakdown across an inclusive range (max 92 days). |
 | `rolling_summary`             | `GET /summary/rolling?anchor_date=…&window_days=…&tz=…` | Trailing-window nutrition average + per-day rows. Averages divide by `days_with_data`, not `total_days` (both exposed). Window bounded `[2, 30]`. |
+| `protein_distribution`        | `GET /summary/protein-distribution?date=…&tz=…&body_weight_kg=…` | Per-meal protein with `mps_effective` against the 0.3 g/kg MPS threshold. Headline metric: `mps_effective_meal_count / meal_count`. Body weight resolved from stored entries unless overridden. |
 | `get_goals`                   | `GET /goals`                           | Read current goals.                                           |
 | `set_goals`                   | `PUT /goals`                           | Set/replace daily macro and micro targets.                    |
 | `set_daily_goal_override`     | `PUT /goals/overrides/{date}`          | Override default goals for one date (training / rest / race day). |

@@ -2008,6 +2008,61 @@
                 }
             }
         },
+        "/summary/protein-distribution": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns one row per `meal_entries` row on `date`, annotated with `mps_effective: bool` (against the 0.3 g/kg body-weight muscle-protein-synthesis threshold) plus `logged_at_hour` and `gap_minutes_since_previous` for circadian + meal-spacing context. The headline metric is `mps_effective_meal_count / meal_count`. Body weight resolution order: explicit `body_weight_kg` query param \u003e rolling 7-day mean of stored entries ending at `date` (inclusive) \u003e most-recent stored entry strictly before `date`. With no stored data and no override, returns `400 weight_data_missing`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "summary"
+                ],
+                "summary": "Per-meal protein distribution with MPS-threshold annotations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Calendar date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "IANA timezone (defaults to DEFAULT_USER_TZ)",
+                        "name": "tz",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Explicit body weight override; \u003e 0",
+                        "name": "body_weight_kg",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/summary.ProteinDistribution"
+                        }
+                    },
+                    "400": {
+                        "description": "date_required | date_invalid | tz_invalid | body_weight_kg_invalid | weight_data_missing",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/summary/range": {
             "get": {
                 "security": [
@@ -4156,6 +4211,64 @@
                 },
                 "tz": {
                     "type": "string"
+                }
+            }
+        },
+        "summary.ProteinDistribution": {
+            "type": "object",
+            "properties": {
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "body_weight_source": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "meal_count": {
+                    "type": "integer"
+                },
+                "meals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/summary.ProteinMeal"
+                    }
+                },
+                "mps_effective_meal_count": {
+                    "type": "integer"
+                },
+                "mps_threshold_g": {
+                    "type": "number"
+                },
+                "total_protein_g": {
+                    "type": "number"
+                },
+                "tz": {
+                    "type": "string"
+                }
+            }
+        },
+        "summary.ProteinMeal": {
+            "type": "object",
+            "properties": {
+                "gap_minutes_since_previous": {
+                    "type": "integer"
+                },
+                "logged_at": {
+                    "type": "string"
+                },
+                "logged_at_hour": {
+                    "type": "integer"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "mps_effective": {
+                    "type": "boolean"
+                },
+                "protein_g": {
+                    "type": "number"
                 }
             }
         },

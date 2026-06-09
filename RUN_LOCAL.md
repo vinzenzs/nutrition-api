@@ -184,6 +184,15 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     "http://localhost:8080/summary/rolling?anchor_date=$(date +%Y-%m-%d)&window_days=7&tz=Europe/Berlin" \
     | jq '{anchor_date, window_days, days_with_data, total_days, averages_kcal: .averages.kcal, goal_source}'
 
+# Per-meal protein distribution with MPS-threshold flags (0.3 g/kg per meal).
+# Body weight is resolved from stored entries (rolling 7d avg) — pass
+# body_weight_kg=… to override.
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/summary/protein-distribution?date=$(date +%Y-%m-%d)&tz=Europe/Berlin" \
+    | jq '{mps_threshold_g, total_protein_g,
+           score: "\(.mps_effective_meal_count)/\(.meal_count) meals over threshold",
+           body_weight_source}'
+
 # Log a glass of water and check today's hydration total.
 curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
     -H "Content-Type: application/json" \

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
 	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/meals"
 	"github.com/vinzenzs/nutrition-api/internal/numfmt"
@@ -110,6 +111,12 @@ type Service struct {
 	pool          *pgxpool.Pool
 	mealsRepo     *meals.Repo
 	goalsResolver *goals.Resolver
+
+	// bodyWeightRepo is wired via SetBodyWeightRepo by callers that want the
+	// protein-distribution endpoint to resolve weight from stored entries.
+	// Optional — callers that don't set it must pass an explicit
+	// body_weight_kg override on every request.
+	bodyWeightRepo *bodyweight.Repo
 }
 
 func NewService(pool *pgxpool.Pool, mealsRepo *meals.Repo, resolver *goals.Resolver) *Service {

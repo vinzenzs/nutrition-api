@@ -1,6 +1,7 @@
 package summary
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -30,6 +31,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.GET("/summary/daily", h.daily)
 	rg.GET("/summary/range", h.rng)
 	rg.GET("/summary/rolling", h.rolling)
+	rg.GET("/summary/protein-distribution", h.proteinDistribution)
 }
 
 // daily godoc
@@ -185,6 +187,61 @@ func (h *Handlers) rolling(c *gin.Context) {
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "summary_failed"})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// proteinDistribution godoc
+// @Summary      Per-meal protein distribution with MPS-threshold annotations
+// @Description  Returns one row per `meal_entries` row on `date`, annotated with `mps_effective: bool` (against the 0.3 g/kg body-weight muscle-protein-synthesis threshold) plus `logged_at_hour` and `gap_minutes_since_previous` for circadian + meal-spacing context. The headline metric is `mps_effective_meal_count / meal_count`. Body weight resolution order: explicit `body_weight_kg` query param > rolling 7-day mean of stored entries ending at `date` (inclusive) > most-recent stored entry strictly before `date`. With no stored data and no override, returns `400 weight_data_missing`.
+// @Tags         summary
+// @Produce      json
+// @Param        date           query  string  true   "Calendar date in YYYY-MM-DD"
+// @Param        tz             query  string  false  "IANA timezone (defaults to DEFAULT_USER_TZ)"
+// @Param        body_weight_kg query  number  false  "Explicit body weight override; > 0"
+// @Success      200  {object}  ProteinDistribution
+// @Failure      400  {object}  map[string]string  "date_required | date_invalid | tz_invalid | body_weight_kg_invalid | weight_data_missing"
+// @Security     BearerAuth
+// @Router       /summary/protein-distribution [get]
+func (h *Handlers) proteinDistribution(c *gin.Context) {
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_required"})
+		return
+	}
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_invalid"})
+		return
+	}
+
+	loc, err := h.resolveTZ(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tz_invalid"})
+		return
+	}
+
+	params := ProteinDistributionParams{Date: date, Loc: loc}
+	if s := c.Query("body_weight_kg"); s != "" {
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "body_weight_kg_invalid"})
+			return
+		}
+		params.BodyWeightKgOverride = &v
+	}
+
+	out, err := h.svc.ProteinDistributionFor(c.Request.Context(), params)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrWeightDataMissing):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "weight_data_missing"})
+		case errors.Is(err, ErrBodyWeightInvalid):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "body_weight_kg_invalid"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "summary_failed"})
+		}
 		return
 	}
 	c.JSON(http.StatusOK, out)

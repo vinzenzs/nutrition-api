@@ -120,3 +120,46 @@ func TestRollingSummary_SparseWindowPassesThroughVerbatim(t *testing.T) {
 	assert.Equal(t, body, extractText(t, r),
 		"wrapper must pass the body byte-for-byte without injecting any sparse-window warning")
 }
+
+// ----- protein_distribution -----
+
+func TestProteinDistribution_BuildsCorrectQuery(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	bw := 72.5
+	_ = handleProteinDistribution(context.Background(), c, ProteinDistributionArgs{
+		Date: "2026-06-09", TZ: "Europe/Berlin", BodyWeightKg: &bw,
+	})
+	assert.Equal(t, http.MethodGet, rec.method)
+	assert.Equal(t, "/summary/protein-distribution", rec.path)
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "2026-06-09", values.Get("date"))
+	assert.Equal(t, "Europe/Berlin", values.Get("tz"))
+	assert.Equal(t, "72.5", values.Get("body_weight_kg"))
+}
+
+func TestProteinDistribution_OmitsOptionalsWhenUnset(t *testing.T) {
+	c, rec := newRecordingClient(t, 200, `{}`)
+	_ = handleProteinDistribution(context.Background(), c, ProteinDistributionArgs{Date: "2026-06-09"})
+	values, err := url.ParseQuery(rec.rawQS)
+	assert.NoError(t, err)
+	assert.Equal(t, "2026-06-09", values.Get("date"))
+	assert.NotContains(t, rec.rawQS, "tz=")
+	assert.NotContains(t, rec.rawQS, "body_weight_kg=")
+}
+
+func TestProteinDistribution_400Forwarded(t *testing.T) {
+	c, _ := newRecordingClient(t, 400, `{"error":"weight_data_missing"}`)
+	r := handleProteinDistribution(context.Background(), c, ProteinDistributionArgs{Date: "2026-06-09"})
+	assert.True(t, r.IsError)
+	tc := extractText(t, r)
+	assert.True(t, strings.Contains(tc, "weight_data_missing"))
+}
+
+func TestProteinDistribution_BodyPassesThroughVerbatim(t *testing.T) {
+	body := `{"date":"2026-06-09","body_weight_kg":72.5,"mps_threshold_g":21.8,"meal_count":4,"mps_effective_meal_count":3}`
+	c, _ := newRecordingClient(t, 200, body)
+	r := handleProteinDistribution(context.Background(), c, ProteinDistributionArgs{Date: "2026-06-09"})
+	assert.False(t, r.IsError)
+	assert.Equal(t, body, extractText(t, r))
+}

@@ -144,6 +144,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"delete_workout_fuel",
 		"weekly_energy_summary",
 		"rolling_summary",
+		"protein_distribution",
 		"create_phase",
 		"list_phases",
 		"get_phase",

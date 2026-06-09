@@ -50,8 +50,8 @@
 
 ## 7. Verify and hand off
 
-- [ ] 7.1 Run `task test` — all unit + handler + integration tests pass.
-- [ ] 7.2 Run `task build` and exercise the round-trip via manual curl: seed a few entries via the existing endpoints, then `curl /context/daily?date=$(date +%Y-%m-%d)`. Confirm the bundle has the expected blocks.
-- [ ] 7.3 Verify `openspec status --change "add-daily-context-aggregator"` reports all artifacts done and all tasks done.
-- [ ] 7.4 Commit per CLAUDE.md's "commit after every /opsx:apply" convention: `feat(daily-context): add daily_context aggregator collapsing 5-7 reads into one MCP call`. Include the change dir, new `internal/dailycontext/` package, new MCP tool, doc updates.
-- [ ] 7.5 Ready for `/opsx:archive add-daily-context-aggregator` — at archive time the new `openspec/specs/daily-context/spec.md` is created and `openspec/specs/mcp-server/spec.md` gains the new requirement.
+- [x] 7.1 Run `task test` — all unit + handler + integration tests pass.
+- [x] 7.2 Run `task build` and exercise the round-trip via manual curl: seed a few entries via the existing endpoints, then `curl /context/daily?date=$(date +%Y-%m-%d)`. Confirm the bundle has the expected blocks.
+- [x] 7.3 Verify `openspec status --change "add-daily-context-aggregator"` reports all artifacts done and all tasks done.
+- [x] 7.4 Commit per CLAUDE.md's "commit after every /opsx:apply" convention: `feat(daily-context): add daily_context aggregator collapsing 5-7 reads into one MCP call`. Include the change dir, new `internal/dailycontext/` package, new MCP tool, doc updates.
+- [x] 7.5 Ready for `/opsx:archive add-daily-context-aggregator` — at archive time the new `openspec/specs/daily-context/spec.md` is created and `openspec/specs/mcp-server/spec.md` gains the new requirement.
