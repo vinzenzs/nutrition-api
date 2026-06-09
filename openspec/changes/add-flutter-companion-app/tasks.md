@@ -1,54 +1,54 @@
 ## 1. Repo scaffolding
 
-- [ ] 1.1 Create `apps/companion/` and initialize a Flutter project via `flutter create --org com.corelyr --project-name nutrition_companion --platforms=android .` (run from inside the dir).
-- [ ] 1.2 Set min SDK to 26 (Android 8) in `android/app/build.gradle`. Set target / compile SDK to current latest.
-- [ ] 1.3 Add `apps/companion/.gitignore` entries for `build/`, `.dart_tool/`, `.flutter-plugins-dependencies`, platform-specific cruft.
-- [ ] 1.4 Update repo root `.gitignore` if there are conflicts with the Flutter ones.
-- [ ] 1.5 Extend `Taskfile.yml` with: `task app:run` (flutter run), `task app:build` (flutter build apk --release), `task app:test` (flutter test), `task app:pair` (alias for `task dev:pair`).
+- [x] 1.1 Create `apps/companion/` and initialize a Flutter project via `flutter create --org com.corelyr --project-name nutrition_companion --platforms=android .` (run from inside the dir).
+- [x] 1.2 Set min SDK to 26 (Android 8) in `android/app/build.gradle`. Set target / compile SDK to current latest.
+- [x] 1.3 Add `apps/companion/.gitignore` entries for `build/`, `.dart_tool/`, `.flutter-plugins-dependencies`, platform-specific cruft.
+- [x] 1.4 Update repo root `.gitignore` if there are conflicts with the Flutter ones.
+- [x] 1.5 Extend `Taskfile.yml` with: `task app:run` (flutter run), `task app:build` (flutter build apk --release), `task app:test` (flutter test), `task app:pair` (alias for `task dev:pair`).
 
 ## 2. Backend dev:pair helper
 
-- [ ] 2.1 Extend `Taskfile.yml` with a `dev:pair` task that prints the pairing QR code: `qrencode -t ANSIUTF8 "$(printf '{"base_url":"http://%s:%s","token":"%s"}' "$(hostname -I | awk '{print $1}')" "${HTTP_ADDR#:}" "$MOBILE_API_TOKEN")"`.
-- [ ] 2.2 Document the prerequisite (`brew install qrencode` on macOS) in RUN_LOCAL.md.
-- [ ] 2.3 Test that the QR scans correctly via a phone QR reader; the payload should parse as JSON.
+- [x] 2.1 Extend `Taskfile.yml` with a `dev:pair` task that prints the pairing QR code: `qrencode -t ANSIUTF8 "$(printf '{"base_url":"http://%s:%s","token":"%s"}' "$(hostname -I | awk '{print $1}')" "${HTTP_ADDR#:}" "$MOBILE_API_TOKEN")"`.
+- [x] 2.2 Document the prerequisite (`brew install qrencode` on macOS) in RUN_LOCAL.md.
+- [x] 2.3 Test that the QR scans correctly via a phone QR reader; the payload should parse as JSON.
 
 ## 3. Dart dependencies
 
-- [ ] 3.1 Add to `pubspec.yaml`: `flutter_riverpod`, `drift`, `drift_flutter`, `sqlite3_flutter_libs`, `dio`, `mobile_scanner`, `image_picker`, `flutter_secure_storage`, `connectivity_plus`, `workmanager`, `home_widget`, `qr_code_scanner` (for pairing scan), `intl`, `path_provider`.
-- [ ] 3.2 Dev deps: `drift_dev`, `build_runner`, `flutter_lints`, `mocktail`.
-- [ ] 3.3 Run `flutter pub get` and resolve any peer-conflict warnings.
-- [ ] 3.4 Add a `dart-defines.json` file checked into the repo (NOT a secret file) with build-time toggles (debug logging level, feature flags). Reference it via `--dart-define-from-file=dart-defines.json` in `task app:run`.
+- [x] 3.1 Add to `pubspec.yaml`: `flutter_riverpod`, `drift`, `drift_flutter`, `sqlite3_flutter_libs`, `dio`, `mobile_scanner`, `image_picker`, `flutter_secure_storage`, `connectivity_plus`, `workmanager`, `home_widget`, `qr_code_scanner` (for pairing scan), `intl`, `path_provider`. _Implementation note: `qr_code_scanner` is discontinued upstream; `mobile_scanner` is used for both barcodes and the pairing-QR scan to keep the dep surface small._
+- [x] 3.2 Dev deps: `drift_dev`, `build_runner`, `flutter_lints`, `mocktail`.
+- [x] 3.3 Run `flutter pub get` and resolve any peer-conflict warnings.
+- [x] 3.4 Add a `dart-defines.json` file checked into the repo (NOT a secret file) with build-time toggles (debug logging level, feature flags). Reference it via `--dart-define-from-file=dart-defines.json` in `task app:run`.
 
 ## 4. Local persistence (Drift)
 
-- [ ] 4.1 Define a `AppDatabase` in `lib/data/db/app_database.dart` with the four tables specified in design.md: `products_cache`, `recent_summary`, `pending_writes`, `widget_failures`.
-- [ ] 4.2 Generate Drift code with `dart run build_runner build --delete-conflicting-outputs`.
-- [ ] 4.3 Add migration v1 (initial) and a placeholder v2 hook for the future.
-- [ ] 4.4 Write a `dao/products_cache_dao.dart` with: `upsertFromApi(product)`, `getById(id)`, `recentlyScanned(limit)`.
-- [ ] 4.5 Write a `dao/pending_writes_dao.dart` with: `enqueue(method, path, body, idemKey)`, `pendingInArrivalOrder()`, `markDone(id)`, `markFailedPermanent(id, error)`, `markInFlight(id)`.
-- [ ] 4.6 Write a `dao/widget_failures_dao.dart` with: `drainInto(pendingWritesDao)`.
-- [ ] 4.7 Write a `dao/recent_summary_dao.dart` with: `upsertForDate(date, tz, summary)`, `getForDate(date, tz)`.
+- [x] 4.1 Define a `AppDatabase` in `lib/data/db/app_database.dart` with the four tables specified in design.md: `products_cache`, `recent_summary`, `pending_writes`, `widget_failures`.
+- [x] 4.2 Generate Drift code with `dart run build_runner build --delete-conflicting-outputs`.
+- [x] 4.3 Add migration v1 (initial) and a placeholder v2 hook for the future.
+- [x] 4.4 Write a `dao/products_cache_dao.dart` with: `upsertFromApi(product)`, `getById(id)`, `recentlyScanned(limit)`.
+- [x] 4.5 Write a `dao/pending_writes_dao.dart` with: `enqueue(method, path, body, idemKey)`, `pendingInArrivalOrder()`, `markDone(id)`, `markFailedPermanent(id, error)`, `markInFlight(id)`.
+- [x] 4.6 Write a `dao/widget_failures_dao.dart` with: `drainInto(pendingWritesDao)`.
+- [x] 4.7 Write a `dao/recent_summary_dao.dart` with: `upsertForDate(date, tz, summary)`, `getForDate(date, tz)`.
 
 ## 5. Secure storage and token bridge
 
-- [ ] 5.1 `lib/data/auth/token_store.dart`: `TokenStore` interface with `getToken()`, `getBaseUrl()`, `pair(baseUrl, token)`, `clear()`. Implementation uses `flutter_secure_storage`.
-- [ ] 5.2 Native Android: `android/app/src/main/kotlin/.../TokenBridge.kt` — small helper class exposing `getToken()`/`getBaseUrl()` via EncryptedSharedPreferences. Both the Flutter app (via method channel) and the widget worker read through this.
-- [ ] 5.3 Mirror the secure storage writes into EncryptedSharedPreferences on pair: Flutter writes once, calls a method channel to ask the bridge to mirror.
-- [ ] 5.4 Unit test the `TokenStore` (round trip pair → get).
+- [x] 5.1 `lib/data/auth/token_store.dart`: `TokenStore` interface with `getToken()`, `getBaseUrl()`, `pair(baseUrl, token)`, `clear()`. Implementation uses `flutter_secure_storage`.
+- [x] 5.2 Native Android: `android/app/src/main/kotlin/.../TokenBridge.kt` — small helper class exposing `getToken()`/`getBaseUrl()` via EncryptedSharedPreferences. Both the Flutter app (via method channel) and the widget worker read through this.
+- [x] 5.3 Mirror the secure storage writes into EncryptedSharedPreferences on pair: Flutter writes once, calls a method channel to ask the bridge to mirror.
+- [x] 5.4 Unit test the `TokenStore` (round trip pair → get).
 
 ## 6. Networking and outbox
 
-- [ ] 6.1 `lib/data/net/api_client.dart`: Dio client configured with base URL + bearer interceptor (reads from `TokenStore`). Adds `Idempotency-Key` and `User-Agent` headers per request.
-- [ ] 6.2 `lib/data/net/idempotency.dart`: helper to mint a UUID-v4 per outbox row.
-- [ ] 6.3 `lib/data/sync/outbox_worker.dart`: a stream-based worker that drains `pending_writes` in arrival order, classifies responses (2xx → done, 4xx-not-409 → failed_permanent, 5xx / network → keep pending with backoff).
-- [ ] 6.4 `lib/data/sync/replay_triggers.dart`: wire `connectivity_plus` listener, `WidgetsBindingObserver` for app foreground, and a `Workmanager` periodic 15-min task to invoke the worker.
-- [ ] 6.5 On every foreground, drain `widget_failures` into `pending_writes` first (so widget retries flow through the same queue).
-- [ ] 6.6 Unit tests for the worker: cached replay returns same id; 4xx-non-409 marks failed_permanent; 5xx leaves row pending; backoff increments `attempt_count`.
+- [x] 6.1 `lib/data/net/api_client.dart`: Dio client configured with base URL + bearer interceptor (reads from `TokenStore`). Adds `Idempotency-Key` and `User-Agent` headers per request.
+- [x] 6.2 `lib/data/net/idempotency.dart`: helper to mint a UUID-v4 per outbox row.
+- [x] 6.3 `lib/data/sync/outbox_worker.dart`: a stream-based worker that drains `pending_writes` in arrival order, classifies responses (2xx → done, 4xx-not-409 → failed_permanent, 5xx / network → keep pending with backoff).
+- [x] 6.4 `lib/data/sync/replay_triggers.dart`: wire `connectivity_plus` listener, `WidgetsBindingObserver` for app foreground, and a `Workmanager` periodic 15-min task to invoke the worker.
+- [x] 6.5 On every foreground, drain `widget_failures` into `pending_writes` first (so widget retries flow through the same queue).
+- [x] 6.6 Unit tests for the worker: cached replay returns same id; 4xx-non-409 marks failed_permanent; 5xx leaves row pending; backoff increments `attempt_count`.
 
 ## 7. Domain models
 
-- [ ] 7.1 `lib/domain/models.dart`: Dart classes for Product, MealEntry, DailySummary, HydrationEntry, Goals, Adherence. JSON serialization via `json_serializable` or hand-rolled fromJson (small surface; hand-roll is fine).
-- [ ] 7.2 Match nullability to the backend JSON (`omitempty` becomes `null`).
+- [x] 7.1 `lib/domain/models.dart`: Dart classes for Product, MealEntry, DailySummary, HydrationEntry, Goals, Adherence. JSON serialization via `json_serializable` or hand-rolled fromJson (small surface; hand-roll is fine).
+- [x] 7.2 Match nullability to the backend JSON (`omitempty` becomes `null`).
 
 ## 8. Riverpod providers
 

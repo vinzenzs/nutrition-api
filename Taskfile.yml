@@ -230,3 +230,52 @@ tasks:
       - task: db:wipe   # wipes container AND the {{.POSTGRES_VOLUME}} volume
       - rm -f .env.local
       - task: dev
+
+  dev:pair:
+    desc: Print a pairing QR for the Flutter companion app (base_url + MOBILE_API_TOKEN)
+    cmds:
+      - |
+        if ! command -v qrencode >/dev/null 2>&1; then
+          echo "qrencode not found. Install: brew install qrencode (macOS) / apt-get install qrencode (Linux)" >&2
+          exit 1
+        fi
+        if [ ! -f .env.local ]; then
+          echo ".env.local missing — run 'task dev' first to generate it." >&2
+          exit 1
+        fi
+        set -a && . ./.env.local && set +a
+        IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+        if [ -z "$IP" ]; then
+          echo "Could not determine LAN IP. Set IP=<addr> and re-run." >&2
+          exit 1
+        fi
+        PORT="${HTTP_ADDR#:}"
+        : "${PORT:=8080}"
+        PAYLOAD=$(printf '{"base_url":"http://%s:%s","token":"%s"}' "$IP" "$PORT" "$MOBILE_API_TOKEN")
+        echo ""
+        echo "Pairing payload: $PAYLOAD"
+        echo ""
+        qrencode -t ANSIUTF8 "$PAYLOAD"
+
+  app:run:
+    desc: Run the Flutter companion app on the connected Android device/emulator
+    dir: apps/companion
+    cmds:
+      - flutter run --dart-define-from-file=dart-defines.json
+
+  app:build:
+    desc: Build a release APK of the Flutter companion app
+    dir: apps/companion
+    cmds:
+      - flutter build apk --release --dart-define-from-file=dart-defines.json
+
+  app:test:
+    desc: Run the Flutter companion app's Dart tests
+    dir: apps/companion
+    cmds:
+      - flutter test
+
+  app:pair:
+    desc: Alias for `task dev:pair` — print the pairing QR for the companion app
+    cmds:
+      - task: dev:pair

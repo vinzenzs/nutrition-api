@@ -60,6 +60,7 @@ task db:wipe       # destructive — drops the volume
 | Docker (with compose v2) **or** Podman ≥ 4.x (with `podman compose`) | Run Postgres locally via `compose.yml`             | `docker compose version` or `podman compose version` |
 | Task (taskfile.dev)                   | Drive the dev workflow                             | `task --version`                 |
 | `curl`                                | Smoke-test the API                                 | `curl --version`                 |
+| `qrencode` (optional)                 | Print the pairing QR for the Flutter companion app via `task dev:pair` | `qrencode --version` |
 
 Task install:
 
@@ -70,6 +71,11 @@ Task install:
 `task db:up` prefers `docker compose` when available and falls back to
 `podman compose`. Docker Desktop and modern `docker.io` ship the compose v2
 plugin out of the box; Podman ≥ 4.x has native `podman compose`.
+
+`qrencode` is only needed if you plan to pair the Flutter companion app
+(`apps/companion/`) to the backend — install with `brew install qrencode`
+on macOS or `apt-get install qrencode` on Linux. Without it the backend
+runs fine; you just can't generate the pairing QR.
 
 ---
 

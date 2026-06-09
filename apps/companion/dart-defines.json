@@ -1,0 +1,7 @@
+{
+  "API_LOG_LEVEL": "info",
+  "FEATURE_PHOTO_CAPTURE": "true",
+  "FEATURE_BARCODE_SCAN": "true",
+  "FEATURE_HYDRATION_WIDGET": "true",
+  "DEFAULT_GLASS_SIZE_ML": "250"
+}
