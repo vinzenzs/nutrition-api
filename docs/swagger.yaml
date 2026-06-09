@@ -494,6 +494,32 @@ definitions:
       workout_id:
         type: string
     type: object
+  meals.fromPhotoInference:
+    properties:
+      claude_input_tokens:
+        type: integer
+      claude_output_tokens:
+        type: integer
+      confidence:
+        type: number
+      model:
+        type: string
+      notes:
+        type: string
+      original_image_bytes:
+        type: integer
+      resized_to:
+        items:
+          type: integer
+        type: array
+    type: object
+  meals.fromPhotoResponse:
+    properties:
+      inference:
+        $ref: '#/definitions/meals.fromPhotoInference'
+      meal:
+        $ref: '#/definitions/meals.MealEntry'
+    type: object
   meals.patchRequest:
     properties:
       logged_at:
@@ -1232,12 +1258,20 @@ definitions:
     properties:
       ended_at:
         type: string
+      gi_distress_score:
+        type: integer
       intra_window:
         $ref: '#/definitions/workoutfueling.FuelingWindow'
       post_window:
         $ref: '#/definitions/workoutfueling.FuelingWindow'
       pre_window:
         $ref: '#/definitions/workoutfueling.FuelingWindow'
+      rpe:
+        description: |-
+          Rehearsal-outcome signals echoed from the underlying workout row when
+          set. Lets the agent read "perceived effort + GI + fueling totals" in
+          one call — the natural rehearsal-evaluation shape.
+        type: integer
       started_at:
         type: string
       workout_id:
@@ -1277,6 +1311,8 @@ definitions:
         type: string
       external_id:
         type: string
+      gi_distress_score:
+        type: integer
       id:
         type: string
       kcal_burned:
@@ -1285,6 +1321,12 @@ definitions:
         type: string
       notes:
         type: string
+      rpe:
+        description: |-
+          Per-session rehearsal-outcome signals — both nullable, set by the user
+          after a fueling-rehearsal workout. Validated 1..10 (Borg CR-10) and 1..5
+          (1=no GI distress, 5=severe) at handler + DB CHECK layers.
+        type: integer
       source:
         $ref: '#/definitions/workouts.Source'
       sport:
@@ -1299,27 +1341,6 @@ definitions:
   workouts.bulkCreateRequest:
     type: object
   workouts.createRequest:
-    properties:
-      avg_hr:
-        type: integer
-      ended_at:
-        type: string
-      external_id:
-        type: string
-      kcal_burned:
-        type: number
-      name:
-        type: string
-      notes:
-        type: string
-      source:
-        type: string
-      sport:
-        type: string
-      started_at:
-        type: string
-      tss:
-        type: number
     type: object
 info:
   contact: {}
@@ -2035,6 +2056,97 @@ paths:
       security:
       - BearerAuth: []
       summary: Log a freeform meal entry (no product lookup)
+      tags:
+      - meals
+  /meals/from_photo:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accepts a `multipart/form-data` upload with an `image` part (JPEG
+        or PNG; HEIC is rejected with 415 in v1 because we don't ship libheif). The
+        backend resizes the image to a max edge of 1568px, sends it to Claude Vision
+        with a tool-forced output, and uses the returned `{name, nutriments_per_100g}`
+        to create a freeform meal entry. The response carries both the canonical `meal`
+        block and an `inference` block reporting model, confidence, token usage, and
+        image dimensions. Returns `503 vision_unavailable` when `ANTHROPIC_API_KEY`
+        is not configured.
+      parameters:
+      - description: Optional client-supplied idempotency key. Hash includes the raw
+          image bytes so byte-identical replays return the original meal without a
+          second Claude call.
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Image file (JPEG or PNG; HEIC rejected in v1).
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Meal quantity in grams. Default 100.
+        in: formData
+        name: quantity_g
+        type: number
+      - description: RFC 3339 timestamp; default now().
+        in: formData
+        name: logged_at
+        type: string
+      - description: breakfast | lunch | dinner | snack.
+        in: formData
+        name: meal_type
+        type: string
+      - description: Optional free-text note.
+        in: formData
+        name: note
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/meals.fromPhotoResponse'
+        "400":
+          description: image_required | quantity_g_invalid | logged_at_invalid | logged_at_too_far_future
+            | meal_type_invalid | note_too_long
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "413":
+          description: image_too_large with max_bytes hint
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: unsupported_media_type
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: vision_rate_limited with retry_after_seconds
+          schema:
+            additionalProperties: true
+            type: object
+        "502":
+          description: vision_unexpected_response | vision_response_unparseable
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: vision_unavailable (ANTHROPIC_API_KEY not configured)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "504":
+          description: vision_timeout | vision_upstream_error with retry_after_seconds
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Log a meal from a photo via Claude Vision
       tags:
       - meals
   /phases:

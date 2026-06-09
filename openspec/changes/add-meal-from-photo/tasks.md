@@ -60,17 +60,17 @@
 
 ## 7. e2e
 
-- [ ] 7.1 In `internal/e2e/e2e_test.go`, add `TestE2E_PhotoToMealLandsInDailySummary` that boots the server with a stub vision client (injected via a new option on `bootServer`), POSTs a fake image, asserts 201, then GETs `summary/daily` for the day and confirms the meal entry is included with the inferred name.
+- [x] 7.1 In `internal/e2e/e2e_test.go`, add `TestE2E_PhotoToMealLandsInDailySummary` that boots the server with a stub vision client (injected via a new option on `bootServer`), POSTs a fake image, asserts 201, then GETs `summary/daily` for the day and confirms the meal entry is included with the inferred name.
 
 ## 8. Docs
 
-- [ ] 8.1 Update `README.md` with a "Photo of meal" subsection in the Meals examples, including a `curl -F image=@plate.jpg ...` command.
-- [ ] 8.2 Update `RUN_LOCAL.md` to mention the `ANTHROPIC_API_KEY` env var and that the endpoint returns 503 without it.
-- [ ] 8.3 `task swag` to regenerate `docs/`.
+- [x] 8.1 Update `README.md` with a "Photo of meal" subsection in the Meals examples, including a `curl -F image=@plate.jpg ...` command.
+- [x] 8.2 Update `RUN_LOCAL.md` to mention the `ANTHROPIC_API_KEY` env var and that the endpoint returns 503 without it.
+- [x] 8.3 `task swag` to regenerate `docs/`.
 
 ## 9. Pre-merge
 
-- [ ] 9.1 `task vet` clean.
-- [ ] 9.2 `task test` green.
+- [x] 9.1 `task vet` clean.
+- [x] 9.2 `task test` green.
 - [ ] 9.3 Manual: with `ANTHROPIC_API_KEY` set in `.env.local`, post a real food photo, verify the parsed meal lands; without the key set, verify 503.
-- [ ] 9.4 `openspec validate add-meal-from-photo --strict` passes.
+- [x] 9.4 `openspec validate add-meal-from-photo --strict` passes.

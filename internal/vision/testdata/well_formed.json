@@ -1,0 +1,33 @@
+{
+  "id": "msg_01ABc123XyzWellFormed",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-6",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01ReportMealOk",
+      "name": "report_meal",
+      "input": {
+        "name": "Grilled chicken caesar salad",
+        "nutriments_per_100g": {
+          "kcal": 165,
+          "protein_g": 14.2,
+          "carbs_g": 5.1,
+          "fat_g": 9.8,
+          "fiber_g": 1.6,
+          "sugar_g": 1.2,
+          "salt_g": 0.9
+        },
+        "confidence": 0.85,
+        "notes": "Estimate assumes a standard caesar dressing portion."
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 1240,
+    "output_tokens": 89
+  }
+}

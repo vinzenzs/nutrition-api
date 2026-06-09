@@ -1,6 +1,7 @@
 package meals
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,20 +9,46 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/vinzenzs/nutrition-api/internal/vision"
 )
+
+// VisionParser is the narrow interface the /meals/from_photo handler depends
+// on. Production wires *vision.Client; tests can inject a stub without
+// spinning up an httptest server or recording fixtures end-to-end.
+type VisionParser interface {
+	Parse(ctx context.Context, req vision.ParseRequest) (*vision.ParseResult, error)
+}
 
 // Handlers wires meal endpoints onto a Gin router group.
 type Handlers struct {
 	svc *Service
+
+	// visionClient + maxPhotoBytes are wired via SetVision for the
+	// /meals/from_photo path. Optional — when visionClient is nil the
+	// handler returns 503 vision_unavailable, matching the
+	// "ANTHROPIC_API_KEY not configured" branch in design.md.
+	visionClient  VisionParser
+	maxPhotoBytes int64
 }
 
 func NewHandlers(svc *Service) *Handlers {
 	return &Handlers{svc: svc}
 }
 
+// SetVision wires the Claude vision parser and the max-image-bytes guard for
+// the /meals/from_photo endpoint. Production callers pass `*vision.Client`;
+// tests pass a stub VisionParser. Calling with vc=nil (e.g. when
+// ANTHROPIC_API_KEY is unset) is supported — the handler then returns 503.
+func (h *Handlers) SetVision(vc VisionParser, maxBytes int64) {
+	h.visionClient = vc
+	h.maxPhotoBytes = maxBytes
+}
+
 func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.POST("/meals", h.create)
 	rg.POST("/meals/freeform", h.createFreeform)
+	rg.POST("/meals/from_photo", h.createFromPhoto)
 	rg.GET("/meals/:id", h.get)
 	rg.GET("/meals", h.list)
 	rg.PATCH("/meals/:id", h.patch)

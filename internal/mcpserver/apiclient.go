@@ -44,6 +44,36 @@ func (c *apiClient) Post(ctx context.Context, path string, query url.Values, bod
 	return c.do(ctx, http.MethodPost, path, query, body, idempotencyKey)
 }
 
+// PostMultipart executes POST path with a multipart/form-data body. The
+// caller supplies the exact body bytes and the boundary-aware content type
+// (typically from multipart.Writer.FormDataContentType()). Used by the
+// /meals/from_photo MCP wrapper which needs to deliver an image upload to
+// the REST endpoint.
+func (c *apiClient) PostMultipart(ctx context.Context, path string, body []byte, contentType string, idempotencyKey string) (int, []byte, error) {
+	endpoint := *c.baseURL
+	endpoint.Path = path
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Content-Type", contentType)
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return 0, nil, transportErr(err)
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, transportErr(err)
+	}
+	return resp.StatusCode, respBody, nil
+}
+
 // Patch executes PATCH path with a JSON body.
 func (c *apiClient) Patch(ctx context.Context, path string, body []byte, idempotencyKey string) (int, []byte, error) {
 	return c.do(ctx, http.MethodPatch, path, nil, body, idempotencyKey)

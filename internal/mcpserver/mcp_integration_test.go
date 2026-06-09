@@ -113,6 +113,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"log_meal_freeform",
 		"patch_meal",
 		"delete_meal",
+		"log_meal_from_photo",
 		"daily_summary",
 		"range_summary",
 		"list_products",

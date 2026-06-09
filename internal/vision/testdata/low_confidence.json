@@ -1,0 +1,33 @@
+{
+  "id": "msg_01ABc456LowConf",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-6",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01LowConfidenceReport",
+      "name": "report_meal",
+      "input": {
+        "name": "Unidentified casserole",
+        "nutriments_per_100g": {
+          "kcal": 220,
+          "protein_g": 11.0,
+          "carbs_g": 18.0,
+          "fat_g": 12.0,
+          "fiber_g": null,
+          "sugar_g": null,
+          "salt_g": null
+        },
+        "confidence": 0.4,
+        "notes": "Lighting + angle make ingredients unclear. Recommend user refine via freeform path."
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 1240,
+    "output_tokens": 67
+  }
+}

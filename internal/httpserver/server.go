@@ -28,6 +28,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
+	"github.com/vinzenzs/nutrition-api/internal/vision"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
 )
 
@@ -89,6 +90,22 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	productsSvc := products.NewService(pool, productsRepo, offClient)
 	mealsRepo := meals.NewRepo(pool)
 	mealsSvc := meals.NewService(pool, mealsRepo, productsRepo)
+
+	// Vision (Claude) is optional: when ANTHROPIC_API_KEY is unset, leave the
+	// client nil so /meals/from_photo can return 503 vision_unavailable
+	// without blowing up the rest of the API.
+	var visionClient *vision.Client
+	if cfg.AnthropicAPIKey != "" {
+		vc, err := vision.New(vision.Config{
+			APIKey:  cfg.AnthropicAPIKey,
+			Model:   cfg.ClaudeVisionModel,
+			Timeout: cfg.VisionTimeout,
+		})
+		if err != nil {
+			return err
+		}
+		visionClient = vc
+	}
 	goalsRepo := goals.NewRepo(pool)
 	goalsOverridesRepo := goals.NewOverridesRepo(pool)
 	templatesRepo := trainingphases.NewTemplatesRepo(pool)
@@ -159,7 +176,9 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	api.Use(idempotency.Middleware(idempRepo, cfg.IdempotencyTTL))
 
 	products.NewHandlers(productsSvc).Register(api)
-	meals.NewHandlers(mealsSvc).Register(api)
+	mealsHandlers := meals.NewHandlers(mealsSvc)
+	mealsHandlers.SetVision(visionClient, cfg.MealFromPhotoMaxBytes)
+	mealsHandlers.Register(api)
 	summary.NewHandlers(summarySvc, cfg.DefaultUserTZ, logger).Register(api)
 	goals.NewHandlers(goalsRepo).Register(api)
 	goals.NewOverridesHandlers(goalsOverridesRepo).Register(api)

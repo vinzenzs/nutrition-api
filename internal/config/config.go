@@ -38,6 +38,15 @@ type Config struct {
 	NutritionAPIURL          string        `mapstructure:"NUTRITION_API_URL"`
 	MCPRequestTimeout        time.Duration `mapstructure:"-"`
 	MCPRequestTimeoutSeconds int           `mapstructure:"MCP_REQUEST_TIMEOUT_SECONDS"`
+
+	// Vision (Claude). When AnthropicAPIKey is unset the meals/from_photo
+	// endpoint returns 503; the rest of the API runs unchanged. Per
+	// add-meal-from-photo.
+	AnthropicAPIKey         string        `mapstructure:"ANTHROPIC_API_KEY"`
+	ClaudeVisionModel       string        `mapstructure:"CLAUDE_VISION_MODEL"`
+	VisionTimeout           time.Duration `mapstructure:"-"`
+	VisionTimeoutSeconds    int           `mapstructure:"VISION_TIMEOUT_SECONDS"`
+	MealFromPhotoMaxBytes   int64         `mapstructure:"MEAL_FROM_PHOTO_MAX_BYTES"`
 }
 
 // envKeys lists every environment variable Config recognises. Listed
@@ -56,6 +65,10 @@ var envKeys = []string{
 	"SWAGGER_ENABLED",
 	"NUTRITION_API_URL",
 	"MCP_REQUEST_TIMEOUT_SECONDS",
+	"ANTHROPIC_API_KEY",
+	"CLAUDE_VISION_MODEL",
+	"VISION_TIMEOUT_SECONDS",
+	"MEAL_FROM_PHOTO_MAX_BYTES",
 }
 
 // New returns a Viper instance pre-bound to all known environment variables
@@ -70,6 +83,9 @@ func New() *viper.Viper {
 	v.SetDefault("SWAGGER_ENABLED", false)
 	v.SetDefault("NUTRITION_API_URL", "http://localhost:8080")
 	v.SetDefault("MCP_REQUEST_TIMEOUT_SECONDS", 10)
+	v.SetDefault("CLAUDE_VISION_MODEL", "claude-sonnet-4-6")
+	v.SetDefault("VISION_TIMEOUT_SECONDS", 15)
+	v.SetDefault("MEAL_FROM_PHOTO_MAX_BYTES", 10*1024*1024) // 10MB
 	v.AutomaticEnv()
 	for _, k := range envKeys {
 		_ = v.BindEnv(k)
@@ -91,6 +107,7 @@ func Load(v *viper.Viper) (*Config, error) {
 	c.OFFTimeout = time.Duration(c.OFFTimeoutSeconds) * time.Second
 	c.IdempotencyTTL = time.Duration(c.IdempotencyTTLHours) * time.Hour
 	c.MCPRequestTimeout = time.Duration(c.MCPRequestTimeoutSeconds) * time.Second
+	c.VisionTimeout = time.Duration(c.VisionTimeoutSeconds) * time.Second
 	return &c, nil
 }
 

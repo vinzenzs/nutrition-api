@@ -190,4 +190,18 @@ func registerMealsTools(server *mcp.Server, c *apiClient) {
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args DeleteMealArgs) (*mcp.CallToolResult, any, error) {
 		return handleDeleteMeal(ctx, c, args), nil, nil
 	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "log_meal_from_photo",
+		Description: "Log a meal from a photo via Claude Vision. The image is supplied as " +
+			"base64-encoded bytes (JPEG or PNG; HEIC is rejected with 415 in v1). Backend resizes " +
+			"to max 1568px edge, calls Claude Vision with a tool-forced output, then creates a " +
+			"freeform meal entry. Returns the canonical meal block plus an `inference` block with " +
+			"model, confidence (0–1), token usage, and image dimensions. Use the freeform path " +
+			"directly when the user can describe the meal in text — this tool exists for the " +
+			"future MCP-aware UI that passes images through, and for headless test harnesses. " +
+			"503 vision_unavailable when ANTHROPIC_API_KEY is not configured on the REST server.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args LogMealFromPhotoArgs) (*mcp.CallToolResult, any, error) {
+		return handleLogMealFromPhoto(ctx, c, args), nil, nil
+	})
 }
