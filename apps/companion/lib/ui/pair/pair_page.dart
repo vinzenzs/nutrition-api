@@ -30,12 +30,19 @@ class _PairPageState extends ConsumerState<PairPage> {
     if (_handling) return;
     final raw = capture.barcodes.isNotEmpty ? capture.barcodes.first.rawValue : null;
     if (raw == null) return;
+    await _pairFromRaw(raw, malformedMessage: 'That QR code is not a valid pairing payload. Try again.');
+  }
+
+  /// Parses a raw pairing payload and pairs. Shared by the QR scanner and the
+  /// paste fallback (useful on an emulator, where scanning a QR is impractical).
+  Future<void> _pairFromRaw(String raw, {required String malformedMessage}) async {
+    if (_handling) return;
     _handling = true;
 
     final parsed = _parse(raw);
     if (parsed == null) {
       setState(() {
-        _error = 'That QR code is not a valid pairing payload. Try again.';
+        _error = malformedMessage;
         _handling = false;
       });
       return;
@@ -53,6 +60,39 @@ class _PairPageState extends ConsumerState<PairPage> {
         _handling = false;
       });
     }
+  }
+
+  /// Prompts for a pasted `{"base_url":...,"token":...}` payload, then pairs.
+  Future<void> _showPasteDialog() async {
+    final controller = TextEditingController();
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Paste pairing payload'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            hintText: '{"base_url":"http://10.0.2.2:8080","token":"..."}',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Pair'),
+          ),
+        ],
+      ),
+    );
+    if (raw == null || raw.isEmpty) return;
+    await _pairFromRaw(raw, malformedMessage: 'That payload is not valid JSON with base_url + token.');
   }
 
   /// Returns (baseUrl, token) or null if the payload is malformed.
@@ -96,6 +136,12 @@ class _PairPageState extends ConsumerState<PairPage> {
                   'the QR code in the terminal.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: _handling ? null : _showPasteDialog,
+                  icon: const Icon(Icons.content_paste),
+                  label: const Text('Paste payload instead'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),

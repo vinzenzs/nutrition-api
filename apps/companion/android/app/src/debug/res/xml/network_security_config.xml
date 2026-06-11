@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only (this file lives under src/debug). Permits cleartext HTTP
+     to the local dev backend: 10.0.2.2 is the Android emulator's alias for the
+     host's loopback, and a physical phone reaches the Mac over http on the LAN.
+     Release builds inherit Android's secure default (cleartext disallowed). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
