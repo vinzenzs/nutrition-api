@@ -88,12 +88,25 @@ class AppDatabase extends _$AppDatabase {
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
           // v2: products_cache gains last_logged_at for recency-of-use ordering
-          // in the food picker.
+          // in the food picker. The add is guarded by a column-existence check
+          // because a dev DB can reach v1 with the column already present (if a
+          // table definition changed without a schema-version bump, the column
+          // gets created out-of-band) — a bare addColumn then fails with
+          // "duplicate column name". products_cache is a regenerable cache, so
+          // staying idempotent here is the safe call.
           if (from < 2) {
-            await m.addColumn(productsCache, productsCache.lastLoggedAt);
+            if (!await _columnExists('products_cache', 'last_logged_at')) {
+              await m.addColumn(productsCache, productsCache.lastLoggedAt);
+            }
           }
         },
       );
+
+  /// Whether [column] already exists on [table] (via PRAGMA table_info).
+  Future<bool> _columnExists(String table, String column) async {
+    final rows = await customSelect("PRAGMA table_info('$table')").get();
+    return rows.any((r) => r.read<String>('name') == column);
+  }
 
   static QueryExecutor _openConnection() {
     return LazyDatabase(() async {
