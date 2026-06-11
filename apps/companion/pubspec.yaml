@@ -42,6 +42,13 @@ dependencies:
 
   # Networking
   dio: ^5.7.0
+  # Hand-rolled SSE for the chat stream uses http's streamed response
+  # (http.Client.send) — a ~50-line parser beats a package for a 4-event subset.
+  http: ^1.2.2
+
+  # Chat rendering: markdown bubbles + opening Cookidoo recipe links externally.
+  flutter_markdown: ^0.7.4
+  url_launcher: ^6.3.0
 
   # Opening system app settings (camera-permission denial recovery)
   permission_handler: ^11.3.1

@@ -1,9 +1,11 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../data/auth/token_store.dart';
 import '../data/db/app_database.dart';
 import '../data/net/api_client.dart';
+import '../data/net/chat_client.dart';
 import '../data/prefs.dart';
 import '../data/repository.dart';
 import '../data/sync/outbox_worker.dart';
@@ -29,6 +31,12 @@ final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(tokenStore: ref.watch(tokenStoreProvider)),
 );
 
+/// SSE chat client (separate from the dio-based [apiClient] — chat streams and
+/// can't be outboxed). Overridden in tests.
+final chatClientProvider = Provider<ChatClient>(
+  (ref) => ChatClient(tokenStore: ref.watch(tokenStoreProvider)),
+);
+
 final outboxWorkerProvider = Provider<OutboxWorker>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return OutboxWorker(
@@ -46,6 +54,15 @@ final repositoryProvider = Provider<Repository>((ref) {
     api: ref.watch(apiClientProvider),
     outbox: ref.watch(outboxWorkerProvider),
   );
+});
+
+/// Online/offline signal (reused for the chat composer gating — chat is the
+/// app's lone online-only surface). Starts optimistically online.
+final onlineProvider = StreamProvider<bool>((ref) async* {
+  yield true;
+  await for (final results in Connectivity().onConnectivityChanged) {
+    yield results.any((r) => r != ConnectivityResult.none);
+  }
 });
 
 /// Today's date in `yyyy-MM-dd`, device-local. The backend defaults the

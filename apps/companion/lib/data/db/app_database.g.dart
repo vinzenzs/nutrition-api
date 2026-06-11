@@ -1894,6 +1894,1311 @@ class WidgetFailuresCompanion extends UpdateCompanion<WidgetFailure> {
   }
 }
 
+class $ChatMessagesTable extends ChatMessages
+    with TableInfo<$ChatMessagesTable, ChatMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    conversationId,
+    role,
+    content,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ChatMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatMessage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ChatMessagesTable createAlias(String alias) {
+    return $ChatMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class ChatMessage extends DataClass implements Insertable<ChatMessage> {
+  final String id;
+  final String conversationId;
+  final String role;
+  final String content;
+  final DateTime createdAt;
+  const ChatMessage({
+    required this.id,
+    required this.conversationId,
+    required this.role,
+    required this.content,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['role'] = Variable<String>(role);
+    map['content'] = Variable<String>(content);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ChatMessagesCompanion toCompanion(bool nullToAbsent) {
+    return ChatMessagesCompanion(
+      id: Value(id),
+      conversationId: Value(conversationId),
+      role: Value(role),
+      content: Value(content),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatMessage(
+      id: serializer.fromJson<String>(json['id']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      role: serializer.fromJson<String>(json['role']),
+      content: serializer.fromJson<String>(json['content']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'role': serializer.toJson<String>(role),
+      'content': serializer.toJson<String>(content),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ChatMessage copyWith({
+    String? id,
+    String? conversationId,
+    String? role,
+    String? content,
+    DateTime? createdAt,
+  }) => ChatMessage(
+    id: id ?? this.id,
+    conversationId: conversationId ?? this.conversationId,
+    role: role ?? this.role,
+    content: content ?? this.content,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ChatMessage copyWithCompanion(ChatMessagesCompanion data) {
+    return ChatMessage(
+      id: data.id.present ? data.id.value : this.id,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      role: data.role.present ? data.role.value : this.role,
+      content: data.content.present ? data.content.value : this.content,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessage(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, conversationId, role, content, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatMessage &&
+          other.id == this.id &&
+          other.conversationId == this.conversationId &&
+          other.role == this.role &&
+          other.content == this.content &&
+          other.createdAt == this.createdAt);
+}
+
+class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
+  final Value<String> id;
+  final Value<String> conversationId;
+  final Value<String> role;
+  final Value<String> content;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const ChatMessagesCompanion({
+    this.id = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.role = const Value.absent(),
+    this.content = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatMessagesCompanion.insert({
+    required String id,
+    required String conversationId,
+    required String role,
+    required String content,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       conversationId = Value(conversationId),
+       role = Value(role),
+       content = Value(content),
+       createdAt = Value(createdAt);
+  static Insertable<ChatMessage> custom({
+    Expression<String>? id,
+    Expression<String>? conversationId,
+    Expression<String>? role,
+    Expression<String>? content,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (role != null) 'role': role,
+      if (content != null) 'content': content,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatMessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? conversationId,
+    Value<String>? role,
+    Value<String>? content,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ChatMessagesCompanion(
+      id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlanCacheTable extends PlanCache
+    with TableInfo<$PlanCacheTable, PlanCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlanCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _planDateMeta = const VerificationMeta(
+    'planDate',
+  );
+  @override
+  late final GeneratedColumn<String> planDate = GeneratedColumn<String>(
+    'plan_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _slotMeta = const VerificationMeta('slot');
+  @override
+  late final GeneratedColumn<String> slot = GeneratedColumn<String>(
+    'slot',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _productNameMeta = const VerificationMeta(
+    'productName',
+  );
+  @override
+  late final GeneratedColumn<String> productName = GeneratedColumn<String>(
+    'product_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _quantityGMeta = const VerificationMeta(
+    'quantityG',
+  );
+  @override
+  late final GeneratedColumn<double> quantityG = GeneratedColumn<double>(
+    'quantity_g',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta(
+    'refreshedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    planDate,
+    slot,
+    productId,
+    productName,
+    quantityG,
+    status,
+    refreshedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plan_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlanCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('plan_date')) {
+      context.handle(
+        _planDateMeta,
+        planDate.isAcceptableOrUnknown(data['plan_date']!, _planDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planDateMeta);
+    }
+    if (data.containsKey('slot')) {
+      context.handle(
+        _slotMeta,
+        slot.isAcceptableOrUnknown(data['slot']!, _slotMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_slotMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('product_name')) {
+      context.handle(
+        _productNameMeta,
+        productName.isAcceptableOrUnknown(
+          data['product_name']!,
+          _productNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quantity_g')) {
+      context.handle(
+        _quantityGMeta,
+        quantityG.isAcceptableOrUnknown(data['quantity_g']!, _quantityGMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(
+        _refreshedAtMeta,
+        refreshedAt.isAcceptableOrUnknown(
+          data['refreshed_at']!,
+          _refreshedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlanCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlanCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      planDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_date'],
+      )!,
+      slot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}slot'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      productName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_name'],
+      ),
+      quantityG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity_g'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      refreshedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}refreshed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PlanCacheTable createAlias(String alias) {
+    return $PlanCacheTable(attachedDatabase, alias);
+  }
+}
+
+class PlanCacheData extends DataClass implements Insertable<PlanCacheData> {
+  final String id;
+  final String planDate;
+  final String slot;
+  final String? productId;
+  final String? productName;
+  final double? quantityG;
+  final String status;
+  final DateTime refreshedAt;
+  const PlanCacheData({
+    required this.id,
+    required this.planDate,
+    required this.slot,
+    this.productId,
+    this.productName,
+    this.quantityG,
+    required this.status,
+    required this.refreshedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['plan_date'] = Variable<String>(planDate);
+    map['slot'] = Variable<String>(slot);
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    if (!nullToAbsent || productName != null) {
+      map['product_name'] = Variable<String>(productName);
+    }
+    if (!nullToAbsent || quantityG != null) {
+      map['quantity_g'] = Variable<double>(quantityG);
+    }
+    map['status'] = Variable<String>(status);
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  PlanCacheCompanion toCompanion(bool nullToAbsent) {
+    return PlanCacheCompanion(
+      id: Value(id),
+      planDate: Value(planDate),
+      slot: Value(slot),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      productName: productName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productName),
+      quantityG: quantityG == null && nullToAbsent
+          ? const Value.absent()
+          : Value(quantityG),
+      status: Value(status),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory PlanCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlanCacheData(
+      id: serializer.fromJson<String>(json['id']),
+      planDate: serializer.fromJson<String>(json['planDate']),
+      slot: serializer.fromJson<String>(json['slot']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      productName: serializer.fromJson<String?>(json['productName']),
+      quantityG: serializer.fromJson<double?>(json['quantityG']),
+      status: serializer.fromJson<String>(json['status']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'planDate': serializer.toJson<String>(planDate),
+      'slot': serializer.toJson<String>(slot),
+      'productId': serializer.toJson<String?>(productId),
+      'productName': serializer.toJson<String?>(productName),
+      'quantityG': serializer.toJson<double?>(quantityG),
+      'status': serializer.toJson<String>(status),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  PlanCacheData copyWith({
+    String? id,
+    String? planDate,
+    String? slot,
+    Value<String?> productId = const Value.absent(),
+    Value<String?> productName = const Value.absent(),
+    Value<double?> quantityG = const Value.absent(),
+    String? status,
+    DateTime? refreshedAt,
+  }) => PlanCacheData(
+    id: id ?? this.id,
+    planDate: planDate ?? this.planDate,
+    slot: slot ?? this.slot,
+    productId: productId.present ? productId.value : this.productId,
+    productName: productName.present ? productName.value : this.productName,
+    quantityG: quantityG.present ? quantityG.value : this.quantityG,
+    status: status ?? this.status,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  PlanCacheData copyWithCompanion(PlanCacheCompanion data) {
+    return PlanCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      planDate: data.planDate.present ? data.planDate.value : this.planDate,
+      slot: data.slot.present ? data.slot.value : this.slot,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      productName: data.productName.present
+          ? data.productName.value
+          : this.productName,
+      quantityG: data.quantityG.present ? data.quantityG.value : this.quantityG,
+      status: data.status.present ? data.status.value : this.status,
+      refreshedAt: data.refreshedAt.present
+          ? data.refreshedAt.value
+          : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlanCacheData(')
+          ..write('id: $id, ')
+          ..write('planDate: $planDate, ')
+          ..write('slot: $slot, ')
+          ..write('productId: $productId, ')
+          ..write('productName: $productName, ')
+          ..write('quantityG: $quantityG, ')
+          ..write('status: $status, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    planDate,
+    slot,
+    productId,
+    productName,
+    quantityG,
+    status,
+    refreshedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlanCacheData &&
+          other.id == this.id &&
+          other.planDate == this.planDate &&
+          other.slot == this.slot &&
+          other.productId == this.productId &&
+          other.productName == this.productName &&
+          other.quantityG == this.quantityG &&
+          other.status == this.status &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class PlanCacheCompanion extends UpdateCompanion<PlanCacheData> {
+  final Value<String> id;
+  final Value<String> planDate;
+  final Value<String> slot;
+  final Value<String?> productId;
+  final Value<String?> productName;
+  final Value<double?> quantityG;
+  final Value<String> status;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const PlanCacheCompanion({
+    this.id = const Value.absent(),
+    this.planDate = const Value.absent(),
+    this.slot = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.productName = const Value.absent(),
+    this.quantityG = const Value.absent(),
+    this.status = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlanCacheCompanion.insert({
+    required String id,
+    required String planDate,
+    required String slot,
+    this.productId = const Value.absent(),
+    this.productName = const Value.absent(),
+    this.quantityG = const Value.absent(),
+    required String status,
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       planDate = Value(planDate),
+       slot = Value(slot),
+       status = Value(status),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<PlanCacheData> custom({
+    Expression<String>? id,
+    Expression<String>? planDate,
+    Expression<String>? slot,
+    Expression<String>? productId,
+    Expression<String>? productName,
+    Expression<double>? quantityG,
+    Expression<String>? status,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (planDate != null) 'plan_date': planDate,
+      if (slot != null) 'slot': slot,
+      if (productId != null) 'product_id': productId,
+      if (productName != null) 'product_name': productName,
+      if (quantityG != null) 'quantity_g': quantityG,
+      if (status != null) 'status': status,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlanCacheCompanion copyWith({
+    Value<String>? id,
+    Value<String>? planDate,
+    Value<String>? slot,
+    Value<String?>? productId,
+    Value<String?>? productName,
+    Value<double?>? quantityG,
+    Value<String>? status,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return PlanCacheCompanion(
+      id: id ?? this.id,
+      planDate: planDate ?? this.planDate,
+      slot: slot ?? this.slot,
+      productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
+      quantityG: quantityG ?? this.quantityG,
+      status: status ?? this.status,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (planDate.present) {
+      map['plan_date'] = Variable<String>(planDate.value);
+    }
+    if (slot.present) {
+      map['slot'] = Variable<String>(slot.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (productName.present) {
+      map['product_name'] = Variable<String>(productName.value);
+    }
+    if (quantityG.present) {
+      map['quantity_g'] = Variable<double>(quantityG.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlanCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('planDate: $planDate, ')
+          ..write('slot: $slot, ')
+          ..write('productId: $productId, ')
+          ..write('productName: $productName, ')
+          ..write('quantityG: $quantityG, ')
+          ..write('status: $status, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ShoppingCacheTable extends ShoppingCache
+    with TableInfo<$ShoppingCacheTable, ShoppingCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ShoppingCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _quantityTextMeta = const VerificationMeta(
+    'quantityText',
+  );
+  @override
+  late final GeneratedColumn<String> quantityText = GeneratedColumn<String>(
+    'quantity_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _checkedMeta = const VerificationMeta(
+    'checked',
+  );
+  @override
+  late final GeneratedColumn<bool> checked = GeneratedColumn<bool>(
+    'checked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("checked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _seqMeta = const VerificationMeta('seq');
+  @override
+  late final GeneratedColumn<int> seq = GeneratedColumn<int>(
+    'seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta(
+    'refreshedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    quantityText,
+    checked,
+    seq,
+    refreshedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'shopping_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ShoppingCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('quantity_text')) {
+      context.handle(
+        _quantityTextMeta,
+        quantityText.isAcceptableOrUnknown(
+          data['quantity_text']!,
+          _quantityTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('checked')) {
+      context.handle(
+        _checkedMeta,
+        checked.isAcceptableOrUnknown(data['checked']!, _checkedMeta),
+      );
+    }
+    if (data.containsKey('seq')) {
+      context.handle(
+        _seqMeta,
+        seq.isAcceptableOrUnknown(data['seq']!, _seqMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seqMeta);
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(
+        _refreshedAtMeta,
+        refreshedAt.isAcceptableOrUnknown(
+          data['refreshed_at']!,
+          _refreshedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ShoppingCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ShoppingCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      quantityText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}quantity_text'],
+      ),
+      checked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}checked'],
+      )!,
+      seq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seq'],
+      )!,
+      refreshedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}refreshed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ShoppingCacheTable createAlias(String alias) {
+    return $ShoppingCacheTable(attachedDatabase, alias);
+  }
+}
+
+class ShoppingCacheData extends DataClass
+    implements Insertable<ShoppingCacheData> {
+  final String id;
+  final String name;
+  final String? quantityText;
+  final bool checked;
+  final int seq;
+  final DateTime refreshedAt;
+  const ShoppingCacheData({
+    required this.id,
+    required this.name,
+    this.quantityText,
+    required this.checked,
+    required this.seq,
+    required this.refreshedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || quantityText != null) {
+      map['quantity_text'] = Variable<String>(quantityText);
+    }
+    map['checked'] = Variable<bool>(checked);
+    map['seq'] = Variable<int>(seq);
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  ShoppingCacheCompanion toCompanion(bool nullToAbsent) {
+    return ShoppingCacheCompanion(
+      id: Value(id),
+      name: Value(name),
+      quantityText: quantityText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(quantityText),
+      checked: Value(checked),
+      seq: Value(seq),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory ShoppingCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ShoppingCacheData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      quantityText: serializer.fromJson<String?>(json['quantityText']),
+      checked: serializer.fromJson<bool>(json['checked']),
+      seq: serializer.fromJson<int>(json['seq']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'quantityText': serializer.toJson<String?>(quantityText),
+      'checked': serializer.toJson<bool>(checked),
+      'seq': serializer.toJson<int>(seq),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  ShoppingCacheData copyWith({
+    String? id,
+    String? name,
+    Value<String?> quantityText = const Value.absent(),
+    bool? checked,
+    int? seq,
+    DateTime? refreshedAt,
+  }) => ShoppingCacheData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    quantityText: quantityText.present ? quantityText.value : this.quantityText,
+    checked: checked ?? this.checked,
+    seq: seq ?? this.seq,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  ShoppingCacheData copyWithCompanion(ShoppingCacheCompanion data) {
+    return ShoppingCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      quantityText: data.quantityText.present
+          ? data.quantityText.value
+          : this.quantityText,
+      checked: data.checked.present ? data.checked.value : this.checked,
+      seq: data.seq.present ? data.seq.value : this.seq,
+      refreshedAt: data.refreshedAt.present
+          ? data.refreshedAt.value
+          : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ShoppingCacheData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('quantityText: $quantityText, ')
+          ..write('checked: $checked, ')
+          ..write('seq: $seq, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, quantityText, checked, seq, refreshedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ShoppingCacheData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.quantityText == this.quantityText &&
+          other.checked == this.checked &&
+          other.seq == this.seq &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class ShoppingCacheCompanion extends UpdateCompanion<ShoppingCacheData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> quantityText;
+  final Value<bool> checked;
+  final Value<int> seq;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const ShoppingCacheCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.quantityText = const Value.absent(),
+    this.checked = const Value.absent(),
+    this.seq = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ShoppingCacheCompanion.insert({
+    required String id,
+    required String name,
+    this.quantityText = const Value.absent(),
+    this.checked = const Value.absent(),
+    required int seq,
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       seq = Value(seq),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<ShoppingCacheData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? quantityText,
+    Expression<bool>? checked,
+    Expression<int>? seq,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (quantityText != null) 'quantity_text': quantityText,
+      if (checked != null) 'checked': checked,
+      if (seq != null) 'seq': seq,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ShoppingCacheCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? quantityText,
+    Value<bool>? checked,
+    Value<int>? seq,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return ShoppingCacheCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      quantityText: quantityText ?? this.quantityText,
+      checked: checked ?? this.checked,
+      seq: seq ?? this.seq,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (quantityText.present) {
+      map['quantity_text'] = Variable<String>(quantityText.value);
+    }
+    if (checked.present) {
+      map['checked'] = Variable<bool>(checked.value);
+    }
+    if (seq.present) {
+      map['seq'] = Variable<int>(seq.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ShoppingCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('quantityText: $quantityText, ')
+          ..write('checked: $checked, ')
+          ..write('seq: $seq, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1901,6 +3206,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RecentSummaryTable recentSummary = $RecentSummaryTable(this);
   late final $PendingWritesTable pendingWrites = $PendingWritesTable(this);
   late final $WidgetFailuresTable widgetFailures = $WidgetFailuresTable(this);
+  late final $ChatMessagesTable chatMessages = $ChatMessagesTable(this);
+  late final $PlanCacheTable planCache = $PlanCacheTable(this);
+  late final $ShoppingCacheTable shoppingCache = $ShoppingCacheTable(this);
   late final ProductsCacheDao productsCacheDao = ProductsCacheDao(
     this as AppDatabase,
   );
@@ -1913,6 +3221,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final WidgetFailuresDao widgetFailuresDao = WidgetFailuresDao(
     this as AppDatabase,
   );
+  late final ChatMessagesDao chatMessagesDao = ChatMessagesDao(
+    this as AppDatabase,
+  );
+  late final PlanCacheDao planCacheDao = PlanCacheDao(this as AppDatabase);
+  late final ShoppingCacheDao shoppingCacheDao = ShoppingCacheDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1922,6 +3237,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     recentSummary,
     pendingWrites,
     widgetFailures,
+    chatMessages,
+    planCache,
+    shoppingCache,
   ];
 }
 
@@ -2907,6 +4225,696 @@ typedef $$WidgetFailuresTableProcessedTableManager =
       WidgetFailure,
       PrefetchHooks Function()
     >;
+typedef $$ChatMessagesTableCreateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      required String id,
+      required String conversationId,
+      required String role,
+      required String content,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$ChatMessagesTableUpdateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      Value<String> id,
+      Value<String> conversationId,
+      Value<String> role,
+      Value<String> content,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$ChatMessagesTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatMessagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatMessagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ChatMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatMessagesTable,
+          ChatMessage,
+          $$ChatMessagesTableFilterComposer,
+          $$ChatMessagesTableOrderingComposer,
+          $$ChatMessagesTableAnnotationComposer,
+          $$ChatMessagesTableCreateCompanionBuilder,
+          $$ChatMessagesTableUpdateCompanionBuilder,
+          (
+            ChatMessage,
+            BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+          ),
+          ChatMessage,
+          PrefetchHooks Function()
+        > {
+  $$ChatMessagesTableTableManager(_$AppDatabase db, $ChatMessagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion(
+                id: id,
+                conversationId: conversationId,
+                role: role,
+                content: content,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String conversationId,
+                required String role,
+                required String content,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion.insert(
+                id: id,
+                conversationId: conversationId,
+                role: role,
+                content: content,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatMessagesTable,
+      ChatMessage,
+      $$ChatMessagesTableFilterComposer,
+      $$ChatMessagesTableOrderingComposer,
+      $$ChatMessagesTableAnnotationComposer,
+      $$ChatMessagesTableCreateCompanionBuilder,
+      $$ChatMessagesTableUpdateCompanionBuilder,
+      (
+        ChatMessage,
+        BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+      ),
+      ChatMessage,
+      PrefetchHooks Function()
+    >;
+typedef $$PlanCacheTableCreateCompanionBuilder =
+    PlanCacheCompanion Function({
+      required String id,
+      required String planDate,
+      required String slot,
+      Value<String?> productId,
+      Value<String?> productName,
+      Value<double?> quantityG,
+      required String status,
+      required DateTime refreshedAt,
+      Value<int> rowid,
+    });
+typedef $$PlanCacheTableUpdateCompanionBuilder =
+    PlanCacheCompanion Function({
+      Value<String> id,
+      Value<String> planDate,
+      Value<String> slot,
+      Value<String?> productId,
+      Value<String?> productName,
+      Value<double?> quantityG,
+      Value<String> status,
+      Value<DateTime> refreshedAt,
+      Value<int> rowid,
+    });
+
+class $$PlanCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $PlanCacheTable> {
+  $$PlanCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get planDate => $composableBuilder(
+    column: $table.planDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productName => $composableBuilder(
+    column: $table.productName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantityG => $composableBuilder(
+    column: $table.quantityG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlanCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlanCacheTable> {
+  $$PlanCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get planDate => $composableBuilder(
+    column: $table.planDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productName => $composableBuilder(
+    column: $table.productName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantityG => $composableBuilder(
+    column: $table.quantityG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlanCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlanCacheTable> {
+  $$PlanCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get planDate =>
+      $composableBuilder(column: $table.planDate, builder: (column) => column);
+
+  GeneratedColumn<String> get slot =>
+      $composableBuilder(column: $table.slot, builder: (column) => column);
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<String> get productName => $composableBuilder(
+    column: $table.productName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get quantityG =>
+      $composableBuilder(column: $table.quantityG, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$PlanCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlanCacheTable,
+          PlanCacheData,
+          $$PlanCacheTableFilterComposer,
+          $$PlanCacheTableOrderingComposer,
+          $$PlanCacheTableAnnotationComposer,
+          $$PlanCacheTableCreateCompanionBuilder,
+          $$PlanCacheTableUpdateCompanionBuilder,
+          (
+            PlanCacheData,
+            BaseReferences<_$AppDatabase, $PlanCacheTable, PlanCacheData>,
+          ),
+          PlanCacheData,
+          PrefetchHooks Function()
+        > {
+  $$PlanCacheTableTableManager(_$AppDatabase db, $PlanCacheTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlanCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlanCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlanCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> planDate = const Value.absent(),
+                Value<String> slot = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String?> productName = const Value.absent(),
+                Value<double?> quantityG = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlanCacheCompanion(
+                id: id,
+                planDate: planDate,
+                slot: slot,
+                productId: productId,
+                productName: productName,
+                quantityG: quantityG,
+                status: status,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String planDate,
+                required String slot,
+                Value<String?> productId = const Value.absent(),
+                Value<String?> productName = const Value.absent(),
+                Value<double?> quantityG = const Value.absent(),
+                required String status,
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PlanCacheCompanion.insert(
+                id: id,
+                planDate: planDate,
+                slot: slot,
+                productId: productId,
+                productName: productName,
+                quantityG: quantityG,
+                status: status,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlanCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlanCacheTable,
+      PlanCacheData,
+      $$PlanCacheTableFilterComposer,
+      $$PlanCacheTableOrderingComposer,
+      $$PlanCacheTableAnnotationComposer,
+      $$PlanCacheTableCreateCompanionBuilder,
+      $$PlanCacheTableUpdateCompanionBuilder,
+      (
+        PlanCacheData,
+        BaseReferences<_$AppDatabase, $PlanCacheTable, PlanCacheData>,
+      ),
+      PlanCacheData,
+      PrefetchHooks Function()
+    >;
+typedef $$ShoppingCacheTableCreateCompanionBuilder =
+    ShoppingCacheCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> quantityText,
+      Value<bool> checked,
+      required int seq,
+      required DateTime refreshedAt,
+      Value<int> rowid,
+    });
+typedef $$ShoppingCacheTableUpdateCompanionBuilder =
+    ShoppingCacheCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> quantityText,
+      Value<bool> checked,
+      Value<int> seq,
+      Value<DateTime> refreshedAt,
+      Value<int> rowid,
+    });
+
+class $$ShoppingCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $ShoppingCacheTable> {
+  $$ShoppingCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get quantityText => $composableBuilder(
+    column: $table.quantityText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get checked => $composableBuilder(
+    column: $table.checked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ShoppingCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $ShoppingCacheTable> {
+  $$ShoppingCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get quantityText => $composableBuilder(
+    column: $table.quantityText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get checked => $composableBuilder(
+    column: $table.checked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ShoppingCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ShoppingCacheTable> {
+  $$ShoppingCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get quantityText => $composableBuilder(
+    column: $table.quantityText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get checked =>
+      $composableBuilder(column: $table.checked, builder: (column) => column);
+
+  GeneratedColumn<int> get seq =>
+      $composableBuilder(column: $table.seq, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$ShoppingCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ShoppingCacheTable,
+          ShoppingCacheData,
+          $$ShoppingCacheTableFilterComposer,
+          $$ShoppingCacheTableOrderingComposer,
+          $$ShoppingCacheTableAnnotationComposer,
+          $$ShoppingCacheTableCreateCompanionBuilder,
+          $$ShoppingCacheTableUpdateCompanionBuilder,
+          (
+            ShoppingCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $ShoppingCacheTable,
+              ShoppingCacheData
+            >,
+          ),
+          ShoppingCacheData,
+          PrefetchHooks Function()
+        > {
+  $$ShoppingCacheTableTableManager(_$AppDatabase db, $ShoppingCacheTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ShoppingCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ShoppingCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ShoppingCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> quantityText = const Value.absent(),
+                Value<bool> checked = const Value.absent(),
+                Value<int> seq = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ShoppingCacheCompanion(
+                id: id,
+                name: name,
+                quantityText: quantityText,
+                checked: checked,
+                seq: seq,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> quantityText = const Value.absent(),
+                Value<bool> checked = const Value.absent(),
+                required int seq,
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ShoppingCacheCompanion.insert(
+                id: id,
+                name: name,
+                quantityText: quantityText,
+                checked: checked,
+                seq: seq,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ShoppingCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ShoppingCacheTable,
+      ShoppingCacheData,
+      $$ShoppingCacheTableFilterComposer,
+      $$ShoppingCacheTableOrderingComposer,
+      $$ShoppingCacheTableAnnotationComposer,
+      $$ShoppingCacheTableCreateCompanionBuilder,
+      $$ShoppingCacheTableUpdateCompanionBuilder,
+      (
+        ShoppingCacheData,
+        BaseReferences<_$AppDatabase, $ShoppingCacheTable, ShoppingCacheData>,
+      ),
+      ShoppingCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2919,4 +4927,10 @@ class $AppDatabaseManager {
       $$PendingWritesTableTableManager(_db, _db.pendingWrites);
   $$WidgetFailuresTableTableManager get widgetFailures =>
       $$WidgetFailuresTableTableManager(_db, _db.widgetFailures);
+  $$ChatMessagesTableTableManager get chatMessages =>
+      $$ChatMessagesTableTableManager(_db, _db.chatMessages);
+  $$PlanCacheTableTableManager get planCache =>
+      $$PlanCacheTableTableManager(_db, _db.planCache);
+  $$ShoppingCacheTableTableManager get shoppingCache =>
+      $$ShoppingCacheTableTableManager(_db, _db.shoppingCache);
 }

@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
 import '../../state/app_providers.dart';
+import '../../state/shopping_provider.dart';
 import '../../state/today_provider.dart';
 import '../nutrient_labels.dart';
 import '../settings/settings_sheet.dart';
+import '../shopping/shopping_page.dart';
 import 'adherence_ring.dart';
+import 'plan_card.dart';
 
 /// Glance surface: adherence rings (or raw totals when goals are unset), a
 /// hydration progress card, and the last three meals. The floating action
@@ -22,6 +25,7 @@ class TodayPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Today'),
         actions: [
+          _CartButton(),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
@@ -91,7 +95,9 @@ class _TodayBody extends ConsumerWidget {
           _RawTotalsBlock(summary: summary),
         const SizedBox(height: 16),
         const _HydrationCard(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        const PlanCard(),
+        const SizedBox(height: 8),
         Text('Recent meals', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         ..._recentMeals(context),
@@ -257,6 +263,28 @@ class _ErrorBody extends StatelessWidget {
         const SizedBox(height: 120),
         Center(child: Text(message)),
       ],
+    );
+  }
+}
+
+/// Shopping-list entry point in the Today header, badged with the open-item
+/// count (the nav stays at four slots; shopping rides here — design D6).
+class _CartButton extends ConsumerWidget {
+  const _CartButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(shoppingOpenCountProvider);
+    return IconButton(
+      tooltip: 'Shopping list',
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        child: const Icon(Icons.shopping_cart_outlined),
+      ),
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const ShoppingPage()),
+      ),
     );
   }
 }

@@ -7,12 +7,13 @@ import '../state/today_provider.dart';
 import '../data/db/app_database.dart';
 import '../data/sync/replay_triggers.dart';
 import 'camera/camera_page.dart';
+import 'chat/chat_page.dart';
 import 'recent/recent_page.dart';
 import 'today/today_page.dart';
 
-/// The three-screen shell. A fourth navigation slot is wired but disabled — it
-/// is reserved for the v2 chat affordance so the nav layout doesn't change
-/// when chat lands.
+/// The four-screen shell: Today, Camera, Recent, Chat. The chat slot was
+/// reserved in v1 and is activated here (add-companion-chat) without changing
+/// the nav layout.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -24,7 +25,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   ReplayTriggers? _triggers;
 
-  static const _pages = [TodayPage(), CameraPage(), RecentPage()];
+  static const _pages = [TodayPage(), CameraPage(), RecentPage(), ChatPage()];
 
   @override
   void initState() {
@@ -62,13 +63,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) {
-          if (i == 3) {
-            // Reserved chat slot — disabled in v1.
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Chat is coming soon')),
-            );
-            return;
-          }
           setState(() => _index = i);
           // Reconcile the destination so writes made on another tab (which go
           // through the async outbox) show up. By the time the user taps over,
@@ -95,10 +89,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               selectedIcon: Icon(Icons.list_alt),
               label: 'Recent'),
           NavigationDestination(
-            icon: Tooltip(message: 'Coming soon', child: Icon(Icons.add)),
-            label: 'Chat',
-            enabled: false,
-          ),
+              icon: Icon(Icons.chat_bubble_outline),
+              selectedIcon: Icon(Icons.chat_bubble),
+              label: 'Chat'),
         ],
       ),
     );

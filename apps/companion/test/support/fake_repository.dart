@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:nutrition_companion/data/repository.dart';
 import 'package:nutrition_companion/domain/models.dart';
+import 'package:nutrition_companion/domain/planning.dart';
 
 /// Behaviour-only fake — no Drift, no Dio. Tests set the public fields to wire
 /// responses and read [meals]/[deletedMeals]/[hydration] to assert writes.
@@ -153,6 +154,55 @@ class FakeRepository implements Repository {
 
   @override
   Future<void> enqueueDeleteHydration(String id) async {}
+
+  // --- planning surfaces (chat) ---
+  List<PlannedMeal> plan = [];
+  List<ShoppingItem> shopping = [];
+  final List<String> eaten = [];
+  final List<(String, String)> planStatus = [];
+  final List<(String, bool)> shoppingChecked = [];
+  final List<String> addedShopping = [];
+  int clearCheckedCalls = 0;
+
+  @override
+  Future<List<PlannedMeal>> cachedPlan(String date) async => const [];
+  @override
+  Future<List<PlannedMeal>> fetchPlan(String date) async => plan;
+  @override
+  Future<List<ShoppingItem>> cachedShopping() async => const [];
+  @override
+  Future<List<ShoppingItem>> fetchShopping() async => shopping;
+  // Writes mutate the fake's server-side state so a subsequent fetch (the
+  // provider's reconcile) sees the applied change, like the real backend.
+  @override
+  Future<void> enqueueMarkEaten(String planId) async {
+    eaten.add(planId);
+    plan = [for (final p in plan) p.id == planId ? p.copyWith(status: 'eaten') : p];
+  }
+
+  @override
+  Future<void> enqueuePlanStatus(String planId, String status) async {
+    planStatus.add((planId, status));
+    plan = [for (final p in plan) p.id == planId ? p.copyWith(status: status) : p];
+  }
+
+  @override
+  Future<void> enqueueShoppingChecked(String itemId, bool checked) async {
+    shoppingChecked.add((itemId, checked));
+    shopping = [for (final i in shopping) i.id == itemId ? i.copyWith(checked: checked) : i];
+  }
+
+  @override
+  Future<void> enqueueAddShoppingItem(String name) async {
+    addedShopping.add(name);
+    shopping = [...shopping, ShoppingItem(id: 'new-$name', name: name, checked: false)];
+  }
+
+  @override
+  Future<void> enqueueClearCheckedShopping() async {
+    clearCheckedCalls++;
+    shopping = shopping.where((i) => !i.checked).toList();
+  }
 
   @override
   Future<void> flush() async {}

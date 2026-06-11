@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show Value;
 
 import '../domain/models.dart';
+import '../domain/planning.dart';
 import 'db/app_database.dart';
 import 'net/api_client.dart';
 import 'net/idempotency.dart';
@@ -97,6 +99,26 @@ abstract class Repository {
   Future<void> enqueueDeleteHydration(String id);
 
   /// Drains the outbox now (used after optimistic writes).
+  // --- Planning surfaces (chat-produced) ------------------------------------
+
+  /// Cached planned meals for [date] (stale-while-revalidate), or empty.
+  Future<List<PlannedMeal>> cachedPlan(String date);
+
+  /// Fetches `GET /plan?from=date&to=date`, write-through to the cache.
+  Future<List<PlannedMeal>> fetchPlan(String date);
+
+  /// Cached shopping list, or empty.
+  Future<List<ShoppingItem>> cachedShopping();
+
+  /// Fetches `GET /shopping/items?include_checked=true`, write-through.
+  Future<List<ShoppingItem>> fetchShopping();
+
+  Future<void> enqueueMarkEaten(String planId);
+  Future<void> enqueuePlanStatus(String planId, String status);
+  Future<void> enqueueShoppingChecked(String itemId, bool checked);
+  Future<void> enqueueAddShoppingItem(String name);
+  Future<void> enqueueClearCheckedShopping();
+
   Future<void> flush();
 }
 
@@ -370,6 +392,112 @@ class ApiRepository implements Repository {
 
   @override
   Future<void> flush() => outbox.drain();
+
+  // --- Planning surfaces ----------------------------------------------------
+
+  @override
+  Future<List<PlannedMeal>> cachedPlan(String date) async {
+    final rows = await db.planCacheDao.forDate(date);
+    return rows
+        .map((r) => PlannedMeal(
+              id: r.id,
+              planDate: r.planDate,
+              slot: r.slot,
+              status: r.status,
+              productId: r.productId,
+              productName: r.productName,
+              quantityG: r.quantityG,
+            ))
+        .toList();
+  }
+
+  @override
+  Future<List<PlannedMeal>> fetchPlan(String date) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/plan',
+      queryParameters: {'from': date, 'to': date},
+    );
+    final list = ((resp.data?['planned_meals'] as List?) ?? const [])
+        .map((e) => PlannedMeal.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+    await db.planCacheDao.replaceForDate(date, [
+      for (final p in list)
+        PlanCacheCompanion.insert(
+          id: p.id,
+          planDate: p.planDate,
+          slot: p.slot,
+          status: p.status,
+          productId: Value(p.productId),
+          productName: Value(p.productName),
+          quantityG: Value(p.quantityG),
+          refreshedAt: DateTime.now(),
+        ),
+    ]);
+    return list;
+  }
+
+  @override
+  Future<List<ShoppingItem>> cachedShopping() async {
+    final rows = await db.shoppingCacheDao.all();
+    return rows
+        .map((r) => ShoppingItem(
+              id: r.id,
+              name: r.name,
+              checked: r.checked,
+              quantityText: r.quantityText,
+            ))
+        .toList();
+  }
+
+  @override
+  Future<List<ShoppingItem>> fetchShopping() async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/shopping/items',
+      queryParameters: {'include_checked': 'true'},
+    );
+    final list = ((resp.data?['items'] as List?) ?? const [])
+        .map((e) => ShoppingItem.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+    await db.shoppingCacheDao.replaceAll([
+      for (var i = 0; i < list.length; i++)
+        ShoppingCacheCompanion.insert(
+          id: list[i].id,
+          name: list[i].name,
+          quantityText: Value(list[i].quantityText),
+          checked: Value(list[i].checked),
+          seq: i,
+          refreshedAt: DateTime.now(),
+        ),
+    ]);
+    return list;
+  }
+
+  @override
+  Future<void> enqueueMarkEaten(String planId) =>
+      _enqueue('POST', '/plan/$planId/eaten', {});
+
+  @override
+  Future<void> enqueuePlanStatus(String planId, String status) =>
+      _enqueue('PATCH', '/plan/$planId', {'status': status});
+
+  @override
+  Future<void> enqueueShoppingChecked(String itemId, bool checked) =>
+      _enqueue('PATCH', '/shopping/items/$itemId', {'checked': checked});
+
+  @override
+  Future<void> enqueueAddShoppingItem(String name) => _enqueue(
+        'POST',
+        '/shopping/items',
+        {
+          'items': [
+            {'name': name},
+          ],
+        },
+      );
+
+  @override
+  Future<void> enqueueClearCheckedShopping() =>
+      _enqueue('DELETE', '/shopping/items?checked=true', null);
 
   Future<void> _enqueue(
     String method,
