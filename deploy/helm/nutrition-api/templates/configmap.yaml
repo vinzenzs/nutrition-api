@@ -16,5 +16,8 @@ data:
   IDEMPOTENCY_TTL_HOURS: {{ .Values.config.idempotencyTtlHours | quote }}
   CLAUDE_VISION_MODEL: {{ .Values.config.claudeVisionModel | quote }}
   VISION_TIMEOUT_SECONDS: {{ .Values.config.visionTimeoutSeconds | quote }}
-  MEAL_FROM_PHOTO_MAX_BYTES: {{ .Values.config.mealFromPhotoMaxBytes | quote }}
+  # int64 before quote: a `--set config.mealFromPhotoMaxBytes=N` override is
+  # stored as a float64 by Helm and would otherwise render in scientific
+  # notation ("1.048576e+07"), which the binary's int64 parser rejects.
+  MEAL_FROM_PHOTO_MAX_BYTES: {{ .Values.config.mealFromPhotoMaxBytes | int64 | quote }}
   HTTP_ADDR: ":{{ .Values.service.targetPort }}"
