@@ -2470,6 +2470,286 @@ const docTemplate = `{
                 }
             }
         },
+        "/races": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "List races",
+                "responses": {
+                    "200": {
+                        "description": "{ races: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists a race (name + date) and its ordered legs. Each leg is ` + "`" + `{ordinal, discipline, distance_m?, expected_duration_min?, intensity?}` + "`" + `; ` + "`" + `discipline` + "`" + ` is one of swim|bike|run|transition|other and ` + "`" + `ordinal` + "`" + ` must be unique within the race. This is a planning entity — the per-leg fuelling plan is computed separately via GET /races/{id}/fueling-plan.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "Create a race with legs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Race + legs",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/races.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/races.Race"
+                        }
+                    },
+                    "400": {
+                        "description": "race_name_required | race_date_invalid | notes_too_long | leg_ordinal_duplicate | leg_discipline_invalid | leg_expected_duration_min_invalid | leg_distance_m_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/races/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "Get a race with its legs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Race UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/races.Race"
+                        }
+                    },
+                    "404": {
+                        "description": "race_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "Delete a race (legs cascade)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Race UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "race_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the supplied scalar fields. If a ` + "`" + `legs` + "`" + ` array is present, it REPLACES all existing legs wholesale (an empty array clears them); omit ` + "`" + `legs` + "`" + ` to leave them unchanged.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "Update a race (and optionally replace its legs)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Race UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/races.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/races.Race"
+                        }
+                    },
+                    "400": {
+                        "description": "race_name_required | race_date_invalid | notes_too_long | leg_ordinal_duplicate | leg_discipline_invalid | leg_expected_duration_min_invalid | leg_distance_m_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "race_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/races/{id}/fueling-plan": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deterministic per-leg in-event fuelling baseline computed on read (not stored). Carbs band by total race duration (\u003c75 min → 0, 75–150 → 60, ≥150 → 90 g/hr) and scale by discipline intake capacity (swim/transition 0, bike 1.0, run 0.7, other 0.8). Fluid and sodium derive from ` + "`" + `sweat_rate_ml_per_hr` + "`" + ` when supplied (fluid capped at 1000 ml/hr; sodium = sweat_rate/1000 × 800 mg/L), else a flagged 600 ml/hr and 600 mg/hr. Carbs (g), sodium (mg) and fluid (ml) are reported as distinct unit fields.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "races"
+                ],
+                "summary": "Compute the per-leg fuelling plan for a race",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Race UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Athlete body weight in kilograms, 30..200",
+                        "name": "body_weight_kg",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Measured sweat rate in ml/hr; personalises fluid and sodium",
+                        "name": "sweat_rate_ml_per_hr",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/races.FuelingPlan"
+                        }
+                    },
+                    "400": {
+                        "description": "body_weight_kg_required | body_weight_kg_out_of_range | sweat_rate_out_of_range | sweat_rate_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "race_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/recovery-metrics": {
             "get": {
                 "security": [
@@ -5193,6 +5473,235 @@ const docTemplate = `{
                 },
                 "race_day_carbs_per_kg": {
                     "type": "number"
+                }
+            }
+        },
+        "races.Discipline": {
+            "type": "string",
+            "enum": [
+                "swim",
+                "bike",
+                "run",
+                "transition",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "DisciplineSwim",
+                "DisciplineBike",
+                "DisciplineRun",
+                "DisciplineTransition",
+                "DisciplineOther"
+            ]
+        },
+        "races.FuelTotals": {
+            "type": "object",
+            "properties": {
+                "carbs_g_total": {
+                    "type": "number"
+                },
+                "fluid_ml_total": {
+                    "type": "number"
+                },
+                "sodium_mg_total": {
+                    "type": "number"
+                }
+            }
+        },
+        "races.FuelingPlan": {
+            "type": "object",
+            "properties": {
+                "body_weight_kg": {
+                    "type": "number"
+                },
+                "legs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/races.LegFuelingPlan"
+                    }
+                },
+                "race_date": {
+                    "type": "string"
+                },
+                "race_id": {
+                    "type": "string"
+                },
+                "race_name": {
+                    "type": "string"
+                },
+                "sweat_rate_ml_per_hr": {
+                    "type": "number"
+                },
+                "total": {
+                    "$ref": "#/definitions/races.FuelTotals"
+                },
+                "total_duration_min": {
+                    "type": "integer"
+                }
+            }
+        },
+        "races.LegFuelingPlan": {
+            "type": "object",
+            "properties": {
+                "carbs_g_per_hr": {
+                    "type": "number"
+                },
+                "carbs_g_total": {
+                    "type": "number"
+                },
+                "discipline": {
+                    "$ref": "#/definitions/races.Discipline"
+                },
+                "expected_duration_min": {
+                    "type": "integer"
+                },
+                "fluid_ml_per_hr": {
+                    "type": "number"
+                },
+                "fluid_ml_total": {
+                    "type": "number"
+                },
+                "ordinal": {
+                    "type": "integer"
+                },
+                "rationale": {
+                    "type": "string"
+                },
+                "sodium_mg_per_hr": {
+                    "type": "number"
+                },
+                "sodium_mg_total": {
+                    "type": "number"
+                }
+            }
+        },
+        "races.Race": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "legs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/races.RaceLeg"
+                    }
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "race_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "race_type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "races.RaceLeg": {
+            "type": "object",
+            "properties": {
+                "discipline": {
+                    "$ref": "#/definitions/races.Discipline"
+                },
+                "distance_m": {
+                    "type": "number"
+                },
+                "expected_duration_min": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "intensity": {
+                    "type": "string"
+                },
+                "ordinal": {
+                    "type": "integer"
+                }
+            }
+        },
+        "races.createRequest": {
+            "type": "object",
+            "properties": {
+                "legs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/races.legRequest"
+                    }
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "race_date": {
+                    "type": "string"
+                },
+                "race_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "races.legRequest": {
+            "type": "object",
+            "properties": {
+                "discipline": {
+                    "type": "string"
+                },
+                "distance_m": {
+                    "type": "number"
+                },
+                "expected_duration_min": {
+                    "type": "integer"
+                },
+                "intensity": {
+                    "type": "string"
+                },
+                "ordinal": {
+                    "type": "integer"
+                }
+            }
+        },
+        "races.patchRequest": {
+            "type": "object",
+            "properties": {
+                "legs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/races.legRequest"
+                    }
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "race_date": {
+                    "type": "string"
+                },
+                "race_type": {
+                    "type": "string"
                 }
             }
         },

@@ -396,6 +396,40 @@ curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 # Expected: { "goal_source": "override", "carbs_target": { "min": 700 } }
 ```
 
+### Plan per-leg race-day fueling
+
+`plan_carb_load` covers the days *before* a race. For the in-event plan, store
+the race with its legs once, then compute the per-leg carbs/sodium/fluid:
+
+```bash
+# 1. Create the race with ordered legs (swim → bike → run).
+RACE=$(curl -s -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+          "name": "Allgäu Sprint",
+          "race_date": "2026-07-24",
+          "race_type": "sprint",
+          "legs": [
+            {"ordinal": 1, "discipline": "swim",  "expected_duration_min": 15},
+            {"ordinal": 2, "discipline": "bike",  "expected_duration_min": 90},
+            {"ordinal": 3, "discipline": "run",   "expected_duration_min": 50}
+          ]
+        }' \
+    http://localhost:8080/races)
+RACE_ID=$(echo "$RACE" | jq -r .id)
+
+# 2. Compute the per-leg fueling plan. Supply a measured sweat rate to
+#    personalise fluid + sodium (omit it and you get a flagged 600 ml/hr default).
+curl -s -H "Authorization: Bearer $MOBILE_API_TOKEN" \
+    "http://localhost:8080/races/$RACE_ID/fueling-plan?body_weight_kg=70&sweat_rate_ml_per_hr=900" | \
+    jq '.legs[] | {discipline, carbs_g_per_hr, sodium_mg_per_hr, fluid_ml_per_hr}'
+# Total 155 min → 90 g/hr carb baseline: swim 0, bike 90, run 63 (0.7×).
+# sweat 900 ml/hr → ~720 mg/hr sodium, 900 ml/hr fluid on bike+run; swim is dry.
+```
+
+The numbers are a deterministic baseline — the agent layers weather, gut
+tolerance and course profile on top.
+
 ### Set up a training phase with a goal template
 
 The phase + template pattern is the "I'm in build block 2, weeks 5-8 of my

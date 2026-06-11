@@ -25,6 +25,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/off"
 	"github.com/vinzenzs/nutrition-api/internal/products"
 	"github.com/vinzenzs/nutrition-api/internal/raceprep"
+	"github.com/vinzenzs/nutrition-api/internal/races"
 	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
 	"github.com/vinzenzs/nutrition-api/internal/store"
 	"github.com/vinzenzs/nutrition-api/internal/summary"
@@ -151,6 +152,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	racesSvc := races.NewService(pool, races.NewRepo(pool))
 	racePrepSvc := raceprep.NewService(time.Now, userTZ, pool)
 	// recommend-workout-fuel needs the workouts row + body-weight resolver.
 	// Optional setters so the existing constructor signature stays stable
@@ -198,6 +200,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	racePrepHandlers := raceprep.NewHandlers(racePrepSvc)
 	racePrepHandlers.SetLogger(logger)
 	racePrepHandlers.Register(api)
+	races.NewHandlers(racesSvc).Register(api)
 	workouts.NewHandlers(workoutsSvc).Register(api)
 	workoutfueling.NewHandlers(fuelingSvc).Register(api)
 	workoutfuel.NewHandlers(workoutFuelSvc).Register(api)

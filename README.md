@@ -1060,6 +1060,12 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `daily_hydration_summary`     | `GET /summary/hydration/daily?date=…&tz=…` | Volume-only daily summary, separate from `daily_summary`. |
 | `plan_carb_load`              | `GET /race-prep/carb-load?…` or `POST /race-prep/carb-load/apply` | Stateless carb-load schedule for a race. Pass `apply: true` to ALSO write the carb_g goal min-bound for each schedule day (merging into existing overrides — non-carb fields preserved). |
 | `recommend_workout_fuel`      | `GET /race-prep/recommend-workout-fuel?workout_id=…` OR `?sport=…&duration_min=…&intensity_zone=…` | Pre/intra/post fueling recommendation for ONE session. Workout-mode pulls from a workouts row; explicit-mode for planned-tomorrow sessions. Reuses the 0.3 g/kg MPS threshold from `protein_distribution` for the post-protein number. |
+| `create_race`                 | `POST /races`                          | Create a persistent race with ordered legs (`{ordinal, discipline, expected_duration_min?, …}`). The durable structure the per-leg fueling plan is computed over. |
+| `list_races`                  | `GET /races`                           | List stored races with their legs, ordered by date. |
+| `get_race`                    | `GET /races/{id}`                      | Fetch one race with its legs. |
+| `update_race`                 | `PATCH /races/{id}`                     | Update race fields; a `legs` array replaces all legs wholesale (omit to leave unchanged). |
+| `delete_race`                 | `DELETE /races/{id}`                    | Delete a race; its legs cascade. |
+| `plan_race_fueling`           | `GET /races/{id}/fueling-plan?body_weight_kg=…&sweat_rate_ml_per_hr=…` | Deterministic per-leg in-event fueling baseline: carbs/sodium/fluid per hour + total per leg. Carbs band by total duration × discipline; fluid/sodium from sweat rate (flagged default otherwise). A baseline to adjust for weather/gut/course. |
 | `log_workout`                 | `POST /workouts`                       | Record a workout (manual entries, sweat-rate windows). Garmin sessions come via `garmin.py`, not this tool. |
 | `list_workouts`               | `GET /workouts?from=…&to=…`            | List workouts in a 92-day window.                             |
 | `get_workout`                 | `GET /workouts/{id}`                   | Fetch a workout by id.                                        |

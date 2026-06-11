@@ -987,6 +987,159 @@ definitions:
       race_day_carbs_per_kg:
         type: number
     type: object
+  races.Discipline:
+    enum:
+    - swim
+    - bike
+    - run
+    - transition
+    - other
+    type: string
+    x-enum-varnames:
+    - DisciplineSwim
+    - DisciplineBike
+    - DisciplineRun
+    - DisciplineTransition
+    - DisciplineOther
+  races.FuelTotals:
+    properties:
+      carbs_g_total:
+        type: number
+      fluid_ml_total:
+        type: number
+      sodium_mg_total:
+        type: number
+    type: object
+  races.FuelingPlan:
+    properties:
+      body_weight_kg:
+        type: number
+      legs:
+        items:
+          $ref: '#/definitions/races.LegFuelingPlan'
+        type: array
+      race_date:
+        type: string
+      race_id:
+        type: string
+      race_name:
+        type: string
+      sweat_rate_ml_per_hr:
+        type: number
+      total:
+        $ref: '#/definitions/races.FuelTotals'
+      total_duration_min:
+        type: integer
+    type: object
+  races.LegFuelingPlan:
+    properties:
+      carbs_g_per_hr:
+        type: number
+      carbs_g_total:
+        type: number
+      discipline:
+        $ref: '#/definitions/races.Discipline'
+      expected_duration_min:
+        type: integer
+      fluid_ml_per_hr:
+        type: number
+      fluid_ml_total:
+        type: number
+      ordinal:
+        type: integer
+      rationale:
+        type: string
+      sodium_mg_per_hr:
+        type: number
+      sodium_mg_total:
+        type: number
+    type: object
+  races.Race:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      legs:
+        items:
+          $ref: '#/definitions/races.RaceLeg'
+        type: array
+      location:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      race_date:
+        description: YYYY-MM-DD
+        type: string
+      race_type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  races.RaceLeg:
+    properties:
+      discipline:
+        $ref: '#/definitions/races.Discipline'
+      distance_m:
+        type: number
+      expected_duration_min:
+        type: integer
+      id:
+        type: string
+      intensity:
+        type: string
+      ordinal:
+        type: integer
+    type: object
+  races.createRequest:
+    properties:
+      legs:
+        items:
+          $ref: '#/definitions/races.legRequest'
+        type: array
+      location:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      race_date:
+        type: string
+      race_type:
+        type: string
+    type: object
+  races.legRequest:
+    properties:
+      discipline:
+        type: string
+      distance_m:
+        type: number
+      expected_duration_min:
+        type: integer
+      intensity:
+        type: string
+      ordinal:
+        type: integer
+    type: object
+  races.patchRequest:
+    properties:
+      legs:
+        items:
+          $ref: '#/definitions/races.legRequest'
+        type: array
+      location:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      race_date:
+        type: string
+      race_type:
+        type: string
+    type: object
   recoverymetrics.Snapshot:
     properties:
       body_battery_charged:
@@ -3154,6 +3307,198 @@ paths:
       summary: Pre/intra/post fueling recommendation for a single session
       tags:
       - race-prep
+  /races:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ races: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List races
+      tags:
+      - races
+    post:
+      consumes:
+      - application/json
+      description: Persists a race (name + date) and its ordered legs. Each leg is
+        `{ordinal, discipline, distance_m?, expected_duration_min?, intensity?}`;
+        `discipline` is one of swim|bike|run|transition|other and `ordinal` must be
+        unique within the race. This is a planning entity — the per-leg fuelling plan
+        is computed separately via GET /races/{id}/fueling-plan.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Race + legs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/races.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/races.Race'
+        "400":
+          description: race_name_required | race_date_invalid | notes_too_long | leg_ordinal_duplicate
+            | leg_discipline_invalid | leg_expected_duration_min_invalid | leg_distance_m_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a race with legs
+      tags:
+      - races
+  /races/{id}:
+    delete:
+      parameters:
+      - description: Race UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: race_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a race (legs cascade)
+      tags:
+      - races
+    get:
+      parameters:
+      - description: Race UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/races.Race'
+        "404":
+          description: race_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a race with its legs
+      tags:
+      - races
+    patch:
+      consumes:
+      - application/json
+      description: Updates the supplied scalar fields. If a `legs` array is present,
+        it REPLACES all existing legs wholesale (an empty array clears them); omit
+        `legs` to leave them unchanged.
+      parameters:
+      - description: Race UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/races.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/races.Race'
+        "400":
+          description: race_name_required | race_date_invalid | notes_too_long | leg_ordinal_duplicate
+            | leg_discipline_invalid | leg_expected_duration_min_invalid | leg_distance_m_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: race_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a race (and optionally replace its legs)
+      tags:
+      - races
+  /races/{id}/fueling-plan:
+    get:
+      description: Deterministic per-leg in-event fuelling baseline computed on read
+        (not stored). Carbs band by total race duration (<75 min → 0, 75–150 → 60,
+        ≥150 → 90 g/hr) and scale by discipline intake capacity (swim/transition 0,
+        bike 1.0, run 0.7, other 0.8). Fluid and sodium derive from `sweat_rate_ml_per_hr`
+        when supplied (fluid capped at 1000 ml/hr; sodium = sweat_rate/1000 × 800
+        mg/L), else a flagged 600 ml/hr and 600 mg/hr. Carbs (g), sodium (mg) and
+        fluid (ml) are reported as distinct unit fields.
+      parameters:
+      - description: Race UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Athlete body weight in kilograms, 30..200
+        in: query
+        name: body_weight_kg
+        required: true
+        type: number
+      - description: Measured sweat rate in ml/hr; personalises fluid and sodium
+        in: query
+        name: sweat_rate_ml_per_hr
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/races.FuelingPlan'
+        "400":
+          description: body_weight_kg_required | body_weight_kg_out_of_range | sweat_rate_out_of_range
+            | sweat_rate_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: race_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Compute the per-leg fuelling plan for a race
+      tags:
+      - races
   /recovery-metrics:
     get:
       parameters:
