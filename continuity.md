@@ -2,36 +2,37 @@
 
 _Forward plan for OpenSpec changes. Tracks **what's next**, **what's in flight**, and **what's queued**._
 _Companion to `openspec/priorities.md` (tier/triage framing) — this file is the operational queue._
-_Last refreshed: 2026-06-09 by the `continuity` skill (four big closures since the last refresh — `add-recommend-workout-fuel` (T2 #10), `add-rolling-window-summaries` (T1 #1B), `add-meal-from-photo` (Flutter killer #2), and `add-workout-rpe-and-fueling` (T2 #6D) all archived. Queue is now effectively empty)._
+_Last refreshed: 2026-06-10 by the `continuity` skill (the Garmin-ingestion arc landed: `widen-workout-ingestion`, `add-garmin-daily-metrics`, `add-hydration-balance-metrics`, plus `add-deployment-pipeline` all archived. `add-flutter-companion-app` is now nearly complete and the only remaining planned change)._
 
 ## In progress
 
-Currently back on `main` — no per-change branch active. The first branched
-flow (`feat/add-recommend-workout-fuel` earlier today) merged cleanly; future
-work can either branch again or commit directly, depending on the shape.
+| Change | Branch | Started | Owner | Notes |
+|---|---|---|---|---|
+| add-flutter-companion-app | `main` (no feat branch) | 2026-06-10 | Vinzenz Stadtmueller | **86/87 tasks**; ~88 uncommitted files under `apps/companion/` on `main`. Near-complete — needs the last task + a commit. Was deliberately kept out of this session's backend commits. |
 
-_Nothing in flight — pick from Up next._
+_Note: this change is being worked directly on `main` rather than a `feat/` branch — fine for a solo nearly-finished change, but means the ~88 uncommitted files share the tree with backend work. Commit them under their own `feat(companion): …` commit when ready._
 
 ## Up next
 
 Ordered queue — top is next to pick up.
 
-_Up next is empty — see Backlog or `openspec/priorities.md` for the next move._
+_Up next is empty — see Backlog / `openspec/priorities.md` for the next move. The clear strategic next step is out-of-repo (see Notes: the `garmin.py` importer)._
 
 ## Backlog
 
 Planned changes not yet prioritized.
 
-- **add-flutter-companion-app** — Three-screen Flutter app (barcode / photo / hydration widget) as a focused supplement to the agent. _Caveat: predates the endurance-training pivot — see Meta #3 in `openspec/priorities.md`. Worth a short explore session on whether the three killer interactions still match today's most-pressing use, especially now that `add-meal-from-photo` has shipped and the workouts/fueling story is more complete than when the original Flutter proposal was written._
+_Backlog is empty — every proposed change is either archived or in progress. New ideas live in `openspec/priorities.md` until proposed._
 
 ## Notes
 
-- **T1 list fully delivered**: #1, #1A, #1B, #2, #3, #4, #5 all shipped by 2026-06-09. Tier-2 work has been the active surface today.
-- **T2 closures (all 2026-06-09)**: #6B (`daily_context` aggregator), #7 (`protein_distribution`), #10 (`recommend_workout_fuel`), #6D (RPE + GI distress on workouts, via `add-workout-rpe-and-gi`). Plus `add-meal-from-photo` (the Flutter app's killer interaction #2) and `add-rolling-window-summaries` (the cheapest remaining T1 add) both archived. Today shipped roughly twice as many changes as any prior session.
-- **Decisions pending** (do not queue yet): T2 #6F (`coach_recommendation` persistence) — tests the synthesis principle, deliberate discussion first. Still un-touched.
-- **Remaining priorities-flagged work**: T2 #6A (sleep / HRV log — natural "morning metrics" pair with weight), T2 #6C (sweat-rate test workflow — cheap now that workouts + weight + workout-fuel all exist), T2 #6E (retroactive freeform→product correction — small primitive, data-quality story), T2 #8 (caffeine — might be subsumed by workout-fuel's existing `caffeine_mg` field; worth a 5-minute audit), T2 #9 (supplement log). With six T2 items already closed today, the remaining list is closer to "second-priority polish" than "blocking surface."
-- **Uncommitted archive moves**: today's archives haven't all been bundled into cleanup commits yet. A consolidated commit of the archive directory moves + the synced main specs would close the loop and let `roadmap.md` stop showing them as `_uncommitted_`.
-- **Pattern note on MODIFIED spec deltas**: today's `add-workout-rpe-and-gi` archive surfaced a real pitfall — the openspec MODIFIED requirement is full-replace, so any delta that lists only the new scenarios silently drops the prior ones at sync time. Caught + repaired before commit. Worth folding into the propose skill's design template next time it's edited: when the intent is *additive* (new scenarios only), prefer phrasing the delta as a new ADDED sub-requirement rather than a MODIFIED block, OR include the full prior content verbatim in the MODIFIED block.
+- **The Garmin-ingestion arc shipped (2026-06-10).** Five changes across the session gave Garmin's data homes: `widen-workout-ingestion` (per-activity distance/power/temperature/sweat-loss + brick `session_group`), `add-garmin-daily-metrics` (recovery + fitness daily snapshots, richer weigh-in biometrics, planned/completed workout status), and `add-hydration-balance-metrics` (daily sweat-out / activity-intake / goal). Plus `add-deployment-pipeline`. Delivers priorities T2 #6A (sleep/HRV "morning metrics", via `recovery-metrics`) and most of the data side of #6C (sweat-rate).
+- **The real bottleneck is now out-of-repo: `garmin.py`.** The backend can *store* recovery, fitness, biometrics, planned workouts, and hydration balance — but nothing *fills* them yet. CORRECTION to earlier session notes: `garmin.py` is NOT read-only; it already has a `_push_hydration` that POSTs the daily hydration rollup, and `cmd_coach` already fetches everything else (sleep/HRV/RHR/stress/readiness, VO2max/race-predictions/load, full weigh-ins, calendar). Wiring its existing fetches to the new endpoints is the highest-leverage next move — and it's a separate repo (`…/Orga/.scripts/garmin.py`).
+- **Follow-ups surfaced this session (not yet proposed)** — candidates for `priorities.md`: a **race entity + per-leg race-day fueling plan** (the biggest remaining backend gap; worth proposing before taper, ~mid-July); EA consuming **measured muscle mass** (FFM resolver tier); **training-day template auto-apply** from planned workouts; **per-metric trend endpoints** (`/recovery-metrics/trend` etc.); a derived **sweat-rate (ml/hr)** endpoint (completes T2 #6C now that the inputs all exist).
+- **Still-open priorities-flagged work**: T2 #6E (retroactive freeform→product correction), #6F (`coach_recommendation` persistence — deliberate-discussion-first), #8 (caffeine — likely subsumed by workout-fuel's `caffeine_mg`; 5-min audit), #9 (supplement log).
+- **Stale branch to prune**: `feat/add-recommend-workout-fuel` is a leftover from an already-archived change — safe to delete when convenient (this skill never prunes branches itself).
+- **Pattern note — MODIFIED spec deltas are full-replace.** A MODIFIED requirement that lists only new scenarios silently drops the prior ones at sync time. This session's changes handled it by copying full prior content into MODIFIED blocks and using ADDED requirements for genuinely-new behavior (the workouts `status` lifecycle, the daily-context blocks). Keep preferring ADDED for additive intent.
+- **Process caveat**: the `openspec-sync-specs` skill named by the archive flow doesn't exist in this environment — the archive agent did the spec sync via direct file edits + `openspec validate` each time. Results are correct; just not via a dedicated skill.
 
 ---
 _To update: ask Claude "update continuity", "queue X next", or "start work on X"._
