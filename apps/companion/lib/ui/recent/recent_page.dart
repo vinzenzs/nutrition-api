@@ -19,10 +19,7 @@ class RecentPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Recent')),
       body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(recentProvider);
-          await ref.read(recentProvider.future);
-        },
+        onRefresh: () => ref.read(recentProvider.notifier).refresh(),
         child: recent.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(children: [
@@ -73,8 +70,8 @@ class RecentPage extends ConsumerWidget {
       showDragHandle: true,
       builder: (_) => _MealEditSheet(meal: meal),
     );
-    ref.invalidate(recentProvider);
-    ref.invalidate(todayProvider);
+    ref.read(recentProvider.notifier).refresh();
+    ref.read(todayProvider.notifier).refresh();
   }
 
   Future<void> _deleteHydration(
@@ -104,8 +101,8 @@ class RecentPage extends ConsumerWidget {
     );
     if (ok == true) {
       await ref.read(repositoryProvider).enqueueDeleteHydration(entry.id);
-      ref.invalidate(recentProvider);
-      ref.invalidate(hydrationDailyProvider);
+      ref.read(recentProvider.notifier).refresh();
+      ref.read(hydrationDailyProvider.notifier).refresh();
     }
   }
 }

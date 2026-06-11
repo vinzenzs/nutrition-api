@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/app_providers.dart';
+import '../state/recent_provider.dart';
+import '../state/today_provider.dart';
 import '../data/db/app_database.dart';
 import '../data/sync/replay_triggers.dart';
 import 'camera/camera_page.dart';
@@ -68,6 +70,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             return;
           }
           setState(() => _index = i);
+          // Reconcile the destination so writes made on another tab (which go
+          // through the async outbox) show up. By the time the user taps over,
+          // the outbox has flushed; refresh() avoids a loading-spinner flash.
+          switch (i) {
+            case 0:
+              ref.read(todayProvider.notifier).refresh();
+              ref.read(hydrationDailyProvider.notifier).refresh();
+            case 2:
+              ref.read(recentProvider.notifier).refresh();
+          }
         },
         destinations: const [
           NavigationDestination(

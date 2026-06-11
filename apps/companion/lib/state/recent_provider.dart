@@ -24,16 +24,31 @@ class RecentHydration extends RecentItem {
 }
 
 /// Today's meals (from the daily summary) merged with today's hydration
-/// entries, newest first. Combines the two API calls the spec calls out.
-final recentProvider = FutureProvider<List<RecentItem>>((ref) async {
-  final repo = ref.watch(repositoryProvider);
-  final date = todayDate();
-  final summary = await repo.fetchDailySummary(date);
-  final hydration = await repo.fetchHydrationDaily(date);
+/// entries, newest first. Writes go through the async outbox, so this can't be
+/// re-fetched immediately after a log (the GET would race the POST). Instead
+/// the shell calls [refresh] when the Recent tab is entered, by which point the
+/// outbox has flushed; [refresh] uses AsyncValue.guard so the list doesn't
+/// flash a spinner on every reconcile.
+class RecentNotifier extends AsyncNotifier<List<RecentItem>> {
+  @override
+  Future<List<RecentItem>> build() => _load();
 
-  final items = <RecentItem>[
-    ...summary.entries.map(RecentMeal.new),
-    ...hydration.entries.map(RecentHydration.new),
-  ]..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
-  return items;
-});
+  Future<List<RecentItem>> _load() async {
+    final repo = ref.read(repositoryProvider);
+    final date = todayDate();
+    final summary = await repo.fetchDailySummary(date);
+    final hydration = await repo.fetchHydrationDaily(date);
+    return <RecentItem>[
+      ...summary.entries.map(RecentMeal.new),
+      ...hydration.entries.map(RecentHydration.new),
+    ]..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+  }
+
+  /// Re-fetch and reconcile, without dropping to a loading state.
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(_load);
+  }
+}
+
+final recentProvider =
+    AsyncNotifierProvider<RecentNotifier, List<RecentItem>>(RecentNotifier.new);
