@@ -3,9 +3,7 @@
 ## Purpose
 
 Define the MCP server that exposes the nutrition REST API's agent-relevant endpoints as MCP tools over stdio, with idempotent writes, agent-shaped errors, and environment-driven configuration.
-
 ## Requirements
-
 ### Requirement: MCP server runs over stdio with a tool-only surface
 
 The system SHALL provide an MCP server binary at `cmd/mcp/` that communicates with the agent runtime over stdio using JSON-RPC, exposing only tools (no resources or prompts in v1).
@@ -1042,7 +1040,6 @@ The MCP server SHALL expose one tool, `daily_context`, wrapping `GET /context/da
 - **WHEN** the MCP integration test (`mcp_integration_test.go`) enumerates exposed tools
 - **THEN** the expected-tools assertion includes the new tool name `daily_context`
 
-
 ### Requirement: log_meal_from_photo tool mirrors the REST photo endpoint
 
 The MCP server SHALL expose a `log_meal_from_photo` tool that maps onto `POST /meals/from_photo`. The tool accepts a base64-encoded image in the input (since MCP transports JSON, not multipart) and a small set of metadata fields. The wrapper decodes the base64, builds the multipart body, and forwards. Response handling mirrors the existing tool conventions (REST 2xx → success result, REST 4xx/5xx → `isError=true` with the REST body verbatim).
@@ -1348,3 +1345,19 @@ expected-tools list SHALL include all six.
 - **WHEN** the MCP integration test enumerates registered tools
 - **THEN** `create_race`, `list_races`, `get_race`, `update_race`, `delete_race`,
   and `plan_race_fueling` are all present
+
+### Requirement: import_cookidoo_recipe tool wraps the server-side import endpoint
+
+The MCP server SHALL expose an `import_cookidoo_recipe` tool taking `{url, serving_size_g?}` that issues exactly one HTTP call to `POST /products/import/cookidoo` and forwards the response body verbatim. As a write tool it SHALL auto-derive an idempotency key when the agent does not supply one. The tool description SHALL state that omitting `serving_size_g` creates the recipe without nutriments and that the agent should estimate serving mass from the returned ingredients and follow up via the product update tool.
+
+#### Scenario: Tool forwards the import response verbatim
+
+- **WHEN** the agent calls `import_cookidoo_recipe` with a valid Cookidoo URL and `serving_size_g`
+- **THEN** the MCP server issues `POST /products/import/cookidoo` with that JSON body
+- **AND** the tool result is the REST response body verbatim
+
+#### Scenario: REST errors surface as isError tool results
+
+- **WHEN** the REST endpoint returns `502 cookidoo_unavailable`
+- **THEN** the tool result has `isError=true` and carries the REST error body
+
