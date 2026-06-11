@@ -58,6 +58,12 @@ type Product struct {
 	// NutrimentComputedAt is set when a recipe product's nutriments were derived
 	// from its components. Null for non-recipe products.
 	NutrimentComputedAt *time.Time `json:"nutriment_computed_at,omitempty"`
+	// Ingredients is an ordered list of verbatim free-text ingredient strings
+	// (e.g. "100 g Staudensellerie"), populated only for source=recipe products
+	// imported from a source that carries them (Cookidoo). Nil — and omitted
+	// from JSON — for every other product. Not interpreted server-side; the
+	// shopping-list agent does any parsing or merging.
+	Ingredients         []string   `json:"ingredients,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
 }

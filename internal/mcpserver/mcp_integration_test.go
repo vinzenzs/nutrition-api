@@ -118,6 +118,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"range_summary",
 		"list_products",
 		"delete_product",
+		"import_cookidoo_recipe",
 		"log_hydration",
 		"list_hydration",
 		"patch_hydration",

@@ -2,6 +2,7 @@ package products
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,7 +44,7 @@ const selectAllColumns = `
     iron_mg_per_100g, calcium_mg_per_100g, vitamin_d_mcg_per_100g, vitamin_b12_mcg_per_100g,
     vitamin_c_mg_per_100g, magnesium_mg_per_100g, potassium_mg_per_100g, zinc_mg_per_100g,
     serving_size_g, off_payload, fetched_at, last_logged_at, last_logged_quantity_g,
-    nutriment_computed_at, created_at, updated_at
+    nutriment_computed_at, ingredients, created_at, updated_at
 `
 
 func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*Product, error) {
@@ -53,6 +54,16 @@ func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*Product, error) {
 
 func (r *Repo) GetByBarcode(ctx context.Context, barcode string) (*Product, error) {
 	row := r.q.QueryRow(ctx, `SELECT `+selectAllColumns+` FROM products WHERE barcode = $1`, barcode)
+	return scanProduct(row)
+}
+
+// GetByExternalURL returns the most recently created product whose external_url
+// matches exactly. Used by the Cookidoo import to make re-import idempotent.
+// Returns ErrNotFound when no product carries that URL.
+func (r *Repo) GetByExternalURL(ctx context.Context, externalURL string) (*Product, error) {
+	row := r.q.QueryRow(ctx, `SELECT `+selectAllColumns+`
+        FROM products WHERE external_url = $1
+        ORDER BY created_at DESC LIMIT 1`, externalURL)
 	return scanProduct(row)
 }
 
@@ -74,13 +85,13 @@ func (r *Repo) Insert(ctx context.Context, p *Product) error {
             iron_mg_per_100g, calcium_mg_per_100g, vitamin_d_mcg_per_100g, vitamin_b12_mcg_per_100g,
             vitamin_c_mg_per_100g, magnesium_mg_per_100g, potassium_mg_per_100g, zinc_mg_per_100g,
             serving_size_g, off_payload, fetched_at, last_logged_at, last_logged_quantity_g,
-            nutriment_computed_at, created_at, updated_at
+            nutriment_computed_at, ingredients, created_at, updated_at
         ) VALUES (
             $1, $2, $3, $4, $5, $6,
             $7, $8, $9, $10, $11, $12, $13,
             $14, $15, $16, $17, $18, $19, $20, $21,
             $22, $23, $24, $25, $26,
-            $27, $28, $29
+            $27, $28, $29, $30
         )
     `
 	_, err := r.q.Exec(ctx, q,
@@ -90,7 +101,7 @@ func (r *Repo) Insert(ctx context.Context, p *Product) error {
 		p.Nutriments.IronMgPer100g, p.Nutriments.CalciumMgPer100g, p.Nutriments.VitaminDMcgPer100g, p.Nutriments.VitaminB12McgPer100g,
 		p.Nutriments.VitaminCMgPer100g, p.Nutriments.MagnesiumMgPer100g, p.Nutriments.PotassiumMgPer100g, p.Nutriments.ZincMgPer100g,
 		p.ServingSizeG, p.OFFPayload, p.FetchedAt, p.LastLoggedAt, p.LastLoggedQuantityG,
-		p.NutrimentComputedAt, p.CreatedAt, p.UpdatedAt,
+		p.NutrimentComputedAt, ingredientsParam(p.Ingredients), p.CreatedAt, p.UpdatedAt,
 	)
 	if err != nil {
 		var pg *pgconn.PgError
@@ -379,6 +390,7 @@ type scanner interface {
 
 func scanProduct(s scanner) (*Product, error) {
 	var p Product
+	var ingredientsRaw []byte
 	err := s.Scan(
 		&p.ID, &p.Barcode, &p.Name, &p.Brand, &p.ExternalURL, &p.Source,
 		&p.Nutriments.KcalPer100g, &p.Nutriments.ProteinGPer100g, &p.Nutriments.CarbsGPer100g, &p.Nutriments.FatGPer100g,
@@ -386,7 +398,7 @@ func scanProduct(s scanner) (*Product, error) {
 		&p.Nutriments.IronMgPer100g, &p.Nutriments.CalciumMgPer100g, &p.Nutriments.VitaminDMcgPer100g, &p.Nutriments.VitaminB12McgPer100g,
 		&p.Nutriments.VitaminCMgPer100g, &p.Nutriments.MagnesiumMgPer100g, &p.Nutriments.PotassiumMgPer100g, &p.Nutriments.ZincMgPer100g,
 		&p.ServingSizeG, &p.OFFPayload, &p.FetchedAt, &p.LastLoggedAt, &p.LastLoggedQuantityG,
-		&p.NutrimentComputedAt, &p.CreatedAt, &p.UpdatedAt,
+		&p.NutrimentComputedAt, &ingredientsRaw, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -394,5 +406,27 @@ func scanProduct(s scanner) (*Product, error) {
 		}
 		return nil, fmt.Errorf("scan product: %w", err)
 	}
+	// jsonb arrives as raw JSON bytes; SQL NULL and jsonb 'null' both decode to
+	// a nil slice (omitted from the response by the omitempty tag).
+	if len(ingredientsRaw) > 0 {
+		if err := json.Unmarshal(ingredientsRaw, &p.Ingredients); err != nil {
+			return nil, fmt.Errorf("scan product ingredients: %w", err)
+		}
+	}
 	return &p, nil
+}
+
+// ingredientsParam renders the ingredient slice for a jsonb column: SQL NULL
+// when empty, otherwise the JSON-encoded array. Keeping empty as NULL (rather
+// than jsonb 'null' or '[]') makes "no ingredients" a single canonical state.
+func ingredientsParam(ings []string) any {
+	if len(ings) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(ings)
+	if err != nil {
+		// []string always marshals; defensively fall back to NULL.
+		return nil
+	}
+	return b
 }

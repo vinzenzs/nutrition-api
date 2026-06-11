@@ -80,6 +80,12 @@
       word-break: break-all;
       margin-top: 4px;
     }
+    .ingredients {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+    .ingredients.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -131,6 +137,8 @@
         <div><label for="zinc_mg">zinc mg</label>             <input type="number" id="zinc_mg"        step="0.01" /></div>
       </div>
     </fieldset>
+
+    <div class="ingredients" id="ingredients-summary"></div>
 
     <div class="url" id="external_url"></div>
 

@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
 	"github.com/vinzenzs/nutrition-api/internal/off"
 	"github.com/vinzenzs/nutrition-api/internal/store"
 )
@@ -20,11 +23,19 @@ type OFFClient interface {
 	Fetch(ctx context.Context, barcode string) (*off.Product, error)
 }
 
+// CookidooClient is the subset of cookidoo.Client behaviour the service depends
+// on, so tests can swap in a stub. May be nil when the server is built without
+// the Cookidoo import wired — ImportCookidoo guards against that.
+type CookidooClient interface {
+	Fetch(ctx context.Context, rawURL string) (*cookidoo.Recipe, error)
+}
+
 // Service orchestrates product lookups, manual creation, and recipe management.
 type Service struct {
-	pool *pgxpool.Pool
-	repo *Repo
-	off  OFFClient
+	pool     *pgxpool.Pool
+	repo     *Repo
+	off      OFFClient
+	cookidoo CookidooClient
 }
 
 // NewService builds a service. pool is required for operations that span
@@ -32,6 +43,13 @@ type Service struct {
 // directly against repo and don't need it.
 func NewService(pool *pgxpool.Pool, repo *Repo, offClient OFFClient) *Service {
 	return &Service{pool: pool, repo: repo, off: offClient}
+}
+
+// SetCookidooClient injects the Cookidoo import client. Cross-injected from the
+// httpserver wiring trunk, mirroring how other cross-capability dependencies are
+// wired after construction.
+func (s *Service) SetCookidooClient(c CookidooClient) {
+	s.cookidoo = c
 }
 
 // Lookup returns the product for barcode, fetching from OFF on the first hit
@@ -90,6 +108,55 @@ func (s *Service) Lookup(ctx context.Context, barcode string, refresh bool) (*Pr
 	return p, nil
 }
 
+// Ingredient list limits. Verbatim free-text entries; not interpreted here.
+const (
+	MaxIngredients   = 100
+	MaxIngredientLen = 500
+)
+
+// ErrIngredientsRequireRecipeSource is returned when ingredients are supplied on
+// a product whose source is not "recipe". Ingredient strings are recipe data;
+// attaching them to an OFF or manual product is a category error.
+var ErrIngredientsRequireRecipeSource = errors.New("ingredients require recipe source")
+
+// ErrIngredientsInvalid carries which ingredient entry failed validation and
+// why, so the handler can echo an actionable 400 body.
+type ErrIngredientsInvalid struct {
+	Reason string // "too_many" | "empty_entry" | "entry_too_long"
+	Index  int    // offending entry index for the per-entry reasons; -1 for too_many
+}
+
+func (e *ErrIngredientsInvalid) Error() string {
+	if e.Index >= 0 {
+		return fmt.Sprintf("ingredient %d invalid: %s", e.Index, e.Reason)
+	}
+	return fmt.Sprintf("ingredients invalid: %s", e.Reason)
+}
+
+// validateIngredients enforces the spec limits: only allowed on recipe products,
+// at most MaxIngredients entries, each non-empty (after trimming) and at most
+// MaxIngredientLen characters. Entries are NOT mutated — validation only.
+func validateIngredients(ings []string, source Source) error {
+	if len(ings) == 0 {
+		return nil
+	}
+	if source != SourceRecipe {
+		return ErrIngredientsRequireRecipeSource
+	}
+	if len(ings) > MaxIngredients {
+		return &ErrIngredientsInvalid{Reason: "too_many", Index: -1}
+	}
+	for i, s := range ings {
+		if strings.TrimSpace(s) == "" {
+			return &ErrIngredientsInvalid{Reason: "empty_entry", Index: i}
+		}
+		if utf8.RuneCountInString(s) > MaxIngredientLen {
+			return &ErrIngredientsInvalid{Reason: "entry_too_long", Index: i}
+		}
+	}
+	return nil
+}
+
 // CreateManualInput captures the body of POST /products. Despite the historic
 // name, it now also covers flat-imported recipes (Source=recipe + ExternalURL).
 type CreateManualInput struct {
@@ -100,6 +167,9 @@ type CreateManualInput struct {
 	ExternalURL  *string // optional provenance link (≤ 2048 chars; handler validates)
 	ServingSizeG *float64
 	Nutriments   Nutriments
+	// Ingredients is an optional ordered list of verbatim ingredient strings,
+	// permitted only when Source is SourceRecipe.
+	Ingredients []string
 }
 
 // CreateManual creates a product row. Source defaults to SourceManual; callers
@@ -121,6 +191,9 @@ func (s *Service) CreateManual(ctx context.Context, in CreateManualInput) (*Prod
 	if source == "" {
 		source = SourceManual
 	}
+	if err := validateIngredients(in.Ingredients, source); err != nil {
+		return nil, err
+	}
 	p := &Product{
 		Name:         in.Name,
 		Brand:        in.Brand,
@@ -129,11 +202,117 @@ func (s *Service) CreateManual(ctx context.Context, in CreateManualInput) (*Prod
 		Source:       source,
 		ServingSizeG: in.ServingSizeG,
 		Nutriments:   in.Nutriments,
+		Ingredients:  in.Ingredients,
 	}
 	if err := s.repo.Insert(ctx, p); err != nil {
 		return nil, err
 	}
 	return p, nil
+}
+
+// ErrCookidooNotConfigured is returned by ImportCookidoo when no Cookidoo client
+// was wired (e.g. import disabled). The handler maps it to a 503.
+var ErrCookidooNotConfigured = errors.New("cookidoo import not configured")
+
+// ImportCookidooInput is the parsed body of POST /products/import/cookidoo.
+type ImportCookidooInput struct {
+	URL string
+	// ServingSizeG, when set, converts the page's per-serving nutrition to
+	// per-100g and is stored on the product. When nil the product is created
+	// without nutriments and the result carries NeedsNutriments.
+	ServingSizeG *float64
+}
+
+// ImportCookidooResult is what the handler renders. AlreadyImported is true when
+// an existing product carried the same external_url (no new row created).
+// NeedsNutriments is true when no serving_size_g was supplied, in which case
+// NutritionPerServing echoes the page values so the caller can convert and
+// PATCH later.
+type ImportCookidooResult struct {
+	Product             *Product
+	AlreadyImported     bool
+	NeedsNutriments     bool
+	NutritionPerServing *cookidoo.NutritionPerServing
+}
+
+// ImportCookidoo fetches a Cookidoo recipe page, parses its Recipe JSON-LD, and
+// creates a flat-imported source=recipe product. Re-importing a URL already
+// present (matched on external_url) is an idempotent ensure: the existing
+// product is returned untouched with AlreadyImported=true. Errors:
+// cookidoo.ErrNotCookidooURL, *cookidoo.ErrFetchFailed, cookidoo.ErrNoRecipeJSONLD,
+// ErrCookidooNotConfigured, and ingredient-validation errors.
+func (s *Service) ImportCookidoo(ctx context.Context, in ImportCookidooInput) (*ImportCookidooResult, error) {
+	if s.cookidoo == nil {
+		return nil, ErrCookidooNotConfigured
+	}
+	// Validate the URL before any network call, and use the normalised form as
+	// the external_url / duplicate key.
+	if err := cookidoo.ValidateRecipeURL(in.URL); err != nil {
+		return nil, err
+	}
+	externalURL := strings.TrimSpace(in.URL)
+
+	// Idempotent-ensure: if a product already carries this external_url, return
+	// it untouched rather than creating a duplicate or overwriting corrections.
+	if existing, err := s.repo.GetByExternalURL(ctx, externalURL); err == nil {
+		return &ImportCookidooResult{Product: existing, AlreadyImported: true}, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	recipe, err := s.cookidoo.Fetch(ctx, externalURL)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &Product{
+		Name:         recipe.Name,
+		Source:       SourceRecipe,
+		ExternalURL:  &externalURL,
+		ServingSizeG: in.ServingSizeG,
+		Ingredients:  recipe.Ingredients,
+	}
+
+	result := &ImportCookidooResult{}
+	if in.ServingSizeG != nil && *in.ServingSizeG > 0 {
+		p.Nutriments = perServingToPer100g(recipe.NutritionPerServing, *in.ServingSizeG)
+	} else {
+		// No serving mass: store ingredients + metadata but no nutriments, and
+		// echo the per-serving values so the caller can convert and PATCH later.
+		result.NeedsNutriments = true
+		ns := recipe.NutritionPerServing
+		result.NutritionPerServing = &ns
+	}
+
+	if err := validateIngredients(p.Ingredients, p.Source); err != nil {
+		return nil, err
+	}
+	if err := s.repo.Insert(ctx, p); err != nil {
+		return nil, err
+	}
+	result.Product = p
+	return result, nil
+}
+
+// perServingToPer100g converts Cookidoo per-portion nutrition to our per-100g
+// nutriment shape: value_per_100g = value_per_serving * 100 / servingSizeG.
+func perServingToPer100g(n cookidoo.NutritionPerServing, servingSizeG float64) Nutriments {
+	scale := func(v *float64) *float64 {
+		if v == nil {
+			return nil
+		}
+		out := *v * 100.0 / servingSizeG
+		return &out
+	}
+	return Nutriments{
+		KcalPer100g:     scale(n.Kcal),
+		ProteinGPer100g: scale(n.ProteinG),
+		CarbsGPer100g:   scale(n.CarbsG),
+		FatGPer100g:     scale(n.FatG),
+		FiberGPer100g:   scale(n.FiberG),
+		SugarGPer100g:   scale(n.SugarG),
+		SaltGPer100g:    scale(n.SaltG),
+	}
 }
 
 // Recipe-related errors. Distinct from ErrNotFound because handlers map them

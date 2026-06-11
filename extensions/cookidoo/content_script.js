@@ -171,6 +171,16 @@
 
     const perServing = parsePerServingNutriments(recipe.nutrition, warnings);
 
+    // recipeIngredient is an ordered array of verbatim free-text strings
+    // (e.g. "100 g Staudensellerie"). Kept exactly as the page provides them —
+    // nutrition-api stores them unparsed for the shopping-list flow.
+    let ingredients = [];
+    if (Array.isArray(recipe.recipeIngredient)) {
+      ingredients = recipe.recipeIngredient.filter((x) => typeof x === "string");
+    } else if (typeof recipe.recipeIngredient === "string" && recipe.recipeIngredient !== "") {
+      ingredients = [recipe.recipeIngredient];
+    }
+
     return {
       recipe: {
         name: typeof recipe.name === "string" ? recipe.name : "",
@@ -179,6 +189,7 @@
         servings: servings,
         servingSizeG: servingSizeG,
         perServingNutriments: perServing,
+        ingredients: ingredients,
       },
       warnings,
     };

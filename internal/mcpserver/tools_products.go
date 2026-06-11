@@ -80,6 +80,29 @@ func handleRecomputeRecipe(ctx context.Context, c *apiClient, args RecomputeReci
 	return toToolResult(status, respBody, err)
 }
 
+// ImportCookidooRecipeArgs is the input schema for import_cookidoo_recipe.
+type ImportCookidooRecipeArgs struct {
+	URL            string   `json:"url" jsonschema:"a Cookidoo recipe URL of the form https://cookidoo.<tld>/recipes/recipe/<locale>/<id>"`
+	ServingSizeG   *float64 `json:"serving_size_g,omitempty" jsonschema:"optional grams of one serving; supply it to convert the page's per-serving nutrition to per-100g. Omit to import ingredients and metadata only — the response then carries needs_nutriments and a per-serving echo to convert and update later."`
+	IdempotencyKey string   `json:"idempotency_key,omitempty" jsonschema:"optional retry key; if omitted, a stable key is derived from the args"`
+}
+
+func handleImportCookidooRecipe(ctx context.Context, c *apiClient, args ImportCookidooRecipeArgs) *mcp.CallToolResult {
+	body, err := json.Marshal(struct {
+		URL          string   `json:"url"`
+		ServingSizeG *float64 `json:"serving_size_g,omitempty"`
+	}{
+		URL:          args.URL,
+		ServingSizeG: args.ServingSizeG,
+	})
+	if err != nil {
+		return toToolResult(0, nil, &transportError{inner: err})
+	}
+	key := effectiveIdempotencyKey(args.IdempotencyKey, "import_cookidoo_recipe", args)
+	status, respBody, err := c.Post(ctx, "/products/import/cookidoo", nil, body, key)
+	return toToolResult(status, respBody, err)
+}
+
 // ListProductsArgs is the input schema for list_products. All fields optional.
 type ListProductsArgs struct {
 	Source *string `json:"source,omitempty" jsonschema:"optional filter: 'off' | 'manual' | 'recipe'. Omit to list all."`
@@ -158,6 +181,21 @@ func registerProductsTools(server *mcp.Server, c *apiClient) {
 			"future logs of this recipe will reflect the new component values.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args RecomputeRecipeArgs) (*mcp.CallToolResult, any, error) {
 		return handleRecomputeRecipe(ctx, c, args), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "import_cookidoo_recipe",
+		Description: "Import a Thermomix/Cookidoo recipe into the product library by URL. The server " +
+			"fetches the public recipe page, parses its structured data, and creates a source=recipe " +
+			"product with the verbatim ingredient list and a link back to Cookidoo. Cookidoo reports " +
+			"nutrition per serving with no serving mass: pass serving_size_g to convert to per-100g, " +
+			"or omit it to import ingredients + metadata only — the response then has " +
+			"needs_nutriments=true plus a nutrition_per_serving echo, so you can estimate the serving " +
+			"mass from the ingredients and update the product afterwards. Re-importing the same URL is " +
+			"safe: it returns the existing product with already_imported=true and never overwrites " +
+			"manual corrections.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args ImportCookidooRecipeArgs) (*mcp.CallToolResult, any, error) {
+		return handleImportCookidooRecipe(ctx, c, args), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

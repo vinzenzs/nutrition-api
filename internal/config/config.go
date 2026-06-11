@@ -47,6 +47,11 @@ type Config struct {
 	VisionTimeout           time.Duration `mapstructure:"-"`
 	VisionTimeoutSeconds    int           `mapstructure:"VISION_TIMEOUT_SECONDS"`
 	MealFromPhotoMaxBytes   int64         `mapstructure:"MEAL_FROM_PHOTO_MAX_BYTES"`
+
+	// Cookidoo recipe import (server-side fetch + JSON-LD parse). Always on;
+	// only the per-request timeout is configurable.
+	CookidooTimeout        time.Duration `mapstructure:"-"`
+	CookidooTimeoutSeconds int           `mapstructure:"COOKIDOO_TIMEOUT_SECONDS"`
 }
 
 // envKeys lists every environment variable Config recognises. Listed
@@ -69,6 +74,7 @@ var envKeys = []string{
 	"CLAUDE_VISION_MODEL",
 	"VISION_TIMEOUT_SECONDS",
 	"MEAL_FROM_PHOTO_MAX_BYTES",
+	"COOKIDOO_TIMEOUT_SECONDS",
 }
 
 // New returns a Viper instance pre-bound to all known environment variables
@@ -86,6 +92,7 @@ func New() *viper.Viper {
 	v.SetDefault("CLAUDE_VISION_MODEL", "claude-sonnet-4-6")
 	v.SetDefault("VISION_TIMEOUT_SECONDS", 15)
 	v.SetDefault("MEAL_FROM_PHOTO_MAX_BYTES", 10*1024*1024) // 10MB
+	v.SetDefault("COOKIDOO_TIMEOUT_SECONDS", 15)
 	v.AutomaticEnv()
 	for _, k := range envKeys {
 		_ = v.BindEnv(k)
@@ -108,6 +115,7 @@ func Load(v *viper.Viper) (*Config, error) {
 	c.IdempotencyTTL = time.Duration(c.IdempotencyTTLHours) * time.Hour
 	c.MCPRequestTimeout = time.Duration(c.MCPRequestTimeoutSeconds) * time.Second
 	c.VisionTimeout = time.Duration(c.VisionTimeoutSeconds) * time.Second
+	c.CookidooTimeout = time.Duration(c.CookidooTimeoutSeconds) * time.Second
 	return &c, nil
 }
 

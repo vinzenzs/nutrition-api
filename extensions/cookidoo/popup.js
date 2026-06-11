@@ -217,6 +217,19 @@ function populateFromRecipe(r) {
   const sz = r.servingSizeG != null ? r.servingSizeG : DEFAULT_SERVING_SIZE_G;
   $("serving_size_g").value = String(sz);
   autoFillPer100g(r.perServingNutriments, sz);
+  // Ingredients are captured verbatim and sent on Save, but not editable here —
+  // show a read-only count so the user knows they came along.
+  const el = $("ingredients-summary");
+  if (el) {
+    const n = Array.isArray(r.ingredients) ? r.ingredients.length : 0;
+    if (n > 0) {
+      el.textContent = `${n} ingredient${n === 1 ? "" : "s"} captured`;
+      el.classList.remove("hidden");
+    } else {
+      el.textContent = "";
+      el.classList.add("hidden");
+    }
+  }
 }
 
 function updateSaveEnabled() {
@@ -249,6 +262,16 @@ async function onSubmit(ev) {
     serving_size_g: readNum("serving_size_g"),
     nutriments_per_100g: nutriments,
   };
+
+  // Attach the verbatim ingredient list when the page provided one. nutrition-api
+  // stores it unparsed; only recipe-source products may carry it.
+  const ingredients =
+    recipeContext.recipe && Array.isArray(recipeContext.recipe.ingredients)
+      ? recipeContext.recipe.ingredients
+      : [];
+  if (ingredients.length > 0) {
+    body.ingredients = ingredients;
+  }
 
   const url = opts.api_url.replace(/\/+$/, "") + "/products";
   $("save").disabled = true;

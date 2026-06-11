@@ -6,6 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
 )
 
 // ----- POST /products/recipes -----
@@ -158,4 +160,116 @@ func buildRecipeResponse(r *CreateRecipeResult) createRecipeResponse {
 		})
 	}
 	return out
+}
+
+// ----- POST /products/import/cookidoo -----
+
+type importCookidooRequest struct {
+	URL          string   `json:"url"`
+	ServingSizeG *float64 `json:"serving_size_g,omitempty"`
+}
+
+type nutritionPerServingResponse struct {
+	Kcal     *float64 `json:"kcal,omitempty"`
+	ProteinG *float64 `json:"protein_g,omitempty"`
+	CarbsG   *float64 `json:"carbs_g,omitempty"`
+	FatG     *float64 `json:"fat_g,omitempty"`
+	FiberG   *float64 `json:"fiber_g,omitempty"`
+	SugarG   *float64 `json:"sugar_g,omitempty"`
+	SaltG    *float64 `json:"salt_g,omitempty"`
+}
+
+type importCookidooResponse struct {
+	*Product
+	AlreadyImported     bool                         `json:"already_imported,omitempty"`
+	NeedsNutriments     bool                         `json:"needs_nutriments,omitempty"`
+	NutritionPerServing *nutritionPerServingResponse `json:"nutrition_per_serving,omitempty"`
+}
+
+// importCookidoo godoc
+// @Summary      Import a Cookidoo recipe by URL
+// @Description  Fetches a Cookidoo recipe page server-side, parses its Schema.org Recipe JSON-LD, and creates a flat-imported source=recipe product with the verbatim ingredient list and provenance external_url. Cookidoo reports nutrition per serving with no mass: pass `serving_size_g` to convert to per-100g, or omit it to create the product without nutriments (the response then carries `needs_nutriments: true` and a `nutrition_per_serving` echo to convert and PATCH later). Re-importing a URL already present returns 200 with the existing product and `already_imported: true`.
+// @Tags         products
+// @Accept       json
+// @Produce      json
+// @Param        Idempotency-Key  header  string                 false  "Optional client-supplied idempotency key"
+// @Param        body             body    importCookidooRequest  true   "Cookidoo recipe URL and optional serving size"
+// @Success      201  {object}  importCookidooResponse  "imported (new product)"
+// @Success      200  {object}  importCookidooResponse  "already imported (existing product)"
+// @Failure      400  {object}  map[string]string  "invalid_json | invalid_cookidoo_url | ingredients_invalid"
+// @Failure      502  {object}  map[string]string  "cookidoo_unavailable"
+// @Failure      503  {object}  map[string]string  "cookidoo_not_configured"
+// @Security     BearerAuth
+// @Router       /products/import/cookidoo [post]
+func (h *Handlers) importCookidoo(c *gin.Context) {
+	var req importCookidooRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+
+	result, err := h.svc.ImportCookidoo(c.Request.Context(), ImportCookidooInput{
+		URL:          req.URL,
+		ServingSizeG: req.ServingSizeG,
+	})
+	if err != nil {
+		h.respondImportError(c, err)
+		return
+	}
+
+	resp := importCookidooResponse{
+		Product:         result.Product,
+		AlreadyImported: result.AlreadyImported,
+		NeedsNutriments: result.NeedsNutriments,
+	}
+	if result.NutritionPerServing != nil {
+		n := result.NutritionPerServing
+		resp.NutritionPerServing = &nutritionPerServingResponse{
+			Kcal:     n.Kcal,
+			ProteinG: n.ProteinG,
+			CarbsG:   n.CarbsG,
+			FatG:     n.FatG,
+			FiberG:   n.FiberG,
+			SugarG:   n.SugarG,
+			SaltG:    n.SaltG,
+		}
+	}
+	if result.AlreadyImported {
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+	c.JSON(http.StatusCreated, resp)
+}
+
+// respondImportError maps import errors to REST shapes. cookidoo fetch/parse
+// failures collapse to 502 cookidoo_unavailable with a reason distinguishing a
+// transport/status failure from a missing-recipe page.
+func (h *Handlers) respondImportError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, cookidoo.ErrNotCookidooURL):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_cookidoo_url"})
+	case errors.Is(err, ErrCookidooNotConfigured):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "cookidoo_not_configured"})
+	case errors.Is(err, cookidoo.ErrNoRecipeJSONLD):
+		c.JSON(http.StatusBadGateway, gin.H{"error": "cookidoo_unavailable", "reason": "no_recipe_on_page"})
+	case errors.Is(err, ErrIngredientsRequireRecipeSource):
+		// Defensive: import always sets source=recipe, so this should not occur.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ingredients_require_recipe_source"})
+	default:
+		var ff *cookidoo.ErrFetchFailed
+		if errors.As(err, &ff) {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":  "cookidoo_unavailable",
+				"reason": "fetch_failed",
+				"status": ff.StatusCode,
+			})
+			return
+		}
+		var badIng *ErrIngredientsInvalid
+		if errors.As(err, &badIng) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ingredients_invalid", "reason": badIng.Reason, "index": badIng.Index})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "import_failed"})
+	}
 }

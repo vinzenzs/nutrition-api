@@ -33,6 +33,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.POST("/products", h.createManual)
 	rg.POST("/products/recipes", h.createRecipe)
 	rg.POST("/products/recipes/:id/recompute", h.recomputeRecipe)
+	rg.POST("/products/import/cookidoo", h.importCookidoo)
 	rg.GET("/products", h.list)
 	rg.GET("/products/:id", h.getByID)
 	rg.GET("/products/search", h.search)
@@ -113,6 +114,9 @@ type createManualRequest struct {
 	ExternalURL       *string            `json:"external_url,omitempty"`
 	ServingSizeG      *float64           `json:"serving_size_g,omitempty"`
 	NutrimentsPer100g createManualNutris `json:"nutriments_per_100g"`
+	// Ingredients is an optional ordered list of verbatim ingredient strings,
+	// permitted only when source is "recipe".
+	Ingredients []string `json:"ingredients,omitempty"`
 }
 
 type createManualNutris struct {
@@ -167,13 +171,13 @@ func (n createManualNutris) validateNutrimentsNonNegative() string {
 
 // createManual godoc
 // @Summary      Create a product (manual or flat-imported recipe)
-// @Description  Creates a product not sourced from Open Food Facts. Default source is "manual". Pass `source: "recipe"` together with an `external_url` to register a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row has no `product_components` and `nutriment_computed_at` stays null — distinguishing it from composed recipes built via POST /products/recipes.
+// @Description  Creates a product not sourced from Open Food Facts. Default source is "manual". Pass `source: "recipe"` together with an `external_url` to register a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row has no `product_components` and `nutriment_computed_at` stays null — distinguishing it from composed recipes built via POST /products/recipes. Recipe products may carry an optional `ingredients` array of verbatim free-text strings (≤100 entries, each ≤500 chars); supplying it on a non-recipe product is rejected.
 // @Tags         products
 // @Accept       json
 // @Produce      json
 // @Param        body  body  createManualRequest  true  "Product fields"
 // @Success      201   {object}  Product
-// @Failure      400   {object}  map[string]string  "invalid_json | name_required | source_invalid | external_url_too_long | external_url_invalid | nutriments_invalid"
+// @Failure      400   {object}  map[string]string  "invalid_json | name_required | source_invalid | external_url_too_long | external_url_invalid | nutriments_invalid | ingredients_require_recipe_source | ingredients_invalid"
 // @Failure      409   {object}  map[string]string  "barcode_already_exists"
 // @Security     BearerAuth
 // @Router       /products [post]
@@ -229,6 +233,7 @@ func (h *Handlers) createManual(c *gin.Context) {
 		Source:       source,
 		ExternalURL:  externalURL,
 		ServingSizeG: req.ServingSizeG,
+		Ingredients:  req.Ingredients,
 		Nutriments: Nutriments{
 			KcalPer100g:     req.NutrimentsPer100g.Kcal,
 			ProteinGPer100g: req.NutrimentsPer100g.ProteinG,
@@ -255,6 +260,19 @@ func (h *Handlers) createManual(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":      "barcode_already_exists",
 				"product_id": dup.ExistingID.String(),
+			})
+			return
+		}
+		if errors.Is(err, ErrIngredientsRequireRecipeSource) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ingredients_require_recipe_source"})
+			return
+		}
+		var badIng *ErrIngredientsInvalid
+		if errors.As(err, &badIng) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":  "ingredients_invalid",
+				"reason": badIng.Reason,
+				"index":  badIng.Index,
 			})
 			return
 		}

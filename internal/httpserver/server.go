@@ -14,6 +14,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/auth"
 	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
 	"github.com/vinzenzs/nutrition-api/internal/config"
+	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
 	"github.com/vinzenzs/nutrition-api/internal/dailycontext"
 	"github.com/vinzenzs/nutrition-api/internal/energy"
 	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
@@ -92,6 +93,9 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 
 	productsRepo := products.NewRepo(pool)
 	productsSvc := products.NewService(pool, productsRepo, offClient)
+	// Server-side Cookidoo recipe import: fetch + JSON-LD parse. Always wired
+	// (no API key required); only the per-request timeout is configurable.
+	productsSvc.SetCookidooClient(cookidoo.New(cookidoo.Config{Timeout: cfg.CookidooTimeout}))
 	mealsRepo := meals.NewRepo(pool)
 	mealsSvc := meals.NewService(pool, mealsRepo, productsRepo)
 

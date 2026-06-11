@@ -1880,7 +1880,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a product not sourced from Open Food Facts. Default source is \"manual\". Pass ` + "`" + `source: \"recipe\"` + "`" + ` together with an ` + "`" + `external_url` + "`" + ` to register a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row has no ` + "`" + `product_components` + "`" + ` and ` + "`" + `nutriment_computed_at` + "`" + ` stays null — distinguishing it from composed recipes built via POST /products/recipes.",
+                "description": "Creates a product not sourced from Open Food Facts. Default source is \"manual\". Pass ` + "`" + `source: \"recipe\"` + "`" + ` together with an ` + "`" + `external_url` + "`" + ` to register a flat-imported recipe (e.g. from the Cookidoo Chrome extension); the row has no ` + "`" + `product_components` + "`" + ` and ` + "`" + `nutriment_computed_at` + "`" + ` stays null — distinguishing it from composed recipes built via POST /products/recipes. Recipe products may carry an optional ` + "`" + `ingredients` + "`" + ` array of verbatim free-text strings (≤100 entries, each ≤500 chars); supplying it on a non-recipe product is rejected.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1910,7 +1910,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "invalid_json | name_required | source_invalid | external_url_too_long | external_url_invalid | nutriments_invalid",
+                        "description": "invalid_json | name_required | source_invalid | external_url_too_long | external_url_invalid | nutriments_invalid | ingredients_require_recipe_source | ingredients_invalid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1920,6 +1920,84 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "barcode_already_exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/products/import/cookidoo": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches a Cookidoo recipe page server-side, parses its Schema.org Recipe JSON-LD, and creates a flat-imported source=recipe product with the verbatim ingredient list and provenance external_url. Cookidoo reports nutrition per serving with no mass: pass ` + "`" + `serving_size_g` + "`" + ` to convert to per-100g, or omit it to create the product without nutriments (the response then carries ` + "`" + `needs_nutriments: true` + "`" + ` and a ` + "`" + `nutrition_per_serving` + "`" + ` echo to convert and PATCH later). Re-importing a URL already present returns 200 with the existing product and ` + "`" + `already_imported: true` + "`" + `.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Import a Cookidoo recipe by URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Cookidoo recipe URL and optional serving size",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/products.importCookidooRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "already imported (existing product)",
+                        "schema": {
+                            "$ref": "#/definitions/products.importCookidooResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "imported (new product)",
+                        "schema": {
+                            "$ref": "#/definitions/products.importCookidooResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | invalid_cookidoo_url | ingredients_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "cookidoo_unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "cookidoo_not_configured",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5033,6 +5111,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "ingredients": {
+                    "description": "Ingredients is an ordered list of verbatim free-text ingredient strings\n(e.g. \"100 g Staudensellerie\"), populated only for source=recipe products\nimported from a source that carries them (Cookidoo). Nil — and omitted\nfrom JSON — for every other product. Not interpreted server-side; the\nshopping-list agent does any parsing or merging.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "last_logged_at": {
                     "type": "string"
                 },
@@ -5137,6 +5222,13 @@ const docTemplate = `{
                     "description": "ExternalURL records the upstream page this product was imported from.\nOptional; max 2048 chars; trimmed before validation.",
                     "type": "string"
                 },
+                "ingredients": {
+                    "description": "Ingredients is an optional ordered list of verbatim ingredient strings,\npermitted only when source is \"recipe\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -5208,6 +5300,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "ingredients": {
+                    "description": "Ingredients is an ordered list of verbatim free-text ingredient strings\n(e.g. \"100 g Staudensellerie\"), populated only for source=recipe products\nimported from a source that carries them (Cookidoo). Nil — and omitted\nfrom JSON — for every other product. Not interpreted server-side; the\nshopping-list agent does any parsing or merging.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "last_logged_at": {
                     "type": "string"
                 },
@@ -5233,6 +5332,109 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "products.importCookidooRequest": {
+            "type": "object",
+            "properties": {
+                "serving_size_g": {
+                    "type": "number"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "products.importCookidooResponse": {
+            "type": "object",
+            "properties": {
+                "already_imported": {
+                    "type": "boolean"
+                },
+                "barcode": {
+                    "type": "string"
+                },
+                "brand": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "external_url": {
+                    "description": "ExternalURL records where this product came from when neither OFF nor a\nmanual user entry. Today's first user is the Cookidoo extension.",
+                    "type": "string"
+                },
+                "fetched_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ingredients": {
+                    "description": "Ingredients is an ordered list of verbatim free-text ingredient strings\n(e.g. \"100 g Staudensellerie\"), populated only for source=recipe products\nimported from a source that carries them (Cookidoo). Nil — and omitted\nfrom JSON — for every other product. Not interpreted server-side; the\nshopping-list agent does any parsing or merging.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "last_logged_at": {
+                    "type": "string"
+                },
+                "last_logged_quantity_g": {
+                    "description": "LastLoggedQuantityG is the quantity_g of the most recent meal entry that\nadvanced last_logged_at. The phone's scan→log flow defaults to this\nvalue, dropping a typical scan from 3 taps to 2. Lockstep with\nLastLoggedAt — see internal/products.Repo.TouchLastLoggedAt.",
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "needs_nutriments": {
+                    "type": "boolean"
+                },
+                "nutriment_computed_at": {
+                    "description": "NutrimentComputedAt is set when a recipe product's nutriments were derived\nfrom its components. Null for non-recipe products.",
+                    "type": "string"
+                },
+                "nutriments_per_100g": {
+                    "$ref": "#/definitions/products.Nutriments"
+                },
+                "nutrition_per_serving": {
+                    "$ref": "#/definitions/products.nutritionPerServingResponse"
+                },
+                "serving_size_g": {
+                    "type": "number"
+                },
+                "source": {
+                    "$ref": "#/definitions/products.Source"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "products.nutritionPerServingResponse": {
+            "type": "object",
+            "properties": {
+                "carbs_g": {
+                    "type": "number"
+                },
+                "fat_g": {
+                    "type": "number"
+                },
+                "fiber_g": {
+                    "type": "number"
+                },
+                "kcal": {
+                    "type": "number"
+                },
+                "protein_g": {
+                    "type": "number"
+                },
+                "salt_g": {
+                    "type": "number"
+                },
+                "sugar_g": {
+                    "type": "number"
                 }
             }
         },
