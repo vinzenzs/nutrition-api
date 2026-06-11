@@ -277,6 +277,58 @@ class DailySummary {
       );
 }
 
+/// Response of `GET /summary/hydration/daily`. Deliberately separate from the
+/// nutrition daily summary — the backend keeps hydration ml isolated from the
+/// kcal/g/mg totals, and the app mirrors that split.
+class HydrationDaily {
+  final String date;
+  final String tz;
+  final double totalMl;
+  final List<HydrationEntry> entries;
+
+  HydrationDaily({
+    required this.date,
+    required this.tz,
+    required this.totalMl,
+    required this.entries,
+  });
+
+  factory HydrationDaily.fromJson(Map<String, dynamic> json) => HydrationDaily(
+        date: json['date'] as String,
+        tz: json['tz'] as String,
+        totalMl: _asDouble(json['total_ml']) ?? 0,
+        entries: ((json['entries'] as List?) ?? const [])
+            .map((e) =>
+                HydrationEntry.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+/// Result of `POST /meals/from_photo`. Carries the committed [MealEntry] and
+/// the vision [confidence] used to pick a confirmation band on the camera
+/// screen (≥0.75 auto-commit, 0.6–0.75 confirm, <0.6 editable sheet).
+class PhotoMealResult {
+  final MealEntry meal;
+  final double confidence;
+  final String? notes;
+
+  PhotoMealResult({
+    required this.meal,
+    required this.confidence,
+    this.notes,
+  });
+
+  factory PhotoMealResult.fromJson(Map<String, dynamic> json) {
+    final inference =
+        (json['inference'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return PhotoMealResult(
+      meal: MealEntry.fromJson((json['meal'] as Map).cast<String, dynamic>()),
+      confidence: _asDouble(inference['confidence']) ?? 0,
+      notes: inference['notes'] as String?,
+    );
+  }
+}
+
 class GoalRange {
   final double? min;
   final double? max;

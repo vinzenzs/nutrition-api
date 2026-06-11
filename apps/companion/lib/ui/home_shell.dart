@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../state/app_providers.dart';
+import '../data/db/app_database.dart';
+import '../data/sync/replay_triggers.dart';
+import 'camera/camera_page.dart';
+import 'recent/recent_page.dart';
+import 'today/today_page.dart';
+
+/// The three-screen shell. A fourth navigation slot is wired but disabled — it
+/// is reserved for the v2 chat affordance so the nav layout doesn't change
+/// when chat lands.
+class HomeShell extends ConsumerStatefulWidget {
+  const HomeShell({super.key});
+
+  @override
+  ConsumerState<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<HomeShell> {
+  int _index = 0;
+  ReplayTriggers? _triggers;
+
+  static const _pages = [TodayPage(), CameraPage(), RecentPage()];
+
+  @override
+  void initState() {
+    super.initState();
+    // Start the outbox replay triggers (foreground, connectivity, backstop)
+    // now that we're past pairing and the DB/api are wired.
+    final worker = ref.read(outboxWorkerProvider);
+    _triggers = ReplayTriggers(worker);
+    _triggers!.start();
+    _syncWidgetConfig();
+  }
+
+  /// Mirror glass size, hydration goal, and the Drift DB path into the native
+  /// widget so its tap worker can run and spill over offline taps correctly.
+  Future<void> _syncWidgetConfig() async {
+    final prefs = ref.read(prefsProvider);
+    final dbPath = await AppDatabase.resolveDbPath();
+    await ref.read(widgetBridgeProvider).setConfig(
+          glassSizeMl: prefs.glassSizeMl,
+          hydrationGoalMl: prefs.hydrationGoalMl,
+          driftDbPath: dbPath,
+        );
+  }
+
+  @override
+  void dispose() {
+    _triggers?.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) {
+          if (i == 3) {
+            // Reserved chat slot — disabled in v1.
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Chat is coming soon')),
+            );
+            return;
+          }
+          setState(() => _index = i);
+        },
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.today_outlined),
+              selectedIcon: Icon(Icons.today),
+              label: 'Today'),
+          NavigationDestination(
+              icon: Icon(Icons.photo_camera_outlined),
+              selectedIcon: Icon(Icons.photo_camera),
+              label: 'Camera'),
+          NavigationDestination(
+              icon: Icon(Icons.list_alt_outlined),
+              selectedIcon: Icon(Icons.list_alt),
+              label: 'Recent'),
+          NavigationDestination(
+            icon: Tooltip(message: 'Coming soon', child: Icon(Icons.add)),
+            label: 'Chat',
+            enabled: false,
+          ),
+        ],
+      ),
+    );
+  }
+}

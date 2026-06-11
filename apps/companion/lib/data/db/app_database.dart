@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
+import 'package:drift/native.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'dao/pending_writes_dao.dart';
 import 'dao/products_cache_dao.dart';
@@ -85,6 +88,17 @@ class AppDatabase extends _$AppDatabase {
       );
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'companion');
+    return LazyDatabase(() async {
+      final file = File(await resolveDbPath());
+      return NativeDatabase.createInBackground(file);
+    });
+  }
+
+  /// Absolute path to the SQLite file. Shared with the Kotlin widget worker
+  /// (via the widget bridge) so its `widget_failures` spillover targets the
+  /// same database the app drains.
+  static Future<String> resolveDbPath() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/companion.sqlite';
   }
 }

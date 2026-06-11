@@ -43,6 +43,9 @@ dependencies:
   # Networking
   dio: ^5.7.0
 
+  # Opening system app settings (camera-permission denial recovery)
+  permission_handler: ^11.3.1
+
   # Camera and barcode (mobile_scanner covers both barcodes and QR codes —
   # qr_code_scanner from the original spec is discontinued, so the pair page
   # reuses mobile_scanner instead).
@@ -52,9 +55,17 @@ dependencies:
   # Secure token storage (Android Keystore-backed)
   flutter_secure_storage: ^9.2.2
 
-  # Sync triggers
+  # Non-secure preferences (glass size, hydration goal). NEVER the token.
+  shared_preferences: ^2.3.2
+
+  # Package metadata (build version / commit ref display in Settings)
+  package_info_plus: ^8.0.2
+
+  # Sync triggers. workmanager >=0.6 is required — 0.5.x references the removed
+  # v1 Android embedding (ShimPluginRegistry/Registrar) and won't compile on
+  # current Flutter.
   connectivity_plus: ^6.0.5
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0
 
   # Home-screen widget bridge
   home_widget: ^0.7.0

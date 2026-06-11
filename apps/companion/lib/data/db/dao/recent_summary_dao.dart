@@ -51,6 +51,22 @@ class RecentSummaryDao extends DatabaseAccessor<AppDatabase>
     final row = await (select(recentSummary)
           ..where((r) => r.date.equals(date) & r.tz.equals(tz)))
         .getSingleOrNull();
+    return _toCached(row);
+  }
+
+  /// Most-recently-refreshed cached summary for [date] regardless of tz. The
+  /// app lets the backend default the timezone, so the instant cache read
+  /// keys on date alone.
+  Future<CachedDailySummary?> getAnyForDate(String date) async {
+    final row = await (select(recentSummary)
+          ..where((r) => r.date.equals(date))
+          ..orderBy([(r) => OrderingTerm.desc(r.refreshedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    return _toCached(row);
+  }
+
+  CachedDailySummary? _toCached(RecentSummaryData? row) {
     if (row == null) return null;
     return CachedDailySummary(
       date: row.date,

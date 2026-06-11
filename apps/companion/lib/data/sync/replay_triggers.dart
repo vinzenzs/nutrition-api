@@ -42,7 +42,7 @@ class ReplayTriggers with WidgetsBindingObserver {
       outboxBackstopTask,
       outboxBackstopTask,
       frequency: const Duration(minutes: 15),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
 
     // Initial drain at startup (covers the "app launched after offline write" case).
