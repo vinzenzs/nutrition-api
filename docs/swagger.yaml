@@ -444,6 +444,52 @@ definitions:
       updated_at:
         type: string
     type: object
+  mealplan.PlannedMeal:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      meal_entry_id:
+        type: string
+      notes:
+        type: string
+      plan_date:
+        description: YYYY-MM-DD
+        type: string
+      product_id:
+        type: string
+      product_name:
+        type: string
+      quantity_g:
+        type: number
+      slot:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  mealplan.createRequest:
+    properties:
+      notes:
+        type: string
+      plan_date:
+        type: string
+      product_id:
+        type: string
+      quantity_g:
+        type: number
+      slot:
+        type: string
+    type: object
+  mealplan.eatenRequest:
+    properties:
+      logged_at:
+        type: string
+      quantity_g:
+        type: number
+    type: object
   meals.MealEntry:
     properties:
       created_at:
@@ -2964,6 +3010,236 @@ paths:
       summary: Partially update a training phase
       tags:
       - training-phases
+  /plan:
+    get:
+      description: Returns planned meals with plan_date in [from, to] inclusive, ordered
+        by date then slot (breakfast→snack), each carrying its product name.
+      parameters:
+      - description: Inclusive lower bound YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive upper bound YYYY-MM-DD
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ planned_meals: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: range_required | plan_date_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List planned meals in a date range
+      tags:
+      - meal-plan
+    post:
+      consumes:
+      - application/json
+      description: Persists a meal *selection* for a date+slot. `slot` is one of breakfast|lunch|dinner|snack;
+        `product_id` is required and must reference an existing product. The plan
+        is NOT a logged meal — it enters meal history only via POST /plan/{id}/eaten.
+        Two planned meals may share a date+slot.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Planned meal
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/mealplan.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/mealplan.PlannedMeal'
+        "400":
+          description: slot_invalid | plan_date_invalid | product_id_required | product_id_invalid
+            | quantity_g_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a planned meal
+      tags:
+      - meal-plan
+  /plan/{id}:
+    delete:
+      parameters:
+      - description: Planned meal UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: planned_meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a planned meal
+      tags:
+      - meal-plan
+    get:
+      parameters:
+      - description: Planned meal UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mealplan.PlannedMeal'
+        "404":
+          description: planned_meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a planned meal
+      tags:
+      - meal-plan
+    patch:
+      consumes:
+      - application/json
+      description: Partial update. `status` may move planned↔skipped only; eaten is
+        terminal here (use POST /plan/{id}/eaten to log). `quantity_g` and `notes`
+        accept JSON null to clear.
+      parameters:
+      - description: Planned meal UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/mealplan.PlannedMeal'
+        "400":
+          description: slot_invalid | status_invalid | plan_date_invalid | quantity_g_invalid
+            | product_id_invalid | plan_entry_eaten_via_endpoint_only
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: planned_meal_not_found | product_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: plan_entry_eaten_terminal
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a planned meal
+      tags:
+      - meal-plan
+  /plan/{id}/eaten:
+    post:
+      consumes:
+      - application/json
+      description: Atomically creates a meal entry through the meals capability (product,
+        effective quantity = body override → plan quantity_g → product serving → 100
+        g, logged_at = now unless overridden and never in the future, meal_type =
+        slot) and flips the plan entry to `eaten`, storing the new meal entry id.
+        This is the ONLY path that turns a plan into meal history. If the meal create
+        fails the plan stays planned.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Planned meal UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Optional corrections
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/mealplan.eatenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ plan: PlannedMeal, meal: MealEntry }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: logged_at_invalid | logged_at_too_far_future | quantity_g_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: planned_meal_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: plan_entry_already_eaten | plan_entry_not_planned
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mark a planned meal eaten (logs a real meal entry)
+      tags:
+      - meal-plan
   /products:
     get:
       description: Returns the product cache as a paginated list, ordered last_logged_at

@@ -22,6 +22,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/hydration"
 	"github.com/vinzenzs/nutrition-api/internal/hydrationbalance"
 	"github.com/vinzenzs/nutrition-api/internal/idempotency"
+	"github.com/vinzenzs/nutrition-api/internal/mealplan"
 	"github.com/vinzenzs/nutrition-api/internal/meals"
 	"github.com/vinzenzs/nutrition-api/internal/off"
 	"github.com/vinzenzs/nutrition-api/internal/products"
@@ -157,6 +158,12 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 	racesSvc := races.NewService(pool, races.NewRepo(pool))
+	// Meal plan: planned-meal CRUD + the eaten transition. Cross-inject the
+	// products repo (FK validation, mirroring mealsSvc.SetWorkoutsRepo) and the
+	// meals service (the eaten transition logs a real meal entry atomically).
+	mealPlanSvc := mealplan.NewService(pool, mealplan.NewRepo(pool))
+	mealPlanSvc.SetProductsRepo(productsRepo)
+	mealPlanSvc.SetMealsService(mealsSvc)
 	racePrepSvc := raceprep.NewService(time.Now, userTZ, pool)
 	// recommend-workout-fuel needs the workouts row + body-weight resolver.
 	// Optional setters so the existing constructor signature stays stable

@@ -1820,6 +1820,345 @@ const docTemplate = `{
                 }
             }
         },
+        "/plan": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns planned meals with plan_date in [from, to] inclusive, ordered by date then slot (breakfast→snack), each carrying its product name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "List planned meals in a date range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive lower bound YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive upper bound YYYY-MM-DD",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ planned_meals: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "range_required | plan_date_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists a meal *selection* for a date+slot. ` + "`" + `slot` + "`" + ` is one of breakfast|lunch|dinner|snack; ` + "`" + `product_id` + "`" + ` is required and must reference an existing product. The plan is NOT a logged meal — it enters meal history only via POST /plan/{id}/eaten. Two planned meals may share a date+slot.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "Create a planned meal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Planned meal",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mealplan.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/mealplan.PlannedMeal"
+                        }
+                    },
+                    "400": {
+                        "description": "slot_invalid | plan_date_invalid | product_id_required | product_id_invalid | quantity_g_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/plan/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "Get a planned meal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Planned meal UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mealplan.PlannedMeal"
+                        }
+                    },
+                    "404": {
+                        "description": "planned_meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "Delete a planned meal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Planned meal UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "planned_meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Partial update. ` + "`" + `status` + "`" + ` may move planned↔skipped only; eaten is terminal here (use POST /plan/{id}/eaten to log). ` + "`" + `quantity_g` + "`" + ` and ` + "`" + `notes` + "`" + ` accept JSON null to clear.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "Update a planned meal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Planned meal UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/mealplan.PlannedMeal"
+                        }
+                    },
+                    "400": {
+                        "description": "slot_invalid | status_invalid | plan_date_invalid | quantity_g_invalid | product_id_invalid | plan_entry_eaten_via_endpoint_only",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "planned_meal_not_found | product_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "plan_entry_eaten_terminal",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/plan/{id}/eaten": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Atomically creates a meal entry through the meals capability (product, effective quantity = body override → plan quantity_g → product serving → 100 g, logged_at = now unless overridden and never in the future, meal_type = slot) and flips the plan entry to ` + "`" + `eaten` + "`" + `, storing the new meal entry id. This is the ONLY path that turns a plan into meal history. If the meal create fails the plan stays planned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "meal-plan"
+                ],
+                "summary": "Mark a planned meal eaten (logs a real meal entry)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Planned meal UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Optional corrections",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/mealplan.eatenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ plan: PlannedMeal, meal: MealEntry }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "logged_at_invalid | logged_at_too_far_future | quantity_g_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "planned_meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "plan_entry_already_eaten | plan_entry_not_planned",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/products": {
             "get": {
                 "security": [
@@ -4770,6 +5109,76 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "mealplan.PlannedMeal": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "meal_entry_id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "plan_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "slot": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "mealplan.createRequest": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "type": "string"
+                },
+                "plan_date": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
+                },
+                "slot": {
+                    "type": "string"
+                }
+            }
+        },
+        "mealplan.eatenRequest": {
+            "type": "object",
+            "properties": {
+                "logged_at": {
+                    "type": "string"
+                },
+                "quantity_g": {
+                    "type": "number"
                 }
             }
         },

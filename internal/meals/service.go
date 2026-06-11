@@ -10,18 +10,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/vinzenzs/nutrition-api/internal/products"
+	"github.com/vinzenzs/nutrition-api/internal/store"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
 )
 
 // Validation errors map 1:1 to API error codes.
 var (
-	ErrProductIDRequired   = errors.New("product_id_required")
-	ErrProductNotFound     = errors.New("product_not_found")
-	ErrQuantityInvalid     = errors.New("quantity_g_invalid")
-	ErrLoggedAtFuture      = errors.New("logged_at_too_far_future")
-	ErrMealTypeInvalid     = errors.New("meal_type_invalid")
-	ErrNameRequired        = errors.New("name_required")
-	ErrWorkoutNotFound     = errors.New("workout_not_found")
+	ErrProductIDRequired = errors.New("product_id_required")
+	ErrProductNotFound   = errors.New("product_not_found")
+	ErrQuantityInvalid   = errors.New("quantity_g_invalid")
+	ErrLoggedAtFuture    = errors.New("logged_at_too_far_future")
+	ErrMealTypeInvalid   = errors.New("meal_type_invalid")
+	ErrNameRequired      = errors.New("name_required")
+	ErrWorkoutNotFound   = errors.New("workout_not_found")
 )
 
 // ErrNutrimentInvalid carries which nutriment field was rejected.
@@ -86,8 +87,18 @@ type CreateInput struct {
 }
 
 // Create validates the input, inserts a meal entry, and advances the
-// linked product's last_logged_at — all in one transaction.
+// linked product's last_logged_at.
 func (s *Service) Create(ctx context.Context, in CreateInput) (*MealEntry, error) {
+	return s.CreateInTx(ctx, s.pool, in)
+}
+
+// CreateInTx runs the product-backed meal create against the supplied Querier
+// instead of the pool. This lets another capability compose meal creation into
+// its own transaction — used by mealplan's "eaten" transition so the meal
+// entry and the plan-row status flip commit atomically. It does NOT open or
+// commit the transaction; the caller owns that. Pass s.pool for the standalone
+// path (what Create does).
+func (s *Service) CreateInTx(ctx context.Context, q store.Querier, in CreateInput) (*MealEntry, error) {
 	if in.ProductID == nil {
 		return nil, ErrProductIDRequired
 	}
@@ -102,7 +113,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*MealEntry, error
 		return nil, err
 	}
 
-	if _, err := s.productsRepo.GetByID(ctx, *in.ProductID); err != nil {
+	mealsRepo := NewRepo(q)
+	productsRepo := products.NewRepo(q)
+
+	if _, err := productsRepo.GetByID(ctx, *in.ProductID); err != nil {
 		if errors.Is(err, products.ErrNotFound) {
 			return nil, ErrProductNotFound
 		}
@@ -114,7 +128,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*MealEntry, error
 		}
 	}
 
-	id, err := s.mealsRepo.Insert(ctx, InsertParams{
+	id, err := mealsRepo.Insert(ctx, InsertParams{
 		ProductID: in.ProductID,
 		LoggedAt:  in.LoggedAt,
 		QuantityG: in.QuantityG,
@@ -125,10 +139,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*MealEntry, error
 	if err != nil {
 		return nil, err
 	}
-	if err := s.productsRepo.TouchLastLoggedAt(ctx, *in.ProductID, in.LoggedAt, in.QuantityG); err != nil {
+	if err := productsRepo.TouchLastLoggedAt(ctx, *in.ProductID, in.LoggedAt, in.QuantityG); err != nil {
 		return nil, err
 	}
-	return s.mealsRepo.GetByID(ctx, id)
+	return mealsRepo.GetByID(ctx, id)
 }
 
 // FreeformInput is the payload for POST /meals/freeform.
