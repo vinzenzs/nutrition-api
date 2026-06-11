@@ -31,4 +31,4 @@ or `task swag` changes — every endpoint this uses already exists.
 
 ## 5. Spec sync
 
-- [ ] 5.1 On archive, fold the MODIFIED + ADDED requirements into `openspec/specs/mobile-companion/spec.md`.
+- [x] 5.1 On archive, fold the MODIFIED + ADDED requirements into `openspec/specs/mobile-companion/spec.md`.
