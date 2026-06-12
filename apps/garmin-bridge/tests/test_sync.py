@@ -33,8 +33,13 @@ def test_sync_day_issues_expected_rest_calls(raw_day):
     # The bulk body carries both activities with garmin external_ids.
     bulk_body = next(b for p, b in backend.posts if p == "/workouts/bulk")
     ext_ids = {w["external_id"] for w in bulk_body["workouts"]}
-    assert ext_ids == {"garmin:1234567", "garmin:1234568"}
+    assert ext_ids == {"garmin:1234567", "garmin:1234568", "garmin:1234569"}
     assert all(w["source"] == "garmin" for w in bulk_body["workouts"])
+    # The run carries its nested splits + zone detail through the bulk post
+    # unchanged (no per-activity round-trips at the sync layer).
+    run = next(w for w in bulk_body["workouts"] if w["external_id"] == "garmin:1234567")
+    assert len(run["splits"]) == 2
+    assert run["secs_in_zone_3"] == 1500
 
     assert summary["ok"] is True
 

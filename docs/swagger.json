@@ -5830,7 +5830,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new workout when external_id is absent or unseen; updates the existing row when external_id matches an existing workout. Garmin re-syncs land here without the writer needing to track sync state.",
+                "description": "Creates a new workout when external_id is absent or unseen; updates the existing row when external_id matches an existing workout. Garmin re-syncs land here without the writer needing to track sync state. Optional nested `splits` / `sets` arrays are written as child rows in the same transaction and fully replaced on an external_id re-sync.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5872,7 +5872,7 @@
                         }
                     },
                     "400": {
-                        "description": "source_invalid | sport_invalid | window_invalid | started_at_too_far_future | kcal_burned_invalid | avg_hr_invalid | tss_invalid | distance_m_invalid | avg_power_w_invalid | temperature_c_invalid | sweat_loss_ml_invalid | session_group_invalid | status_invalid",
+                        "description": "source_invalid | sport_invalid | window_invalid | started_at_too_far_future | kcal_burned_invalid | avg_hr_invalid | tss_invalid | distance_m_invalid | avg_power_w_invalid | temperature_c_invalid | sweat_loss_ml_invalid | session_group_invalid | status_invalid | split_invalid | set_invalid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -5890,7 +5890,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Each item upserts independently using external_id semantics. Per-item validation/persistence failures are reported in the results array; the overall response is 200 whenever the request body is well-formed and within the size cap. Partial failure is allowed.",
+                "description": "Each item upserts independently using external_id semantics, and may carry nested `splits` / `sets` arrays (written transactionally with the parent, replaced on re-sync). Per-item validation/persistence failures are reported in the results array; the overall response is 200 whenever the request body is well-formed and within the size cap. Partial failure is allowed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5937,6 +5937,7 @@
                         "BearerAuth": []
                     }
                 ],
+                "description": "Returns the workout including scalar performance + HR-zone fields inline (when set) and the nested `splits` / `sets` detail arrays (each ordered by index; empty arrays omitted). List responses carry the scalar + zone fields but never the nested arrays.",
                 "produces": [
                     "application/json"
                 ],
@@ -9159,6 +9160,29 @@
                 }
             }
         },
+        "workouts.Set": {
+            "type": "object",
+            "properties": {
+                "duration_s": {
+                    "type": "number"
+                },
+                "exercise_category": {
+                    "type": "string"
+                },
+                "exercise_name": {
+                    "type": "string"
+                },
+                "reps": {
+                    "type": "integer"
+                },
+                "set_index": {
+                    "type": "integer"
+                },
+                "weight_kg": {
+                    "type": "number"
+                }
+            }
+        },
         "workouts.Source": {
             "type": "string",
             "enum": [
@@ -9171,6 +9195,32 @@
                 "SourceManual",
                 "SourceOther"
             ]
+        },
+        "workouts.Split": {
+            "type": "object",
+            "properties": {
+                "avg_hr": {
+                    "type": "integer"
+                },
+                "avg_power_w": {
+                    "type": "integer"
+                },
+                "avg_speed_mps": {
+                    "type": "number"
+                },
+                "distance_m": {
+                    "type": "number"
+                },
+                "duration_s": {
+                    "type": "number"
+                },
+                "elevation_gain_m": {
+                    "type": "number"
+                },
+                "split_index": {
+                    "type": "integer"
+                }
+            }
         },
         "workouts.Sport": {
             "type": "string",
@@ -9203,17 +9253,36 @@
         "workouts.Workout": {
             "type": "object",
             "properties": {
+                "aerobic_te": {
+                    "type": "number"
+                },
+                "anaerobic_te": {
+                    "type": "number"
+                },
+                "avg_cadence": {
+                    "type": "integer"
+                },
                 "avg_hr": {
                     "type": "integer"
                 },
                 "avg_power_w": {
                     "type": "integer"
                 },
+                "avg_stride_m": {
+                    "type": "number"
+                },
                 "created_at": {
                     "type": "string"
                 },
                 "distance_m": {
                     "description": "Source-agnostic ingestion metrics — all nullable, populated by whatever\nwriter measured them (Garmin today). distance in metres, average power in\nwatts, ambient temperature in °C, estimated sweat loss in ml. SessionGroup\nis a free-text key linking the legs of a brick/multisport session (e.g. the\nGarmin parent activity id set on every leg).",
+                    "type": "number"
+                },
+                "elevation_gain_m": {
+                    "description": "Per-activity detail (per add-garmin-workout-detail), all nullable, mapped\nfrom the Garmin activity summary + weather. Elevation in metres, normalized\npower in watts, IF a ratio, cadence in spm/rpm, stride in metres, training\neffect on Garmin's 0–5 scale. Weather: humidity %, wind in m/s (temperature\nalready lives above). \"Not measured\" stays a meaningful NULL.",
+                    "type": "number"
+                },
+                "elevation_loss_m": {
                     "type": "number"
                 },
                 "ended_at": {
@@ -9232,11 +9301,20 @@
                 "gi_distress_score": {
                     "type": "integer"
                 },
+                "humidity_pct": {
+                    "type": "number"
+                },
                 "id": {
                     "type": "string"
                 },
+                "intensity_factor": {
+                    "type": "number"
+                },
                 "kcal_burned": {
                     "type": "number"
+                },
+                "max_hr": {
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
@@ -9244,6 +9322,9 @@
                 "needs_link": {
                     "description": "NeedsLink (per add-workout-reconciliation) marks a completed import that\nmatched more than one open planned workout, so it was inserted standalone\nrather than auto-merged — the app/agent should offer to link it. Cleared\non fulfill.",
                     "type": "boolean"
+                },
+                "normalized_power_w": {
+                    "type": "integer"
                 },
                 "notes": {
                     "type": "string"
@@ -9255,11 +9336,40 @@
                     "description": "Per-session rehearsal-outcome signals — both nullable, set by the user\nafter a fueling-rehearsal workout. Validated 1..10 (Borg CR-10) and 1..5\n(1=no GI distress, 5=severe) at handler + DB CHECK layers.",
                     "type": "integer"
                 },
+                "secs_in_zone_1": {
+                    "description": "HR-zone time, seconds in each of the fixed five Garmin zones. Fixed\ncardinality → columns (not a child table), so the most-queried fueling\nsignal needs no join and rides along on list responses.",
+                    "type": "integer"
+                },
+                "secs_in_zone_2": {
+                    "type": "integer"
+                },
+                "secs_in_zone_3": {
+                    "type": "integer"
+                },
+                "secs_in_zone_4": {
+                    "type": "integer"
+                },
+                "secs_in_zone_5": {
+                    "type": "integer"
+                },
                 "session_group": {
                     "type": "string"
                 },
+                "sets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouts.Set"
+                    }
+                },
                 "source": {
                     "$ref": "#/definitions/workouts.Source"
+                },
+                "splits": {
+                    "description": "Nested detail — populated on single-get only (the list query omits them to\nkeep payloads bounded). Empty slices serialize as absent via omitempty.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouts.Split"
+                    }
                 },
                 "sport": {
                     "$ref": "#/definitions/workouts.Sport"
@@ -9285,6 +9395,9 @@
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "wind_speed_mps": {
+                    "type": "number"
                 }
             }
         },

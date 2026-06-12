@@ -54,7 +54,7 @@ def test_weight_mapping_grams_to_kg(raw_day):
 
 def test_workouts_mapping(raw_day):
     workouts = mapping.map_workouts(raw_day)
-    assert len(workouts) == 2
+    assert len(workouts) == 3
 
     run = workouts[0]
     assert run["external_id"] == "garmin:1234567"
@@ -76,13 +76,99 @@ def test_workouts_mapping(raw_day):
     assert bike["session_group"] == "garmin:1234566"  # parentId → brick link
 
 
+def test_workouts_scalar_detail_from_summary(raw_day):
+    """Scalar performance fields ride along the activity summary — no extra call."""
+    run = mapping.map_workouts(raw_day)[0]
+    assert run["elevation_gain_m"] == 120.0
+    assert run["elevation_loss_m"] == 95.0
+    assert run["normalized_power_w"] == 245
+    assert run["intensity_factor"] == 0.82
+    assert run["avg_cadence"] == 178
+    assert run["avg_stride_m"] == 1.15  # 115 cm → m
+    assert run["max_hr"] == 176
+    assert run["aerobic_te"] == 3.4
+    assert run["anaerobic_te"] == 1.2
+
+
+def test_workouts_zone_and_weather_detail(raw_day):
+    run = mapping.map_workouts(raw_day)[0]
+    assert run["secs_in_zone_1"] == 300
+    assert run["secs_in_zone_2"] == 1200
+    assert run["secs_in_zone_3"] == 1500
+    assert run["secs_in_zone_4"] == 500
+    assert run["secs_in_zone_5"] == 100
+    assert run["humidity_pct"] == 72.0
+    assert run["wind_speed_mps"] == 3.5
+
+
+def test_workouts_splits_detail(raw_day):
+    run = mapping.map_workouts(raw_day)[0]
+    splits = run["splits"]
+    assert len(splits) == 2
+    assert splits[0] == {
+        "split_index": 0,
+        "distance_m": 6000.0,
+        "duration_s": 1800.0,
+        "avg_hr": 150,
+        "avg_power_w": 240,
+        "avg_speed_mps": 3.333,
+        "elevation_gain_m": 60.0,
+    }
+    assert splits[1]["split_index"] == 1
+    assert splits[1]["avg_speed_mps"] == 3.305
+    # endurance run carries no strength sets
+    assert "sets" not in run
+
+
+def test_workouts_sets_detail_for_strength(raw_day):
+    """The strength activity carries sets (active only), no splits/weather."""
+    lift = mapping.map_workouts(raw_day)[2]
+    assert lift["external_id"] == "garmin:1234569"
+    assert lift["sport"] == "strength"
+    sets = lift["sets"]
+    assert len(sets) == 2  # the REST set is dropped
+    assert sets[0] == {
+        "set_index": 0,
+        "exercise_name": "BENCH_PRESS",
+        "exercise_category": "BENCH_PRESS",
+        "reps": 12,
+        "weight_kg": 40.0,  # 40000 g → kg
+        "duration_s": 45.0,
+    }
+    assert sets[1]["set_index"] == 1
+    assert sets[1]["weight_kg"] == 42.5
+    # indoor strength session → no weather, no splits
+    assert "humidity_pct" not in lift
+    assert "wind_speed_mps" not in lift
+    assert "splits" not in lift
+
+
+def test_workouts_detail_absent_when_no_activity_details():
+    """An activity with no detail entry maps to a bare item (no scalar/zone keys)."""
+    raw = {
+        "activities": [
+            {
+                "activityId": 42,
+                "activityType": {"typeKey": "running"},
+                "startTimeGMT": "2026-06-12 10:00:00",
+                "duration": 600.0,
+            }
+        ]
+    }
+    item = mapping.map_workouts(raw)[0]
+    assert "elevation_gain_m" not in item
+    assert "secs_in_zone_1" not in item
+    assert "splits" not in item
+    assert "sets" not in item
+
+
 def test_map_day_aggregates_all(raw_day):
     mapped = mapping.map_day(raw_day, "2026-06-12")
     assert mapped["recovery"] is not None
     assert mapped["fitness"] is not None
     assert mapped["hydration_balance"] is not None
     assert len(mapped["weights"]) == 1
-    assert len(mapped["workouts"]) == 2
+    assert len(mapped["workouts"]) == 3
 
 
 def test_empty_day_yields_none_snapshots():

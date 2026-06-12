@@ -31,6 +31,8 @@ var (
 	ErrSweatLossMLInvalid     = errors.New("sweat_loss_ml_invalid")
 	ErrSessionGroupInvalid    = errors.New("session_group_invalid")
 	ErrStatusInvalid          = errors.New("status_invalid")
+	ErrSplitInvalid           = errors.New("split_invalid")
+	ErrSetInvalid             = errors.New("set_invalid")
 )
 
 // Reconciliation (fulfill/unfulfill) sentinel errors — map 1:1 to API codes.
@@ -102,6 +104,29 @@ type CreateInput struct {
 	SweatLossML     *float64
 	SessionGroup    *string
 	Notes           *string
+
+	// Per-activity detail (per add-garmin-workout-detail). Scalar/zone fields
+	// are flat columns; Splits/Sets are nested child rows written in the same
+	// transaction as the parent. A nil Splits/Sets means "this payload carried
+	// no opinion" (children left untouched on re-sync); a non-nil slice replaces.
+	ElevationGainM   *float64
+	ElevationLossM   *float64
+	NormalizedPowerW *int
+	IntensityFactor  *float64
+	AvgCadence       *int
+	AvgStrideM       *float64
+	MaxHR            *int
+	AerobicTE        *float64
+	AnaerobicTE      *float64
+	HumidityPct      *float64
+	WindSpeedMPS     *float64
+	SecsInZone1      *int
+	SecsInZone2      *int
+	SecsInZone3      *int
+	SecsInZone4      *int
+	SecsInZone5      *int
+	Splits           []Split
+	Sets             []Set
 }
 
 // Upsert validates input and applies the UPSERT-by-external_id semantics, with
@@ -123,13 +148,9 @@ func (s *Service) Upsert(ctx context.Context, in CreateInput) (*Workout, bool, e
 // insert flagged needs_link. Everything else (manual rows, or a re-sync whose
 // external_id is already stored) takes the plain external_id UPSERT path.
 func (s *Service) reconcileUpsert(ctx context.Context, w *Workout) (*Workout, bool, error) {
-	if w.Source != SourceGarmin || w.ExternalID == nil {
-		created, err := s.repo.Upsert(ctx, w)
-		if err != nil {
-			return nil, false, err
-		}
-		return w, created, nil
-	}
+	// Capture the nested detail before any parent write — the Upsert update path
+	// re-reads the row over `*w`, which would otherwise drop the input children.
+	splits, sets := w.Splits, w.Sets
 
 	var (
 		result  *Workout
@@ -137,47 +158,61 @@ func (s *Service) reconcileUpsert(ctx context.Context, w *Workout) (*Workout, bo
 	)
 	txErr := store.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
 		tr := NewRepo(tx)
-		// Re-sync: the activity is already stored → plain UPSERT updates it in
-		// place; reconciliation does not re-run.
-		if _, err := tr.GetByExternalID(ctx, *w.ExternalID); err == nil {
+		// Non-reconciling path: manual rows, or any row without an external_id —
+		// a plain UPSERT, but still wrapped here so the children commit atomically
+		// with the parent.
+		if w.Source != SourceGarmin || w.ExternalID == nil {
 			c, err := tr.Upsert(ctx, w)
 			if err != nil {
 				return err
 			}
 			result, created = w, c
-			return nil
+		} else if _, err := tr.GetByExternalID(ctx, *w.ExternalID); err == nil {
+			// Re-sync: the activity is already stored → plain UPSERT updates it in
+			// place; reconciliation does not re-run.
+			c, err := tr.Upsert(ctx, w)
+			if err != nil {
+				return err
+			}
+			result, created = w, c
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
+		} else {
+			// First sight → candidate match on sport + local calendar day.
+			cands, err := tr.FindOpenPlanned(ctx, string(w.Sport), w.StartedAt, s.loc.String())
+			if err != nil {
+				return err
+			}
+			switch len(cands) {
+			case 1:
+				merged, err := tr.Merge(ctx, cands[0].ID, w)
+				if err != nil {
+					return err
+				}
+				result, created = merged, false
+			case 0:
+				c, err := tr.Upsert(ctx, w)
+				if err != nil {
+					return err
+				}
+				result, created = w, c
+			default:
+				w.NeedsLink = true
+				c, err := tr.Upsert(ctx, w)
+				if err != nil {
+					return err
+				}
+				result, created = w, c
+			}
 		}
-		// First sight → candidate match on sport + local calendar day.
-		cands, err := tr.FindOpenPlanned(ctx, string(w.Sport), w.StartedAt, s.loc.String())
-		if err != nil {
+		// Attach the nested detail to the surviving row (the reconciled planned
+		// row on a merge, otherwise the upserted row), then reload it so the
+		// response carries the persisted, index-ordered children.
+		if err := tr.ReplaceChildren(ctx, tx, result.ID, splits, sets); err != nil {
 			return err
 		}
-		switch len(cands) {
-		case 1:
-			merged, err := tr.Merge(ctx, cands[0].ID, w)
-			if err != nil {
-				return err
-			}
-			result, created = merged, false
-			return nil
-		case 0:
-			c, err := tr.Upsert(ctx, w)
-			if err != nil {
-				return err
-			}
-			result, created = w, c
-			return nil
-		default:
-			w.NeedsLink = true
-			c, err := tr.Upsert(ctx, w)
-			if err != nil {
-				return err
-			}
-			result, created = w, c
-			return nil
-		}
+		result.Splits, result.Sets = nil, nil
+		return tr.loadChildren(ctx, tx, result)
 	})
 	if txErr != nil {
 		return nil, false, txErr
@@ -248,6 +283,10 @@ func (s *Service) Unfulfill(ctx context.Context, id uuid.UUID) (*Workout, error)
 		if err != nil {
 			return err
 		}
+		// The imported splits/sets no longer apply once reverted to planned.
+		if err := tr.DeleteChildren(ctx, tx, id); err != nil {
+			return err
+		}
 		result = restored
 		return nil
 	})
@@ -257,9 +296,9 @@ func (s *Service) Unfulfill(ctx context.Context, id uuid.UUID) (*Workout, error)
 	return result, nil
 }
 
-// Get returns a single workout by id.
+// Get returns a single workout by id, with its nested splits/sets detail.
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (*Workout, error) {
-	return s.repo.GetByID(ctx, id)
+	return s.repo.GetByIDWithChildren(ctx, id)
 }
 
 // PatchInput is the editable subset of PATCH /workouts/{id}. The two
@@ -446,26 +485,90 @@ func (s *Service) buildWorkout(in CreateInput) (*Workout, error) {
 	if err := validateIngestionMetrics(in.DistanceM, in.AvgPowerW, in.TemperatureC, in.SweatLossML, in.SessionGroup); err != nil {
 		return nil, err
 	}
+	if err := validateSplits(in.Splits); err != nil {
+		return nil, err
+	}
+	if err := validateSets(in.Sets); err != nil {
+		return nil, err
+	}
 	return &Workout{
-		ExternalID:      in.ExternalID,
-		Source:          Source(in.Source),
-		Sport:           Sport(in.Sport),
-		Status:          Status(status),
-		Name:            in.Name,
-		StartedAt:       in.StartedAt,
-		EndedAt:         in.EndedAt,
-		KcalBurned:      in.KcalBurned,
-		AvgHR:           in.AvgHR,
-		TSS:             in.TSS,
-		RPE:             in.RPE,
-		GIDistressScore: in.GIDistressScore,
-		DistanceM:       in.DistanceM,
-		AvgPowerW:       in.AvgPowerW,
-		TemperatureC:    in.TemperatureC,
-		SweatLossML:     in.SweatLossML,
-		SessionGroup:    in.SessionGroup,
-		Notes:           in.Notes,
+		ExternalID:       in.ExternalID,
+		Source:           Source(in.Source),
+		Sport:            Sport(in.Sport),
+		Status:           Status(status),
+		Name:             in.Name,
+		StartedAt:        in.StartedAt,
+		EndedAt:          in.EndedAt,
+		KcalBurned:       in.KcalBurned,
+		AvgHR:            in.AvgHR,
+		TSS:              in.TSS,
+		RPE:              in.RPE,
+		GIDistressScore:  in.GIDistressScore,
+		DistanceM:        in.DistanceM,
+		AvgPowerW:        in.AvgPowerW,
+		TemperatureC:     in.TemperatureC,
+		SweatLossML:      in.SweatLossML,
+		SessionGroup:     in.SessionGroup,
+		Notes:            in.Notes,
+		ElevationGainM:   in.ElevationGainM,
+		ElevationLossM:   in.ElevationLossM,
+		NormalizedPowerW: in.NormalizedPowerW,
+		IntensityFactor:  in.IntensityFactor,
+		AvgCadence:       in.AvgCadence,
+		AvgStrideM:       in.AvgStrideM,
+		MaxHR:            in.MaxHR,
+		AerobicTE:        in.AerobicTE,
+		AnaerobicTE:      in.AnaerobicTE,
+		HumidityPct:      in.HumidityPct,
+		WindSpeedMPS:     in.WindSpeedMPS,
+		SecsInZone1:      in.SecsInZone1,
+		SecsInZone2:      in.SecsInZone2,
+		SecsInZone3:      in.SecsInZone3,
+		SecsInZone4:      in.SecsInZone4,
+		SecsInZone5:      in.SecsInZone5,
+		Splits:           in.Splits,
+		Sets:             in.Sets,
 	}, nil
+}
+
+// validateSplits checks each split has a non-negative index and non-negative
+// metrics. Indices must be unique within the batch (they map to a UNIQUE
+// (workout_id, split_index) constraint). A nil/empty slice is valid.
+func validateSplits(splits []Split) error {
+	seen := make(map[int]bool, len(splits))
+	for _, s := range splits {
+		if s.SplitIndex < 0 || seen[s.SplitIndex] {
+			return ErrSplitInvalid
+		}
+		seen[s.SplitIndex] = true
+		if (s.DistanceM != nil && *s.DistanceM < 0) ||
+			(s.DurationS != nil && *s.DurationS < 0) ||
+			(s.AvgHR != nil && *s.AvgHR < 0) ||
+			(s.AvgPowerW != nil && *s.AvgPowerW < 0) ||
+			(s.AvgSpeedMPS != nil && *s.AvgSpeedMPS < 0) ||
+			(s.ElevationGainM != nil && *s.ElevationGainM < 0) {
+			return ErrSplitInvalid
+		}
+	}
+	return nil
+}
+
+// validateSets checks each set has a non-negative, unique index and
+// non-negative reps/weight/duration. A nil/empty slice is valid.
+func validateSets(sets []Set) error {
+	seen := make(map[int]bool, len(sets))
+	for _, s := range sets {
+		if s.SetIndex < 0 || seen[s.SetIndex] {
+			return ErrSetInvalid
+		}
+		seen[s.SetIndex] = true
+		if (s.Reps != nil && *s.Reps < 0) ||
+			(s.WeightKg != nil && *s.WeightKg < 0) ||
+			(s.DurationS != nil && *s.DurationS < 0) {
+			return ErrSetInvalid
+		}
+	}
+	return nil
 }
 
 func validateKcalBurned(v float64) error {

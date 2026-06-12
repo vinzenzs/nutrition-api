@@ -60,7 +60,16 @@
       "calories": 780.0,
       "averageHR": 152,
       "avgPower": 0,
-      "minTemperature": 14.0
+      "minTemperature": 14.0,
+      "elevationGain": 120.0,
+      "elevationLoss": 95.0,
+      "normPower": 245,
+      "intensityFactor": 0.82,
+      "averageRunningCadenceInStepsPerMinute": 178,
+      "avgStrideLength": 115.0,
+      "maxHR": 176,
+      "aerobicTrainingEffect": 3.4,
+      "anaerobicTrainingEffect": 1.2
     },
     {
       "activityId": 1234568,
@@ -74,6 +83,72 @@
       "avgPower": 210,
       "minTemperature": 16.0,
       "parentId": 1234566
+    },
+    {
+      "activityId": 1234569,
+      "activityName": "Evening Lift",
+      "activityType": { "typeKey": "strength_training" },
+      "startTimeGMT": "2026-06-12 17:00:00",
+      "duration": 2700.0,
+      "calories": 320.0,
+      "averageHR": 110
     }
-  ]
+  ],
+  "activity_details": {
+    "1234567": {
+      "zones": [
+        { "zoneNumber": 1, "secsInZone": 300.0 },
+        { "zoneNumber": 2, "secsInZone": 1200.0 },
+        { "zoneNumber": 3, "secsInZone": 1500.0 },
+        { "zoneNumber": 4, "secsInZone": 500.0 },
+        { "zoneNumber": 5, "secsInZone": 100.0 }
+      ],
+      "splits": {
+        "lapDTOs": [
+          {
+            "distance": 6000.0,
+            "duration": 1800.0,
+            "averageHR": 150,
+            "averagePower": 240,
+            "averageSpeed": 3.333,
+            "elevationGain": 60.0
+          },
+          {
+            "distance": 6000.0,
+            "duration": 1800.0,
+            "averageHR": 155,
+            "averagePower": 250,
+            "averageSpeed": 3.305,
+            "elevationGain": 60.0
+          }
+        ]
+      },
+      "sets": null,
+      "weather": { "relativeHumidity": 72.0, "windSpeed": 3.5 }
+    },
+    "1234569": {
+      "zones": null,
+      "splits": null,
+      "sets": {
+        "exerciseSets": [
+          {
+            "setType": "ACTIVE",
+            "repetitionCount": 12,
+            "weight": 40000.0,
+            "duration": 45.0,
+            "exercises": [ { "name": "BENCH_PRESS", "category": "BENCH_PRESS" } ]
+          },
+          { "setType": "REST", "duration": 60.0 },
+          {
+            "setType": "ACTIVE",
+            "repetitionCount": 10,
+            "weight": 42500.0,
+            "duration": 40.0,
+            "exercises": [ { "name": "BENCH_PRESS", "category": "BENCH_PRESS" } ]
+          }
+        ]
+      },
+      "weather": null
+    }
+  }
 }

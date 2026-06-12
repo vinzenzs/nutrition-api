@@ -109,6 +109,37 @@ type Workout struct {
 	SweatLossML  *float64 `json:"sweat_loss_ml,omitempty"`
 	SessionGroup *string  `json:"session_group,omitempty"`
 
+	// Per-activity detail (per add-garmin-workout-detail), all nullable, mapped
+	// from the Garmin activity summary + weather. Elevation in metres, normalized
+	// power in watts, IF a ratio, cadence in spm/rpm, stride in metres, training
+	// effect on Garmin's 0–5 scale. Weather: humidity %, wind in m/s (temperature
+	// already lives above). "Not measured" stays a meaningful NULL.
+	ElevationGainM   *float64 `json:"elevation_gain_m,omitempty"`
+	ElevationLossM   *float64 `json:"elevation_loss_m,omitempty"`
+	NormalizedPowerW *int     `json:"normalized_power_w,omitempty"`
+	IntensityFactor  *float64 `json:"intensity_factor,omitempty"`
+	AvgCadence       *int     `json:"avg_cadence,omitempty"`
+	AvgStrideM       *float64 `json:"avg_stride_m,omitempty"`
+	MaxHR            *int     `json:"max_hr,omitempty"`
+	AerobicTE        *float64 `json:"aerobic_te,omitempty"`
+	AnaerobicTE      *float64 `json:"anaerobic_te,omitempty"`
+	HumidityPct      *float64 `json:"humidity_pct,omitempty"`
+	WindSpeedMPS     *float64 `json:"wind_speed_mps,omitempty"`
+
+	// HR-zone time, seconds in each of the fixed five Garmin zones. Fixed
+	// cardinality → columns (not a child table), so the most-queried fueling
+	// signal needs no join and rides along on list responses.
+	SecsInZone1 *int `json:"secs_in_zone_1,omitempty"`
+	SecsInZone2 *int `json:"secs_in_zone_2,omitempty"`
+	SecsInZone3 *int `json:"secs_in_zone_3,omitempty"`
+	SecsInZone4 *int `json:"secs_in_zone_4,omitempty"`
+	SecsInZone5 *int `json:"secs_in_zone_5,omitempty"`
+
+	// Nested detail — populated on single-get only (the list query omits them to
+	// keep payloads bounded). Empty slices serialize as absent via omitempty.
+	Splits []Split `json:"splits,omitempty"`
+	Sets   []Set   `json:"sets,omitempty"`
+
 	// Plan links (per add-training-plan), both nullable. TemplateID is the
 	// workout-template a planned workout was compiled from; PlanSlotID is the
 	// training-plan slot it materializes (the materialize upsert key). Imported
@@ -132,4 +163,28 @@ type Workout struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Split mirrors a workout_splits row — one per lap of an endurance activity.
+// All metrics nullable; SplitIndex is the 0-based lap ordinal. AvgSpeedMPS is
+// stored sport-agnostically (pace is derivable) at its native precision.
+type Split struct {
+	SplitIndex     int      `json:"split_index"`
+	DistanceM      *float64 `json:"distance_m,omitempty"`
+	DurationS      *float64 `json:"duration_s,omitempty"`
+	AvgHR          *int     `json:"avg_hr,omitempty"`
+	AvgPowerW      *int     `json:"avg_power_w,omitempty"`
+	AvgSpeedMPS    *float64 `json:"avg_speed_mps,omitempty"`
+	ElevationGainM *float64 `json:"elevation_gain_m,omitempty"`
+}
+
+// Set mirrors a workout_sets row — one per strength set. SetIndex is the
+// 0-based ordinal; all exercise fields nullable.
+type Set struct {
+	SetIndex         int      `json:"set_index"`
+	ExerciseName     *string  `json:"exercise_name,omitempty"`
+	ExerciseCategory *string  `json:"exercise_category,omitempty"`
+	Reps             *int     `json:"reps,omitempty"`
+	WeightKg         *float64 `json:"weight_kg,omitempty"`
+	DurationS        *float64 `json:"duration_s,omitempty"`
 }

@@ -137,6 +137,29 @@ def fetch_day(api, date: str) -> dict[str, Any]:
     raw["activities"] = safe(
         "activities", lambda: api.get_activities_by_date(date, date)
     )
+
+    # Per-activity detail fan-out (per add-garmin-workout-detail). For each
+    # activity we pull HR-zone time, per-lap splits, strength sets, and weather.
+    # Each fetch is individually guarded: a failing/unavailable endpoint (e.g.
+    # an indoor activity has no weather) yields absent detail for that activity,
+    # never an aborted day. Keyed by activity id so the mapper can join them to
+    # the matching activity summary.
+    details: dict[str, Any] = {}
+    for act in raw["activities"] or []:
+        aid = act.get("activityId")
+        if aid is None:
+            continue
+        details[str(aid)] = {
+            "zones": safe(
+                "activity_zones", lambda aid=aid: api.get_activity_hr_in_timezones(aid)
+            ),
+            "splits": safe("activity_splits", lambda aid=aid: api.get_activity_splits(aid)),
+            "sets": safe(
+                "activity_sets", lambda aid=aid: api.get_activity_exercise_sets(aid)
+            ),
+            "weather": safe("activity_weather", lambda aid=aid: api.get_activity_weather(aid)),
+        }
+    raw["activity_details"] = details
     return raw
 
 

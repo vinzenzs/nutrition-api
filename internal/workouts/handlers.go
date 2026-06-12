@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/vinzenzs/nutrition-api/internal/numfmt"
 )
 
 const (
@@ -65,11 +67,55 @@ type createRequest struct {
 	SweatLossML  *float64        `json:"sweat_loss_ml,omitempty"`
 	SessionGroup *string         `json:"session_group,omitempty"`
 	Notes        *string         `json:"notes,omitempty"`
+
+	// Per-activity detail (per add-garmin-workout-detail). Scalar performance +
+	// weather + fixed HR-zone columns ride flat on the body; splits/sets are
+	// nested arrays written as child rows. A nil Splits/Sets (key absent) means
+	// "leave children untouched on re-sync"; a present array (even empty) is the
+	// authoritative replacement set.
+	ElevationGainM   *float64       `json:"elevation_gain_m,omitempty"`
+	ElevationLossM   *float64       `json:"elevation_loss_m,omitempty"`
+	NormalizedPowerW *int           `json:"normalized_power_w,omitempty"`
+	IntensityFactor  *float64       `json:"intensity_factor,omitempty"`
+	AvgCadence       *int           `json:"avg_cadence,omitempty"`
+	AvgStrideM       *float64       `json:"avg_stride_m,omitempty"`
+	MaxHR            *int           `json:"max_hr,omitempty"`
+	AerobicTE        *float64       `json:"aerobic_te,omitempty"`
+	AnaerobicTE      *float64       `json:"anaerobic_te,omitempty"`
+	HumidityPct      *float64       `json:"humidity_pct,omitempty"`
+	WindSpeedMPS     *float64       `json:"wind_speed_mps,omitempty"`
+	SecsInZone1      *int           `json:"secs_in_zone_1,omitempty"`
+	SecsInZone2      *int           `json:"secs_in_zone_2,omitempty"`
+	SecsInZone3      *int           `json:"secs_in_zone_3,omitempty"`
+	SecsInZone4      *int           `json:"secs_in_zone_4,omitempty"`
+	SecsInZone5      *int           `json:"secs_in_zone_5,omitempty"`
+	Splits           []splitRequest `json:"splits,omitempty"`
+	Sets             []setRequest   `json:"sets,omitempty"`
+}
+
+// splitRequest / setRequest mirror the nested detail arrays on POST/bulk items.
+type splitRequest struct {
+	SplitIndex     int      `json:"split_index"`
+	DistanceM      *float64 `json:"distance_m,omitempty"`
+	DurationS      *float64 `json:"duration_s,omitempty"`
+	AvgHR          *int     `json:"avg_hr,omitempty"`
+	AvgPowerW      *int     `json:"avg_power_w,omitempty"`
+	AvgSpeedMPS    *float64 `json:"avg_speed_mps,omitempty"`
+	ElevationGainM *float64 `json:"elevation_gain_m,omitempty"`
+}
+
+type setRequest struct {
+	SetIndex         int      `json:"set_index"`
+	ExerciseName     *string  `json:"exercise_name,omitempty"`
+	ExerciseCategory *string  `json:"exercise_category,omitempty"`
+	Reps             *int     `json:"reps,omitempty"`
+	WeightKg         *float64 `json:"weight_kg,omitempty"`
+	DurationS        *float64 `json:"duration_s,omitempty"`
 }
 
 // create godoc
 // @Summary      Upsert a workout
-// @Description  Creates a new workout when external_id is absent or unseen; updates the existing row when external_id matches an existing workout. Garmin re-syncs land here without the writer needing to track sync state.
+// @Description  Creates a new workout when external_id is absent or unseen; updates the existing row when external_id matches an existing workout. Garmin re-syncs land here without the writer needing to track sync state. Optional nested `splits` / `sets` arrays are written as child rows in the same transaction and fully replaced on an external_id re-sync.
 // @Tags         workouts
 // @Accept       json
 // @Produce      json
@@ -77,7 +123,7 @@ type createRequest struct {
 // @Param        body             body    createRequest  true   "Workout"
 // @Success      201  {object}  Workout  "INSERT"
 // @Success      200  {object}  Workout  "UPDATE (external_id collision)"
-// @Failure      400  {object}  map[string]string  "source_invalid | sport_invalid | window_invalid | started_at_too_far_future | kcal_burned_invalid | avg_hr_invalid | tss_invalid | distance_m_invalid | avg_power_w_invalid | temperature_c_invalid | sweat_loss_ml_invalid | session_group_invalid | status_invalid"
+// @Failure      400  {object}  map[string]string  "source_invalid | sport_invalid | window_invalid | started_at_too_far_future | kcal_burned_invalid | avg_hr_invalid | tss_invalid | distance_m_invalid | avg_power_w_invalid | temperature_c_invalid | sweat_loss_ml_invalid | session_group_invalid | status_invalid | split_invalid | set_invalid"
 // @Security     BearerAuth
 // @Router       /workouts [post]
 func (h *Handlers) create(c *gin.Context) {
@@ -121,6 +167,7 @@ func (h *Handlers) create(c *gin.Context) {
 	if created {
 		status = http.StatusCreated
 	}
+	roundWorkoutDetail(w)
 	c.JSON(status, w)
 }
 
@@ -143,7 +190,7 @@ type bulkItemError struct {
 
 // bulkCreate godoc
 // @Summary      Upsert a batch of workouts (max 100 per request)
-// @Description  Each item upserts independently using external_id semantics. Per-item validation/persistence failures are reported in the results array; the overall response is 200 whenever the request body is well-formed and within the size cap. Partial failure is allowed.
+// @Description  Each item upserts independently using external_id semantics, and may carry nested `splits` / `sets` arrays (written transactionally with the parent, replaced on re-sync). Per-item validation/persistence failures are reported in the results array; the overall response is 200 whenever the request body is well-formed and within the size cap. Partial failure is allowed.
 // @Tags         workouts
 // @Accept       json
 // @Produce      json
@@ -270,12 +317,18 @@ func (h *Handlers) list(c *gin.Context) {
 		return
 	}
 	out := make([]*Workout, 0, len(rows))
-	out = append(out, rows...)
+	for _, w := range rows {
+		// List carries scalar + zone fields (rounded) but never nested detail —
+		// the list query does not load children, so Splits/Sets stay nil here.
+		roundWorkoutDetail(w)
+		out = append(out, w)
+	}
 	c.JSON(http.StatusOK, gin.H{"workouts": out})
 }
 
 // get godoc
 // @Summary      Get a workout by id
+// @Description  Returns the workout including scalar performance + HR-zone fields inline (when set) and the nested `splits` / `sets` detail arrays (each ordered by index; empty arrays omitted). List responses carry the scalar + zone fields but never the nested arrays.
 // @Tags         workouts
 // @Produce      json
 // @Param        id   path  string  true  "Workout UUID"
@@ -298,6 +351,7 @@ func (h *Handlers) get(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "get_failed")
 		return
 	}
+	roundWorkoutDetail(w)
 	c.JSON(http.StatusOK, w)
 }
 
@@ -509,6 +563,7 @@ func (h *Handlers) patch(c *gin.Context) {
 		respondServiceError(c, err)
 		return
 	}
+	roundWorkoutDetail(w)
 	c.JSON(http.StatusOK, w)
 }
 
@@ -562,6 +617,7 @@ func (h *Handlers) fulfill(c *gin.Context) {
 		}
 		return
 	}
+	roundWorkoutDetail(w)
 	c.JSON(http.StatusOK, w)
 }
 
@@ -594,6 +650,7 @@ func (h *Handlers) unfulfill(c *gin.Context) {
 		}
 		return
 	}
+	roundWorkoutDetail(w)
 	c.JSON(http.StatusOK, w)
 }
 
@@ -643,21 +700,39 @@ func buildCreateInput(req createRequest) (CreateInput, string) {
 		return CreateInput{}, "sport_invalid"
 	}
 	in := CreateInput{
-		ExternalID:   req.ExternalID,
-		Source:       req.Source,
-		Sport:        req.Sport,
-		Status:       req.Status,
-		Name:         req.Name,
-		StartedAt:    startedAt,
-		EndedAt:      endedAt,
-		KcalBurned:   req.KcalBurned,
-		AvgHR:        req.AvgHR,
-		TSS:          req.TSS,
-		DistanceM:    req.DistanceM,
-		TemperatureC: req.TemperatureC,
-		SweatLossML:  req.SweatLossML,
-		SessionGroup: req.SessionGroup,
-		Notes:        req.Notes,
+		ExternalID:       req.ExternalID,
+		Source:           req.Source,
+		Sport:            req.Sport,
+		Status:           req.Status,
+		Name:             req.Name,
+		StartedAt:        startedAt,
+		EndedAt:          endedAt,
+		KcalBurned:       req.KcalBurned,
+		AvgHR:            req.AvgHR,
+		TSS:              req.TSS,
+		DistanceM:        req.DistanceM,
+		TemperatureC:     req.TemperatureC,
+		SweatLossML:      req.SweatLossML,
+		SessionGroup:     req.SessionGroup,
+		Notes:            req.Notes,
+		ElevationGainM:   req.ElevationGainM,
+		ElevationLossM:   req.ElevationLossM,
+		NormalizedPowerW: req.NormalizedPowerW,
+		IntensityFactor:  req.IntensityFactor,
+		AvgCadence:       req.AvgCadence,
+		AvgStrideM:       req.AvgStrideM,
+		MaxHR:            req.MaxHR,
+		AerobicTE:        req.AerobicTE,
+		AnaerobicTE:      req.AnaerobicTE,
+		HumidityPct:      req.HumidityPct,
+		WindSpeedMPS:     req.WindSpeedMPS,
+		SecsInZone1:      req.SecsInZone1,
+		SecsInZone2:      req.SecsInZone2,
+		SecsInZone3:      req.SecsInZone3,
+		SecsInZone4:      req.SecsInZone4,
+		SecsInZone5:      req.SecsInZone5,
+		Splits:           toSplits(req.Splits),
+		Sets:             toSets(req.Sets),
 	}
 	// Parse RPE / GI as strict integers; non-integer payloads surface the
 	// precise per-field error code rather than `invalid_json`.
@@ -684,6 +759,71 @@ func buildCreateInput(req createRequest) (CreateInput, string) {
 		in.AvgPowerW = &v
 	}
 	return in, ""
+}
+
+// toSplits / toSets convert the request sub-types into the service types,
+// preserving the nil-vs-empty distinction (nil slice → leave children untouched
+// on re-sync; empty-but-present → authoritative replacement).
+func toSplits(in []splitRequest) []Split {
+	if in == nil {
+		return nil
+	}
+	out := make([]Split, len(in))
+	for i, s := range in {
+		out[i] = Split{
+			SplitIndex:     s.SplitIndex,
+			DistanceM:      s.DistanceM,
+			DurationS:      s.DurationS,
+			AvgHR:          s.AvgHR,
+			AvgPowerW:      s.AvgPowerW,
+			AvgSpeedMPS:    s.AvgSpeedMPS,
+			ElevationGainM: s.ElevationGainM,
+		}
+	}
+	return out
+}
+
+func toSets(in []setRequest) []Set {
+	if in == nil {
+		return nil
+	}
+	out := make([]Set, len(in))
+	for i, s := range in {
+		out[i] = Set{
+			SetIndex:         s.SetIndex,
+			ExerciseName:     s.ExerciseName,
+			ExerciseCategory: s.ExerciseCategory,
+			Reps:             s.Reps,
+			WeightKg:         s.WeightKg,
+			DurationS:        s.DurationS,
+		}
+	}
+	return out
+}
+
+// roundWorkoutDetail applies numfmt.Round1 to the new detail floats that are
+// stored at one decimal place, at the response boundary (project-wide rounding
+// rule). Fields deliberately stored at higher precision — intensity_factor (2dp),
+// avg_stride_m (2dp), split avg_speed_mps (3dp), set weight_kg (2dp) — keep their
+// native precision and are intentionally left untouched.
+func roundWorkoutDetail(w *Workout) {
+	if w == nil {
+		return
+	}
+	w.ElevationGainM = numfmt.Round1Ptr(w.ElevationGainM)
+	w.ElevationLossM = numfmt.Round1Ptr(w.ElevationLossM)
+	w.AerobicTE = numfmt.Round1Ptr(w.AerobicTE)
+	w.AnaerobicTE = numfmt.Round1Ptr(w.AnaerobicTE)
+	w.HumidityPct = numfmt.Round1Ptr(w.HumidityPct)
+	w.WindSpeedMPS = numfmt.Round1Ptr(w.WindSpeedMPS)
+	for i := range w.Splits {
+		w.Splits[i].DistanceM = numfmt.Round1Ptr(w.Splits[i].DistanceM)
+		w.Splits[i].DurationS = numfmt.Round1Ptr(w.Splits[i].DurationS)
+		w.Splits[i].ElevationGainM = numfmt.Round1Ptr(w.Splits[i].ElevationGainM)
+	}
+	for i := range w.Sets {
+		w.Sets[i].DurationS = numfmt.Round1Ptr(w.Sets[i].DurationS)
+	}
 }
 
 func respondError(c *gin.Context, status int, code string) {
@@ -728,6 +868,10 @@ func errCodeFor(err error) string {
 		return "session_group_invalid"
 	case errors.Is(err, ErrStatusInvalid):
 		return "status_invalid"
+	case errors.Is(err, ErrSplitInvalid):
+		return "split_invalid"
+	case errors.Is(err, ErrSetInvalid):
+		return "set_invalid"
 	}
 	if strings.Contains(err.Error(), "upsert") {
 		return "write_failed"

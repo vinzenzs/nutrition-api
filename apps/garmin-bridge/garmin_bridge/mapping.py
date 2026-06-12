@@ -194,8 +194,15 @@ def map_weights(raw: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def map_workouts(raw: dict[str, Any]) -> list[dict[str, Any]]:
-    """Garmin activities → /workouts/bulk items (source=garmin, external_id)."""
+    """Garmin activities → /workouts/bulk items (source=garmin, external_id).
+
+    Each item carries the scalar performance + weather + HR-zone fields when the
+    summary / per-activity detail provides them, plus nested ``splits``/``sets``
+    arrays. Absent detail is simply omitted (an indoor activity with no weather
+    drops the humidity/wind keys; an endurance activity has no ``sets``).
+    """
     out: list[dict[str, Any]] = []
+    details = raw.get("activity_details") or {}
     for act in raw.get("activities") or []:
         activity_id = act.get("activityId")
         started = _garmin_ts_to_rfc3339(act.get("startTimeGMT"))
@@ -204,6 +211,8 @@ def map_workouts(raw: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         ended = _shift_rfc3339(started, duration_s)
         type_key = _dig(act, "activityType", "typeKey") or ""
+        detail = details.get(str(activity_id)) or {}
+        weather = detail.get("weather") or {}
         item = _prune(
             {
                 "external_id": f"garmin:{activity_id}",
@@ -220,10 +229,104 @@ def map_workouts(raw: dict[str, Any]) -> list[dict[str, Any]]:
                 "avg_power_w": _as_int(act.get("avgPower")),
                 "temperature_c": _as_float(act.get("minTemperature")),
                 "session_group": _parent_id(act),
+                # Scalar performance fields — ride along the activity summary,
+                # no extra Garmin call.
+                "elevation_gain_m": _as_float(act.get("elevationGain")),
+                "elevation_loss_m": _as_float(act.get("elevationLoss")),
+                "normalized_power_w": _as_int(act.get("normPower")),
+                "intensity_factor": _as_float(act.get("intensityFactor")),
+                "avg_cadence": _as_int(_avg_cadence(act)),
+                # Garmin reports stride length in centimetres; the column is metres.
+                "avg_stride_m": _cm_to_m(_as_float(act.get("avgStrideLength"))),
+                "max_hr": _as_int(act.get("maxHR")),
+                "aerobic_te": _as_float(act.get("aerobicTrainingEffect")),
+                "anaerobic_te": _as_float(act.get("anaerobicTrainingEffect")),
+                # Weather (per-activity fetch); humidity is a primary sweat-rate
+                # driver. Indoor activities have none → keys stay absent.
+                "humidity_pct": _as_float(weather.get("relativeHumidity")),
+                "wind_speed_mps": _as_float(weather.get("windSpeed")),
             }
         )
+        item.update(_map_zones(detail.get("zones")))
+        splits = _map_splits(detail.get("splits"))
+        if splits:
+            item["splits"] = splits
+        sets = _map_sets(detail.get("sets"))
+        if sets:
+            item["sets"] = sets
         out.append(item)
     return out
+
+
+def _avg_cadence(act: dict[str, Any]) -> Any:
+    """Average cadence across run/bike summary shapes (steps/min or rev/min)."""
+    return (
+        act.get("averageRunningCadenceInStepsPerMinute")
+        or act.get("averageBikingCadenceInRevPerMinute")
+        or act.get("averageCadence")
+    )
+
+
+def _map_zones(zones: Any) -> dict[str, Any]:
+    """get_activity_hr_in_timezones list → secs_in_zone_1..5 (absent omitted)."""
+    out: dict[str, Any] = {}
+    for z in zones or []:
+        num = _as_int(z.get("zoneNumber"))
+        secs = _as_int(z.get("secsInZone"))
+        if num is not None and 1 <= num <= 5 and secs is not None:
+            out[f"secs_in_zone_{num}"] = secs
+    return out
+
+
+def _map_splits(splits: Any) -> list[dict[str, Any]]:
+    """get_activity_splits → ordered split items (0-based split_index)."""
+    laps = _dig(splits, "lapDTOs") if isinstance(splits, dict) else splits
+    out: list[dict[str, Any]] = []
+    for i, lap in enumerate(laps or []):
+        out.append(
+            _prune(
+                {
+                    "split_index": i,
+                    "distance_m": _as_float(lap.get("distance")),
+                    "duration_s": _as_float(lap.get("duration")),
+                    "avg_hr": _as_int(lap.get("averageHR")),
+                    "avg_power_w": _as_int(lap.get("averagePower")),
+                    "avg_speed_mps": _as_float(lap.get("averageSpeed")),
+                    "elevation_gain_m": _as_float(lap.get("elevationGain")),
+                }
+            )
+        )
+    return out
+
+
+def _map_sets(sets: Any) -> list[dict[str, Any]]:
+    """get_activity_exercise_sets → ordered set items (0-based set_index).
+
+    Only counts active (working) sets — rest periods carry no exercise. Weight
+    is grams on Garmin → kg.
+    """
+    raw_sets = _dig(sets, "exerciseSets") if isinstance(sets, dict) else sets
+    out: list[dict[str, Any]] = []
+    for s in raw_sets or []:
+        if s.get("setType") not in (None, "ACTIVE"):
+            continue
+        out.append(
+            _prune(
+                {
+                    "set_index": len(out),
+                    "exercise_name": _dig(s, "exercises", 0, "name"),
+                    "exercise_category": _dig(s, "exercises", 0, "category"),
+                    "reps": _as_int(s.get("repetitionCount")),
+                    "weight_kg": _grams_to_kg(_as_float(s.get("weight"))),
+                    "duration_s": _as_float(s.get("duration")),
+                }
+            )
+        )
+    return out
+
+
+def _cm_to_m(cm: float | None) -> float | None:
+    return None if cm is None else cm / 100.0
 
 
 def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
