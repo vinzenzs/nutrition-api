@@ -132,6 +132,15 @@ def fetch_day(api, date: str) -> dict[str, Any]:
     raw["max_metrics"] = safe("max_metrics", lambda: api.get_max_metrics(date))
     raw["training_status"] = safe("training_status", lambda: api.get_training_status(date))
     raw["race_predictions"] = safe("race_predictions", lambda: api.get_race_predictions())
+    # extend-recovery-fitness (change C): the remaining cheap daily signals. Each
+    # is individually guarded — a failing/unavailable endpoint yields a missing
+    # key, never an aborted day. Sleep-stage seconds and the training_status
+    # label come free from already-fetched payloads (sleep DTO / training_status).
+    raw["spo2"] = safe("spo2", lambda: api.get_spo2_data(date))
+    raw["respiration"] = safe("respiration", lambda: api.get_respiration_data(date))
+    raw["endurance_score"] = safe("endurance_score", lambda: api.get_endurance_score(date))
+    raw["hill_score"] = safe("hill_score", lambda: api.get_hill_score(date))
+    raw["fitness_age"] = safe("fitness_age", lambda: api.get_fitnessage_data(date))
     raw["hydration"] = safe("hydration", lambda: api.get_hydration_data(date))
     raw["user_summary"] = safe("user_summary", lambda: api.get_user_summary(date))
     raw["weigh_ins"] = safe("weigh_ins", lambda: api.get_weigh_ins(date, date))

@@ -3,7 +3,11 @@
   "sleep": {
     "dailySleepDTO": {
       "sleepTimeSeconds": 27000,
-      "sleepScores": { "overall": { "value": 82 } }
+      "sleepScores": { "overall": { "value": 82 } },
+      "deepSleepSeconds": 6000,
+      "lightSleepSeconds": 15000,
+      "remSleepSeconds": 5400,
+      "awakeSleepSeconds": 600
     }
   },
   "hrv": { "hrvSummary": { "lastNightAvg": 64.5 } },
@@ -11,6 +15,11 @@
   "stress": { "avgStressLevel": 31 },
   "training_readiness": [ { "score": 73 } ],
   "body_battery": [ { "charged": 61, "drained": 44 } ],
+  "spo2": { "averageSpO2": 95, "lowestSpO2": 89 },
+  "respiration": { "avgSleepRespirationValue": 13.4, "lowestRespirationValue": 9.8 },
+  "endurance_score": { "overallScore": 7200 },
+  "hill_score": { "overallScore": 61 },
+  "fitness_age": { "fitnessAge": 34.0 },
   "max_metrics": [
     {
       "generic": { "vo2MaxPreciseValue": 56.4 },
@@ -19,7 +28,10 @@
   ],
   "training_status": {
     "acuteTrainingLoad": 412.0,
-    "chronicTrainingLoad": 388.5
+    "chronicTrainingLoad": 388.5,
+    "latestTrainingStatusData": {
+      "3812345678": { "trainingStatus": "productive" }
+    }
   },
   "race_predictions": {
     "time5K": 1180,

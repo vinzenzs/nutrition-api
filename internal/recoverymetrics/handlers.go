@@ -38,7 +38,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 // @Param        body             body    Snapshot  true   "Recovery snapshot (date required; metrics optional)"
 // @Success      201  {object}  Snapshot  "INSERT"
 // @Success      200  {object}  Snapshot  "UPDATE (date already present)"
-// @Failure      400  {object}  map[string]string  "date_invalid | sleep_seconds_invalid | sleep_score_invalid | hrv_ms_invalid | resting_hr_invalid | stress_avg_invalid | body_battery_charged_invalid | body_battery_drained_invalid | training_readiness_invalid"
+// @Failure      400  {object}  map[string]string  "date_invalid | sleep_seconds_invalid | sleep_score_invalid | hrv_ms_invalid | resting_hr_invalid | stress_avg_invalid | body_battery_charged_invalid | body_battery_drained_invalid | training_readiness_invalid | spo2_avg_invalid | spo2_lowest_invalid | respiration_avg_invalid | respiration_lowest_invalid | deep_sleep_seconds_invalid | light_sleep_seconds_invalid | rem_sleep_seconds_invalid | awake_seconds_invalid"
 // @Security     BearerAuth
 // @Router       /recovery-metrics [post]
 func (h *Handlers) upsert(c *gin.Context) {
@@ -167,6 +167,9 @@ func respondServiceError(c *gin.Context, err error) {
 		ErrDateInvalid, ErrSleepSecondsInvalid, ErrSleepScoreInvalid, ErrHRVInvalid,
 		ErrRestingHRInvalid, ErrStressAvgInvalid, ErrBodyBatteryChargedInvalid,
 		ErrBodyBatteryDrainedInvalid, ErrTrainingReadinessInvalid,
+		ErrSpo2AvgInvalid, ErrSpo2LowestInvalid, ErrRespirationAvgInvalid,
+		ErrRespirationLowestInvalid, ErrDeepSleepSecondsInvalid, ErrLightSleepSecondsInvalid,
+		ErrRemSleepSecondsInvalid, ErrAwakeSecondsInvalid,
 	} {
 		if errors.Is(err, e) {
 			respondError(c, http.StatusBadRequest, e.Error())
@@ -176,12 +179,15 @@ func respondServiceError(c *gin.Context, err error) {
 	respondError(c, http.StatusInternalServerError, "write_failed")
 }
 
-// round applies 1dp rounding to the one float metric (hrv_ms) at the boundary.
+// round applies 1dp rounding to the float metrics (hrv_ms, respiration_*) at the
+// boundary. SpO2 and sleep-stage seconds are integers and pass through unrounded.
 func round(s *Snapshot) *Snapshot {
 	if s == nil {
 		return nil
 	}
 	out := *s
 	out.HRVMs = numfmt.Round1Ptr(s.HRVMs)
+	out.RespirationAvg = numfmt.Round1Ptr(s.RespirationAvg)
+	out.RespirationLowest = numfmt.Round1Ptr(s.RespirationLowest)
 	return &out
 }

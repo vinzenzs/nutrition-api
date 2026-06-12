@@ -19,6 +19,10 @@ type Snapshot struct {
 	RacePredictorFullSeconds *int      `json:"race_predictor_full_seconds,omitempty"`
 	AcuteLoad                *float64  `json:"acute_load,omitempty"`
 	ChronicLoad              *float64  `json:"chronic_load,omitempty"`
+	EnduranceScore           *int      `json:"endurance_score,omitempty"`
+	HillScore                *int      `json:"hill_score,omitempty"`
+	FitnessAge               *float64  `json:"fitness_age,omitempty"`
+	TrainingStatus           *string   `json:"training_status,omitempty"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 }

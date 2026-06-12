@@ -17,7 +17,33 @@ def test_recovery_mapping(raw_day):
         "body_battery_charged": 61,
         "body_battery_drained": 44,
         "training_readiness": 73,
+        "spo2_avg": 95,
+        "spo2_lowest": 89,
+        "respiration_avg": 13.4,
+        "respiration_lowest": 9.8,
+        "deep_sleep_seconds": 6000,
+        "light_sleep_seconds": 15000,
+        "rem_sleep_seconds": 5400,
+        "awake_seconds": 600,
     }
+
+
+def test_recovery_omits_absent_extended_fields():
+    """SpO2 / respiration / sleep-stage fields absent → simply omitted."""
+    raw = {"sleep": {"dailySleepDTO": {"sleepTimeSeconds": 27000}}}
+    rec = mapping.map_recovery(raw, "2026-06-12")
+    assert rec == {"date": "2026-06-12", "sleep_seconds": 27000}
+    for k in (
+        "spo2_avg",
+        "spo2_lowest",
+        "respiration_avg",
+        "respiration_lowest",
+        "deep_sleep_seconds",
+        "light_sleep_seconds",
+        "rem_sleep_seconds",
+        "awake_seconds",
+    ):
+        assert k not in rec
 
 
 def test_fitness_mapping(raw_day):
@@ -28,6 +54,34 @@ def test_fitness_mapping(raw_day):
     assert fit["race_predictor_full_seconds"] == 11820
     assert fit["acute_load"] == 412.0
     assert fit["chronic_load"] == 388.5
+    assert fit["endurance_score"] == 7200
+    assert fit["hill_score"] == 61
+    assert fit["fitness_age"] == 34.0
+    # training_status label passes through verbatim from the already-fetched payload
+    assert fit["training_status"] == "productive"
+
+
+def test_fitness_omits_absent_extended_fields():
+    """endurance / hill / fitness-age / training-status absent → omitted."""
+    raw = {"max_metrics": [{"generic": {"vo2MaxPreciseValue": 54.0}}]}
+    fit = mapping.map_fitness(raw, "2026-06-12")
+    assert fit == {"date": "2026-06-12", "vo2max_running": 54.0}
+    for k in ("endurance_score", "hill_score", "fitness_age", "training_status"):
+        assert k not in fit
+
+
+def test_training_status_label_falls_back_to_top_level():
+    """A top-level trainingStatus phrase is used when no per-device entry."""
+    raw = {"training_status": {"trainingStatus": "maintaining"}}
+    fit = mapping.map_fitness(raw, "2026-06-12")
+    assert fit["training_status"] == "maintaining"
+
+
+def test_training_status_ignores_non_string_codes():
+    """A numeric trainingStatus code is not a label → omitted, not coerced."""
+    raw = {"training_status": {"latestTrainingStatusData": {"42": {"trainingStatus": 3}}}}
+    fit = mapping.map_fitness(raw, "2026-06-12")
+    assert fit is None or "training_status" not in fit
 
 
 def test_hydration_balance_mapping(raw_day):

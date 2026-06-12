@@ -20,6 +20,14 @@ type Snapshot struct {
 	BodyBatteryCharged *int      `json:"body_battery_charged,omitempty"`
 	BodyBatteryDrained *int      `json:"body_battery_drained,omitempty"`
 	TrainingReadiness  *int      `json:"training_readiness,omitempty"`
+	Spo2Avg            *int      `json:"spo2_avg,omitempty"`
+	Spo2Lowest         *int      `json:"spo2_lowest,omitempty"`
+	RespirationAvg     *float64  `json:"respiration_avg,omitempty"`
+	RespirationLowest  *float64  `json:"respiration_lowest,omitempty"`
+	DeepSleepSeconds   *int      `json:"deep_sleep_seconds,omitempty"`
+	LightSleepSeconds  *int      `json:"light_sleep_seconds,omitempty"`
+	RemSleepSeconds    *int      `json:"rem_sleep_seconds,omitempty"`
+	AwakeSeconds       *int      `json:"awake_seconds,omitempty"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,16 @@ var (
 	ErrRacePredictorFullInvalid = errors.New("race_predictor_full_seconds_invalid")
 	ErrAcuteLoadInvalid         = errors.New("acute_load_invalid")
 	ErrChronicLoadInvalid       = errors.New("chronic_load_invalid")
+	ErrEnduranceScoreInvalid    = errors.New("endurance_score_invalid")
+	ErrHillScoreInvalid         = errors.New("hill_score_invalid")
+	ErrFitnessAgeInvalid        = errors.New("fitness_age_invalid")
+	ErrTrainingStatusInvalid    = errors.New("training_status_invalid")
 )
+
+// maxTrainingStatusLen mirrors the column CHECK (length BETWEEN 1 AND 64): the
+// label is stored verbatim, NOT gated against a fixed enum, so a future Garmin
+// vocabulary is preserved rather than dropped.
+const maxTrainingStatusLen = 64
 
 const dateLayout = "2006-01-02"
 
@@ -106,6 +116,32 @@ func validate(s *Snapshot) error {
 	if err := nonNegFloat(s.ChronicLoad, ErrChronicLoadInvalid); err != nil {
 		return err
 	}
+	if err := posInt(s.EnduranceScore, ErrEnduranceScoreInvalid); err != nil {
+		return err
+	}
+	if err := posInt(s.HillScore, ErrHillScoreInvalid); err != nil {
+		return err
+	}
+	if err := posFloat(s.FitnessAge, ErrFitnessAgeInvalid); err != nil {
+		return err
+	}
+	if err := validTrainingStatus(s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validTrainingStatus trims the label in place and rejects only empty/oversized
+// strings — it is stored verbatim, never gated against a fixed enum (design D4).
+func validTrainingStatus(s *Snapshot) error {
+	if s.TrainingStatus == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*s.TrainingStatus)
+	if trimmed == "" || len(trimmed) > maxTrainingStatusLen {
+		return ErrTrainingStatusInvalid
+	}
+	s.TrainingStatus = &trimmed
 	return nil
 }
 

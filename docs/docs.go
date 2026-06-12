@@ -699,7 +699,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "date_invalid | vo2max_running_invalid | vo2max_cycling_invalid | race_predictor_5k_seconds_invalid | race_predictor_10k_seconds_invalid | race_predictor_half_seconds_invalid | race_predictor_full_seconds_invalid | acute_load_invalid | chronic_load_invalid",
+                        "description": "date_invalid | vo2max_running_invalid | vo2max_cycling_invalid | race_predictor_5k_seconds_invalid | race_predictor_10k_seconds_invalid | race_predictor_half_seconds_invalid | race_predictor_full_seconds_invalid | acute_load_invalid | chronic_load_invalid | endurance_score_invalid | hill_score_invalid | fitness_age_invalid | training_status_invalid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -4318,7 +4318,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "date_invalid | sleep_seconds_invalid | sleep_score_invalid | hrv_ms_invalid | resting_hr_invalid | stress_avg_invalid | body_battery_charged_invalid | body_battery_drained_invalid | training_readiness_invalid",
+                        "description": "date_invalid | sleep_seconds_invalid | sleep_score_invalid | hrv_ms_invalid | resting_hr_invalid | stress_avg_invalid | body_battery_charged_invalid | body_battery_drained_invalid | training_readiness_invalid | spo2_avg_invalid | spo2_lowest_invalid | respiration_avg_invalid | respiration_lowest_invalid | deep_sleep_seconds_invalid | light_sleep_seconds_invalid | rem_sleep_seconds_invalid | awake_seconds_invalid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7073,6 +7073,15 @@ const docTemplate = `{
                 "date": {
                     "type": "string"
                 },
+                "endurance_score": {
+                    "type": "integer"
+                },
+                "fitness_age": {
+                    "type": "number"
+                },
+                "hill_score": {
+                    "type": "integer"
+                },
                 "race_predictor_10k_seconds": {
                     "type": "integer"
                 },
@@ -7084,6 +7093,9 @@ const docTemplate = `{
                 },
                 "race_predictor_half_seconds": {
                     "type": "integer"
+                },
+                "training_status": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -8519,6 +8531,9 @@ const docTemplate = `{
         "recoverymetrics.Snapshot": {
             "type": "object",
             "properties": {
+                "awake_seconds": {
+                    "type": "integer"
+                },
                 "body_battery_charged": {
                     "type": "integer"
                 },
@@ -8531,7 +8546,22 @@ const docTemplate = `{
                 "date": {
                     "type": "string"
                 },
+                "deep_sleep_seconds": {
+                    "type": "integer"
+                },
                 "hrv_ms": {
+                    "type": "number"
+                },
+                "light_sleep_seconds": {
+                    "type": "integer"
+                },
+                "rem_sleep_seconds": {
+                    "type": "integer"
+                },
+                "respiration_avg": {
+                    "type": "number"
+                },
+                "respiration_lowest": {
                     "type": "number"
                 },
                 "resting_hr": {
@@ -8541,6 +8571,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "sleep_seconds": {
+                    "type": "integer"
+                },
+                "spo2_avg": {
+                    "type": "integer"
+                },
+                "spo2_lowest": {
                     "type": "integer"
                 },
                 "stress_avg": {

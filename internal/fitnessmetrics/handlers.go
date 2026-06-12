@@ -38,7 +38,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 // @Param        body             body    Snapshot  true   "Fitness snapshot (date required; metrics optional)"
 // @Success      201  {object}  Snapshot  "INSERT"
 // @Success      200  {object}  Snapshot  "UPDATE (date already present)"
-// @Failure      400  {object}  map[string]string  "date_invalid | vo2max_running_invalid | vo2max_cycling_invalid | race_predictor_5k_seconds_invalid | race_predictor_10k_seconds_invalid | race_predictor_half_seconds_invalid | race_predictor_full_seconds_invalid | acute_load_invalid | chronic_load_invalid"
+// @Failure      400  {object}  map[string]string  "date_invalid | vo2max_running_invalid | vo2max_cycling_invalid | race_predictor_5k_seconds_invalid | race_predictor_10k_seconds_invalid | race_predictor_half_seconds_invalid | race_predictor_full_seconds_invalid | acute_load_invalid | chronic_load_invalid | endurance_score_invalid | hill_score_invalid | fitness_age_invalid | training_status_invalid"
 // @Security     BearerAuth
 // @Router       /fitness-metrics [post]
 func (h *Handlers) upsert(c *gin.Context) {
@@ -168,6 +168,8 @@ func respondServiceError(c *gin.Context, err error) {
 		ErrRacePredictor5kInvalid, ErrRacePredictor10kInvalid,
 		ErrRacePredictorHalfInvalid, ErrRacePredictorFullInvalid,
 		ErrAcuteLoadInvalid, ErrChronicLoadInvalid,
+		ErrEnduranceScoreInvalid, ErrHillScoreInvalid, ErrFitnessAgeInvalid,
+		ErrTrainingStatusInvalid,
 	} {
 		if errors.Is(err, e) {
 			respondError(c, http.StatusBadRequest, e.Error())
@@ -178,6 +180,8 @@ func respondServiceError(c *gin.Context, err error) {
 }
 
 // round applies 1dp rounding to the float metrics at the response boundary.
+// endurance_score / hill_score are integers and training_status is text — both
+// pass through unrounded.
 func round(s *Snapshot) *Snapshot {
 	if s == nil {
 		return nil
@@ -187,5 +191,6 @@ func round(s *Snapshot) *Snapshot {
 	out.VO2MaxCycling = numfmt.Round1Ptr(s.VO2MaxCycling)
 	out.AcuteLoad = numfmt.Round1Ptr(s.AcuteLoad)
 	out.ChronicLoad = numfmt.Round1Ptr(s.ChronicLoad)
+	out.FitnessAge = numfmt.Round1Ptr(s.FitnessAge)
 	return &out
 }

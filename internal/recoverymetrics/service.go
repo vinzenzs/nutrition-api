@@ -18,6 +18,14 @@ var (
 	ErrBodyBatteryChargedInvalid = errors.New("body_battery_charged_invalid")
 	ErrBodyBatteryDrainedInvalid = errors.New("body_battery_drained_invalid")
 	ErrTrainingReadinessInvalid  = errors.New("training_readiness_invalid")
+	ErrSpo2AvgInvalid            = errors.New("spo2_avg_invalid")
+	ErrSpo2LowestInvalid         = errors.New("spo2_lowest_invalid")
+	ErrRespirationAvgInvalid     = errors.New("respiration_avg_invalid")
+	ErrRespirationLowestInvalid  = errors.New("respiration_lowest_invalid")
+	ErrDeepSleepSecondsInvalid   = errors.New("deep_sleep_seconds_invalid")
+	ErrLightSleepSecondsInvalid  = errors.New("light_sleep_seconds_invalid")
+	ErrRemSleepSecondsInvalid    = errors.New("rem_sleep_seconds_invalid")
+	ErrAwakeSecondsInvalid       = errors.New("awake_seconds_invalid")
 )
 
 // dateLayout is the canonical YYYY-MM-DD form for the snapshot identity.
@@ -106,6 +114,37 @@ func validate(s *Snapshot) error {
 	}
 	if err := rangeInt(s.TrainingReadiness, 0, 100, ErrTrainingReadinessInvalid); err != nil {
 		return err
+	}
+	if err := rangeInt(s.Spo2Avg, 0, 100, ErrSpo2AvgInvalid); err != nil {
+		return err
+	}
+	if err := rangeInt(s.Spo2Lowest, 0, 100, ErrSpo2LowestInvalid); err != nil {
+		return err
+	}
+	if err := posFloat(s.RespirationAvg, ErrRespirationAvgInvalid); err != nil {
+		return err
+	}
+	if err := posFloat(s.RespirationLowest, ErrRespirationLowestInvalid); err != nil {
+		return err
+	}
+	if err := nonNegInt(s.DeepSleepSeconds, ErrDeepSleepSecondsInvalid); err != nil {
+		return err
+	}
+	if err := nonNegInt(s.LightSleepSeconds, ErrLightSleepSecondsInvalid); err != nil {
+		return err
+	}
+	if err := nonNegInt(s.RemSleepSeconds, ErrRemSleepSecondsInvalid); err != nil {
+		return err
+	}
+	if err := nonNegInt(s.AwakeSeconds, ErrAwakeSecondsInvalid); err != nil {
+		return err
+	}
+	return nil
+}
+
+func nonNegInt(v *int, e error) error {
+	if v != nil && *v < 0 {
+		return e
 	}
 	return nil
 }

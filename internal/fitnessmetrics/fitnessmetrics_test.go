@@ -130,6 +130,74 @@ func TestGetAndDeleteByDate(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, do(t, r, http.MethodDelete, "/fitness-metrics/2026-06-09", "").Code)
 }
 
+func TestUpsert_ExtendedFieldsRoundTrip(t *testing.T) {
+	r := setup(t)
+	body := `{"date":"2026-06-09","vo2max_running":54.0,"endurance_score":7200,"hill_score":61,"fitness_age":34.0,"training_status":"productive"}`
+	rec := do(t, r, http.MethodPost, "/fitness-metrics", body)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	rec = do(t, r, http.MethodGet, "/fitness-metrics/2026-06-09", "")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var s fitnessmetrics.Snapshot
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &s))
+	require.NotNil(t, s.EnduranceScore)
+	assert.Equal(t, 7200, *s.EnduranceScore)
+	require.NotNil(t, s.HillScore)
+	assert.Equal(t, 61, *s.HillScore)
+	require.NotNil(t, s.FitnessAge)
+	assert.InDelta(t, 34.0, *s.FitnessAge, 0.05)
+	require.NotNil(t, s.TrainingStatus)
+	assert.Equal(t, "productive", *s.TrainingStatus)
+}
+
+func TestUpsert_ExtendedFieldsOmittedWhenAbsent(t *testing.T) {
+	r := setup(t)
+	rec := do(t, r, http.MethodPost, "/fitness-metrics", `{"date":"2026-06-09","vo2max_running":54}`)
+	require.Equal(t, http.StatusCreated, rec.Code)
+	body := rec.Body.String()
+	for _, k := range []string{`"endurance_score"`, `"hill_score"`, `"fitness_age"`, `"training_status"`} {
+		assert.NotContains(t, body, k)
+	}
+}
+
+func TestUpsert_ExtendedOutOfRange(t *testing.T) {
+	r := setup(t)
+	cases := map[string]string{
+		`{"date":"2026-06-09","endurance_score":0}`: "endurance_score_invalid",
+		`{"date":"2026-06-09","hill_score":-1}`:     "hill_score_invalid",
+		`{"date":"2026-06-09","fitness_age":0}`:     "fitness_age_invalid",
+	}
+	for body, want := range cases {
+		rec := do(t, r, http.MethodPost, "/fitness-metrics", body)
+		require.Equal(t, http.StatusBadRequest, rec.Code, body)
+		var got map[string]string
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		assert.Equal(t, want, got["error"], body)
+	}
+}
+
+func TestUpsert_TrainingStatusNonEnumAndEmpty(t *testing.T) {
+	r := setup(t)
+	// An unrecognised phrase is accepted, not gated against a fixed enum, and is
+	// stored trimmed.
+	rec := do(t, r, http.MethodPost, "/fitness-metrics", `{"date":"2026-06-09","training_status":"  some_future_word  "}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	var s fitnessmetrics.Snapshot
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &s))
+	require.NotNil(t, s.TrainingStatus)
+	assert.Equal(t, "some_future_word", *s.TrainingStatus)
+
+	// Empty / whitespace-only is rejected.
+	for _, b := range []string{
+		`{"date":"2026-06-10","training_status":""}`,
+		`{"date":"2026-06-10","training_status":"   "}`,
+	} {
+		rec := do(t, r, http.MethodPost, "/fitness-metrics", b)
+		require.Equal(t, http.StatusBadRequest, rec.Code, b)
+		assert.JSONEq(t, `{"error":"training_status_invalid"}`, rec.Body.String())
+	}
+}
+
 func TestUnitIsolation_NoForeignFields(t *testing.T) {
 	r := setup(t)
 	rec := do(t, r, http.MethodPost, "/fitness-metrics", `{"date":"2026-06-09","vo2max_running":54}`)

@@ -23,7 +23,7 @@ func NewRepo(q store.Querier) *Repo {
 }
 
 // selectCols renders date as text so it round-trips as YYYY-MM-DD.
-const selectCols = `to_char(date, 'YYYY-MM-DD') AS date, sleep_seconds, sleep_score, hrv_ms, resting_hr, stress_avg, body_battery_charged, body_battery_drained, training_readiness, created_at, updated_at`
+const selectCols = `to_char(date, 'YYYY-MM-DD') AS date, sleep_seconds, sleep_score, hrv_ms, resting_hr, stress_avg, body_battery_charged, body_battery_drained, training_readiness, spo2_avg, spo2_lowest, respiration_avg, respiration_lowest, deep_sleep_seconds, light_sleep_seconds, rem_sleep_seconds, awake_seconds, created_at, updated_at`
 
 // Upsert inserts a snapshot, or full-replaces the metric columns when a row for
 // the date already exists. Returns created=true on INSERT (HTTP 201), false on
@@ -33,9 +33,11 @@ func (r *Repo) Upsert(ctx context.Context, s *Snapshot) (created bool, err error
         INSERT INTO recovery_metrics (
             date, sleep_seconds, sleep_score, hrv_ms, resting_hr, stress_avg,
             body_battery_charged, body_battery_drained, training_readiness,
+            spo2_avg, spo2_lowest, respiration_avg, respiration_lowest,
+            deep_sleep_seconds, light_sleep_seconds, rem_sleep_seconds, awake_seconds,
             created_at, updated_at
         ) VALUES (
-            $1::date, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
+            $1::date, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now(), now()
         )
         ON CONFLICT (date) DO UPDATE SET
             sleep_seconds        = EXCLUDED.sleep_seconds,
@@ -46,12 +48,22 @@ func (r *Repo) Upsert(ctx context.Context, s *Snapshot) (created bool, err error
             body_battery_charged = EXCLUDED.body_battery_charged,
             body_battery_drained = EXCLUDED.body_battery_drained,
             training_readiness   = EXCLUDED.training_readiness,
+            spo2_avg             = EXCLUDED.spo2_avg,
+            spo2_lowest          = EXCLUDED.spo2_lowest,
+            respiration_avg      = EXCLUDED.respiration_avg,
+            respiration_lowest   = EXCLUDED.respiration_lowest,
+            deep_sleep_seconds   = EXCLUDED.deep_sleep_seconds,
+            light_sleep_seconds  = EXCLUDED.light_sleep_seconds,
+            rem_sleep_seconds    = EXCLUDED.rem_sleep_seconds,
+            awake_seconds        = EXCLUDED.awake_seconds,
             updated_at           = now()
         RETURNING (xmax = 0) AS inserted
     `
 	row := r.q.QueryRow(ctx, q,
 		s.Date, s.SleepSeconds, s.SleepScore, s.HRVMs, s.RestingHR, s.StressAvg,
 		s.BodyBatteryCharged, s.BodyBatteryDrained, s.TrainingReadiness,
+		s.Spo2Avg, s.Spo2Lowest, s.RespirationAvg, s.RespirationLowest,
+		s.DeepSleepSeconds, s.LightSleepSeconds, s.RemSleepSeconds, s.AwakeSeconds,
 	)
 	if err := row.Scan(&created); err != nil {
 		return false, fmt.Errorf("upsert recovery metrics: %w", err)
@@ -108,6 +120,8 @@ func scanSnapshot(s scanner) (*Snapshot, error) {
 	err := s.Scan(
 		&snap.Date, &snap.SleepSeconds, &snap.SleepScore, &snap.HRVMs, &snap.RestingHR,
 		&snap.StressAvg, &snap.BodyBatteryCharged, &snap.BodyBatteryDrained, &snap.TrainingReadiness,
+		&snap.Spo2Avg, &snap.Spo2Lowest, &snap.RespirationAvg, &snap.RespirationLowest,
+		&snap.DeepSleepSeconds, &snap.LightSleepSeconds, &snap.RemSleepSeconds, &snap.AwakeSeconds,
 		&snap.CreatedAt, &snap.UpdatedAt,
 	)
 	if err != nil {

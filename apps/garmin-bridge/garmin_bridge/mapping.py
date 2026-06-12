@@ -83,6 +83,14 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _as_str(value: Any) -> str | None:
+    """Trimmed non-empty string, else None (bools/numbers are not labels)."""
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
 def _prune(body: dict[str, Any]) -> dict[str, Any]:
     """Drop None-valued keys so omitempty fields stay absent."""
     return {k: v for k, v in body.items() if v is not None}
@@ -97,14 +105,20 @@ def _has_metrics(snapshot: dict[str, Any]) -> bool:
 
 
 def map_recovery(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
-    """sleep / HRV / RHR / stress / readiness / body-battery → recovery Snapshot."""
+    """sleep / HRV / RHR / stress / readiness / body-battery + SpO2 / respiration
+    / sleep-stage breakdown → recovery Snapshot.
+
+    The four sleep-stage seconds come free from the sleep DTO already dug for
+    ``sleep_seconds``; SpO2 and respiration come from their own per-day fetches.
+    """
     bb = _dig(raw, "body_battery", 0) or {}
+    sleep_dto = _dig(raw, "sleep", "dailySleepDTO") or {}
     snap = _prune(
         {
             "date": date,
-            "sleep_seconds": _as_int(_dig(raw, "sleep", "dailySleepDTO", "sleepTimeSeconds")),
+            "sleep_seconds": _as_int(sleep_dto.get("sleepTimeSeconds")),
             "sleep_score": _as_int(
-                _dig(raw, "sleep", "dailySleepDTO", "sleepScores", "overall", "value")
+                _dig(sleep_dto, "sleepScores", "overall", "value")
             ),
             "hrv_ms": _as_float(_dig(raw, "hrv", "hrvSummary", "lastNightAvg")),
             "resting_hr": _as_int(_dig(raw, "rhr", "restingHeartRate")),
@@ -112,6 +126,14 @@ def map_recovery(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
             "body_battery_charged": _as_int(bb.get("charged")),
             "body_battery_drained": _as_int(bb.get("drained")),
             "training_readiness": _as_int(_dig(raw, "training_readiness", 0, "score")),
+            "spo2_avg": _as_int(_dig(raw, "spo2", "averageSpO2")),
+            "spo2_lowest": _as_int(_dig(raw, "spo2", "lowestSpO2")),
+            "respiration_avg": _as_float(_dig(raw, "respiration", "avgSleepRespirationValue")),
+            "respiration_lowest": _as_float(_dig(raw, "respiration", "lowestRespirationValue")),
+            "deep_sleep_seconds": _as_int(sleep_dto.get("deepSleepSeconds")),
+            "light_sleep_seconds": _as_int(sleep_dto.get("lightSleepSeconds")),
+            "rem_sleep_seconds": _as_int(sleep_dto.get("remSleepSeconds")),
+            "awake_seconds": _as_int(sleep_dto.get("awakeSleepSeconds")),
         }
     )
     return snap if _has_metrics(snap) else None
@@ -149,9 +171,36 @@ def map_fitness(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
                 )
             ),
             "chronic_load": _as_float(_dig(raw, "training_status", "chronicTrainingLoad")),
+            "endurance_score": _as_int(
+                _dig(raw, "endurance_score", "overallScore")
+                or _dig(raw, "endurance_score", "enduranceScore")
+            ),
+            "hill_score": _as_int(_dig(raw, "hill_score", "overallScore")),
+            "fitness_age": _as_float(
+                _dig(raw, "fitness_age", "fitnessAge")
+                or _dig(raw, "fitness_age", "achievableFitnessAge")
+            ),
+            "training_status": _training_status_label(raw),
         }
     )
     return snap if _has_metrics(snap) else None
+
+
+def _training_status_label(raw: dict[str, Any]) -> str | None:
+    """The human-readable training-status phrase from the already-fetched payload.
+
+    Garmin nests the per-device phrase under ``latestTrainingStatusData[*]``;
+    older/top-level shapes carry it directly. Stored verbatim (not enum-gated),
+    so an unrecognised future word is preserved rather than dropped.
+    """
+    latest = _dig(raw, "training_status", "latestTrainingStatusData")
+    if isinstance(latest, dict):
+        for entry in latest.values():
+            if isinstance(entry, dict):
+                label = _as_str(entry.get("trainingStatus"))
+                if label is not None:
+                    return label
+    return _as_str(_dig(raw, "training_status", "trainingStatus"))
 
 
 def map_hydration_balance(raw: dict[str, Any], date: str) -> dict[str, Any] | None:

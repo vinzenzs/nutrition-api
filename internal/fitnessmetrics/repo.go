@@ -22,7 +22,7 @@ func NewRepo(q store.Querier) *Repo {
 	return &Repo{q: q}
 }
 
-const selectCols = `to_char(date, 'YYYY-MM-DD') AS date, vo2max_running, vo2max_cycling, race_predictor_5k_seconds, race_predictor_10k_seconds, race_predictor_half_seconds, race_predictor_full_seconds, acute_load, chronic_load, created_at, updated_at`
+const selectCols = `to_char(date, 'YYYY-MM-DD') AS date, vo2max_running, vo2max_cycling, race_predictor_5k_seconds, race_predictor_10k_seconds, race_predictor_half_seconds, race_predictor_full_seconds, acute_load, chronic_load, endurance_score, hill_score, fitness_age, training_status, created_at, updated_at`
 
 // Upsert inserts a snapshot, or full-replaces the metric columns when a row for
 // the date exists. created=true on INSERT (HTTP 201), false on UPDATE (HTTP 200).
@@ -32,9 +32,11 @@ func (r *Repo) Upsert(ctx context.Context, s *Snapshot) (created bool, err error
             date, vo2max_running, vo2max_cycling,
             race_predictor_5k_seconds, race_predictor_10k_seconds,
             race_predictor_half_seconds, race_predictor_full_seconds,
-            acute_load, chronic_load, created_at, updated_at
+            acute_load, chronic_load,
+            endurance_score, hill_score, fitness_age, training_status,
+            created_at, updated_at
         ) VALUES (
-            $1::date, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
+            $1::date, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), now()
         )
         ON CONFLICT (date) DO UPDATE SET
             vo2max_running              = EXCLUDED.vo2max_running,
@@ -45,6 +47,10 @@ func (r *Repo) Upsert(ctx context.Context, s *Snapshot) (created bool, err error
             race_predictor_full_seconds = EXCLUDED.race_predictor_full_seconds,
             acute_load                  = EXCLUDED.acute_load,
             chronic_load                = EXCLUDED.chronic_load,
+            endurance_score             = EXCLUDED.endurance_score,
+            hill_score                  = EXCLUDED.hill_score,
+            fitness_age                 = EXCLUDED.fitness_age,
+            training_status             = EXCLUDED.training_status,
             updated_at                  = now()
         RETURNING (xmax = 0) AS inserted
     `
@@ -53,6 +59,7 @@ func (r *Repo) Upsert(ctx context.Context, s *Snapshot) (created bool, err error
 		s.RacePredictor5kSeconds, s.RacePredictor10kSeconds,
 		s.RacePredictorHalfSeconds, s.RacePredictorFullSeconds,
 		s.AcuteLoad, s.ChronicLoad,
+		s.EnduranceScore, s.HillScore, s.FitnessAge, s.TrainingStatus,
 	)
 	if err := row.Scan(&created); err != nil {
 		return false, fmt.Errorf("upsert fitness metrics: %w", err)
@@ -111,6 +118,7 @@ func scanSnapshot(s scanner) (*Snapshot, error) {
 		&snap.RacePredictor5kSeconds, &snap.RacePredictor10kSeconds,
 		&snap.RacePredictorHalfSeconds, &snap.RacePredictorFullSeconds,
 		&snap.AcuteLoad, &snap.ChronicLoad,
+		&snap.EnduranceScore, &snap.HillScore, &snap.FitnessAge, &snap.TrainingStatus,
 		&snap.CreatedAt, &snap.UpdatedAt,
 	)
 	if err != nil {
