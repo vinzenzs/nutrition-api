@@ -356,6 +356,188 @@ const docTemplate = `{
                 }
             }
         },
+        "/daily-summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "daily-summary"
+                ],
+                "summary": "List daily-summary snapshots in a date window",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inclusive lower bound YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Inclusive upper bound YYYY-MM-DD; max 92-day span",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ daily_summary: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "window_required | window_invalid | range_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates or full-replaces the daily-summary snapshot for a calendar date (active/resting/total kcal, steps, floors, intensity minutes, distance). \"POST every day you see\" — re-pushing the same date updates in place, with omitted fields reset to NULL. Standard ` + "`" + `Idempotency-Key` + "`" + ` header supported. These expenditure/activity totals are unit-isolated: they never merge into nutrition summary totals or the Energy Availability denominator.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "daily-summary"
+                ],
+                "summary": "Upsert a whole-day energy/activity snapshot (by date)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Daily summary (date required; metrics optional)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dailysummary.Snapshot"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UPDATE (date already present)",
+                        "schema": {
+                            "$ref": "#/definitions/dailysummary.Snapshot"
+                        }
+                    },
+                    "201": {
+                        "description": "INSERT",
+                        "schema": {
+                            "$ref": "#/definitions/dailysummary.Snapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "date_invalid | active_kcal_invalid | resting_kcal_invalid | total_kcal_invalid | steps_invalid | floors_invalid | moderate_intensity_minutes_invalid | vigorous_intensity_minutes_invalid | distance_m_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/daily-summary/{date}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "daily-summary"
+                ],
+                "summary": "Get the daily-summary snapshot for a date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Date YYYY-MM-DD",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dailysummary.Snapshot"
+                        }
+                    },
+                    "404": {
+                        "description": "daily_summary_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "daily-summary"
+                ],
+                "summary": "Delete the daily-summary snapshot for a date",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Date YYYY-MM-DD",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "daily_summary_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/energy/availability": {
             "get": {
                 "security": [
@@ -6743,6 +6925,44 @@ const docTemplate = `{
                 },
                 "started_at": {
                     "type": "string"
+                }
+            }
+        },
+        "dailysummary.Snapshot": {
+            "type": "object",
+            "properties": {
+                "active_kcal": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "distance_m": {
+                    "type": "number"
+                },
+                "floors": {
+                    "type": "integer"
+                },
+                "moderate_intensity_minutes": {
+                    "type": "integer"
+                },
+                "resting_kcal": {
+                    "type": "integer"
+                },
+                "steps": {
+                    "type": "integer"
+                },
+                "total_kcal": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vigorous_intensity_minutes": {
+                    "type": "integer"
                 }
             }
         },

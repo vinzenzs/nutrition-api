@@ -32,6 +32,16 @@
     "activityIntakeInML": 400.0,
     "goalInML": 2600.0
   },
+  "user_summary": {
+    "activeKilocalories": 820,
+    "bmrKilocalories": 1650,
+    "totalKilocalories": 2470,
+    "totalSteps": 12400,
+    "floorsAscended": 14,
+    "moderateIntensityMinutes": 35,
+    "vigorousIntensityMinutes": 48,
+    "totalDistanceMeters": 9320.4789
+  },
   "weigh_ins": {
     "dailyWeightSummaries": [
       {

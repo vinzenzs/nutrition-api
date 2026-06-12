@@ -133,6 +133,7 @@ def fetch_day(api, date: str) -> dict[str, Any]:
     raw["training_status"] = safe("training_status", lambda: api.get_training_status(date))
     raw["race_predictions"] = safe("race_predictions", lambda: api.get_race_predictions())
     raw["hydration"] = safe("hydration", lambda: api.get_hydration_data(date))
+    raw["user_summary"] = safe("user_summary", lambda: api.get_user_summary(date))
     raw["weigh_ins"] = safe("weigh_ins", lambda: api.get_weigh_ins(date, date))
     raw["activities"] = safe(
         "activities", lambda: api.get_activities_by_date(date, date)

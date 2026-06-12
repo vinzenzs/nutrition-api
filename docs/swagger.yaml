@@ -293,6 +293,31 @@ definitions:
       started_at:
         type: string
     type: object
+  dailysummary.Snapshot:
+    properties:
+      active_kcal:
+        type: integer
+      created_at:
+        type: string
+      date:
+        type: string
+      distance_m:
+        type: number
+      floors:
+        type: integer
+      moderate_intensity_minutes:
+        type: integer
+      resting_kcal:
+        type: integer
+      steps:
+        type: integer
+      total_kcal:
+        type: integer
+      updated_at:
+        type: string
+      vigorous_intensity_minutes:
+        type: integer
+    type: object
   energy.Availability:
     properties:
       composition:
@@ -2488,6 +2513,128 @@ paths:
       summary: Daily context bundle
       tags:
       - daily-context
+  /daily-summary:
+    get:
+      parameters:
+      - description: Inclusive lower bound YYYY-MM-DD
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Inclusive upper bound YYYY-MM-DD; max 92-day span
+        in: query
+        name: to
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ daily_summary: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: window_required | window_invalid | range_too_large
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List daily-summary snapshots in a date window
+      tags:
+      - daily-summary
+    post:
+      consumes:
+      - application/json
+      description: 'Creates or full-replaces the daily-summary snapshot for a calendar
+        date (active/resting/total kcal, steps, floors, intensity minutes, distance).
+        "POST every day you see" — re-pushing the same date updates in place, with
+        omitted fields reset to NULL. Standard `Idempotency-Key` header supported.
+        These expenditure/activity totals are unit-isolated: they never merge into
+        nutrition summary totals or the Energy Availability denominator.'
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Daily summary (date required; metrics optional)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dailysummary.Snapshot'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: UPDATE (date already present)
+          schema:
+            $ref: '#/definitions/dailysummary.Snapshot'
+        "201":
+          description: INSERT
+          schema:
+            $ref: '#/definitions/dailysummary.Snapshot'
+        "400":
+          description: date_invalid | active_kcal_invalid | resting_kcal_invalid |
+            total_kcal_invalid | steps_invalid | floors_invalid | moderate_intensity_minutes_invalid
+            | vigorous_intensity_minutes_invalid | distance_m_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a whole-day energy/activity snapshot (by date)
+      tags:
+      - daily-summary
+  /daily-summary/{date}:
+    delete:
+      parameters:
+      - description: Date YYYY-MM-DD
+        in: path
+        name: date
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: daily_summary_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete the daily-summary snapshot for a date
+      tags:
+      - daily-summary
+    get:
+      parameters:
+      - description: Date YYYY-MM-DD
+        in: path
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dailysummary.Snapshot'
+        "404":
+          description: daily_summary_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get the daily-summary snapshot for a date
+      tags:
+      - daily-summary
   /energy/availability:
     get:
       description: 'Per-day EA values + window aggregate, computed from meals (intake),

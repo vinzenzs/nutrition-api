@@ -23,6 +23,7 @@ _SNAPSHOT_ROUTES = {
     "recovery": "/recovery-metrics",
     "fitness": "/fitness-metrics",
     "hydration_balance": "/hydration-balance",
+    "daily_summary": "/daily-summary",
 }
 
 

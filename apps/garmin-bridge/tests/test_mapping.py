@@ -40,6 +40,33 @@ def test_hydration_balance_mapping(raw_day):
     }
 
 
+def test_daily_summary_mapping(raw_day):
+    ds = mapping.map_daily_summary(raw_day, "2026-06-12")
+    assert ds == {
+        "date": "2026-06-12",
+        "active_kcal": 820,
+        "resting_kcal": 1650,
+        "total_kcal": 2470,
+        "steps": 12400,
+        "floors": 14,
+        "moderate_intensity_minutes": 35,
+        "vigorous_intensity_minutes": 48,
+        # raw float preserved; the backend rounds at the response boundary
+        "distance_m": 9320.4789,
+    }
+
+
+def test_daily_summary_omits_absent_fields():
+    raw = {"user_summary": {"totalKilocalories": 2100}}
+    ds = mapping.map_daily_summary(raw, "2026-06-12")
+    assert ds == {"date": "2026-06-12", "total_kcal": 2100}
+
+
+def test_daily_summary_empty_payload_yields_none():
+    assert mapping.map_daily_summary({}, "2026-06-12") is None
+    assert mapping.map_daily_summary({"user_summary": {}}, "2026-06-12") is None
+
+
 def test_weight_mapping_grams_to_kg(raw_day):
     weights = mapping.map_weights(raw_day)
     assert len(weights) == 1
@@ -167,6 +194,7 @@ def test_map_day_aggregates_all(raw_day):
     assert mapped["recovery"] is not None
     assert mapped["fitness"] is not None
     assert mapped["hydration_balance"] is not None
+    assert mapped["daily_summary"] is not None
     assert len(mapped["weights"]) == 1
     assert len(mapped["workouts"]) == 3
 

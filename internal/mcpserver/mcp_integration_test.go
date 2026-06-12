@@ -188,6 +188,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"list_hydration_balance",
 		"get_hydration_balance",
 		"delete_hydration_balance",
+		"daily_summary_get",
 		"workout_fueling_summary",
 		"log_workout_fuel",
 		"list_workout_fuel",

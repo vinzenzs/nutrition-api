@@ -167,6 +167,31 @@ def map_hydration_balance(raw: dict[str, Any], date: str) -> dict[str, Any] | No
     return snap if _has_metrics(snap) else None
 
 
+def map_daily_summary(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
+    """Garmin get_user_summary → /daily-summary Snapshot (whole-day totals).
+
+    Active/resting/total kcal, steps, floors, intensity minutes, distance — the
+    NEAT-inclusive total-expenditure picture EA deliberately excludes. Every
+    field is defensively extracted; an absent key is simply omitted (stored
+    NULL). Returns None when the day carried no usable totals.
+    """
+    us = raw.get("user_summary") or {}
+    snap = _prune(
+        {
+            "date": date,
+            "active_kcal": _as_int(us.get("activeKilocalories")),
+            "resting_kcal": _as_int(us.get("bmrKilocalories")),
+            "total_kcal": _as_int(us.get("totalKilocalories")),
+            "steps": _as_int(us.get("totalSteps")),
+            "floors": _as_int(us.get("floorsAscended")),
+            "moderate_intensity_minutes": _as_int(us.get("moderateIntensityMinutes")),
+            "vigorous_intensity_minutes": _as_int(us.get("vigorousIntensityMinutes")),
+            "distance_m": _as_float(us.get("totalDistanceMeters")),
+        }
+    )
+    return snap if _has_metrics(snap) else None
+
+
 def map_weights(raw: dict[str, Any]) -> list[dict[str, Any]]:
     """Garmin weigh-ins → /weight create bodies. Weight/mass are grams → kg."""
     out: list[dict[str, Any]] = []
@@ -335,6 +360,7 @@ def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
         "recovery": map_recovery(raw, date),
         "fitness": map_fitness(raw, date),
         "hydration_balance": map_hydration_balance(raw, date),
+        "daily_summary": map_daily_summary(raw, date),
         "weights": map_weights(raw),
         "workouts": map_workouts(raw),
     }
