@@ -40,6 +40,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
 	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
 )
 
 // BuildEngine returns a fresh *gin.Engine wired with the framework-level
@@ -267,6 +268,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	mealplan.NewHandlers(mealPlanSvc).Register(api)
 	shoppinglist.NewHandlers(shoppingSvc).Register(api)
 	workouts.NewHandlers(workoutsSvc).Register(api)
+	workouttemplates.NewHandlers(workouttemplates.NewService(workouttemplates.NewRepo(pool))).Register(api)
 	workoutfueling.NewHandlers(fuelingSvc).Register(api)
 	workoutfuel.NewHandlers(workoutFuelSvc).Register(api)
 	bodyweight.NewHandlers(bodyWeightSvc, cfg.DefaultUserTZ, logger).Register(api)

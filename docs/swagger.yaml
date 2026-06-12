@@ -1858,6 +1858,87 @@ definitions:
     type: object
   workouts.createRequest:
     type: object
+  workouttemplates.Duration:
+    properties:
+      kind:
+        type: string
+      meters:
+        type: integer
+      seconds:
+        type: integer
+    type: object
+  workouttemplates.Step:
+    properties:
+      count:
+        description: '--- repeat group (Type == "repeat") ---'
+        type: integer
+      duration:
+        $ref: '#/definitions/workouttemplates.Duration'
+      intent:
+        description: '--- single executable step (Type == "step") ---'
+        type: string
+      note:
+        type: string
+      steps:
+        items:
+          $ref: '#/definitions/workouttemplates.Step'
+        type: array
+      target:
+        $ref: '#/definitions/workouttemplates.Target'
+      type:
+        type: string
+    type: object
+  workouttemplates.Target:
+    properties:
+      high:
+        type: integer
+      high_sec_per_km:
+        type: integer
+      kind:
+        type: string
+      low:
+        type: integer
+      low_sec_per_km:
+        type: integer
+    type: object
+  workouttemplates.Template:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      estimated_duration_sec:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      sport:
+        type: string
+      steps:
+        items:
+          $ref: '#/definitions/workouttemplates.Step'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  workouttemplates.createRequest:
+    properties:
+      description:
+        type: string
+      estimated_duration_sec:
+        type: integer
+      name:
+        type: string
+      sport:
+        type: string
+      steps:
+        items:
+          $ref: '#/definitions/workouttemplates.Step'
+        type: array
+    type: object
+  workouttemplates.patchRequest:
+    type: object
 info:
   contact: {}
   description: Personal nutrition tracking REST API. All endpoints under /products,
@@ -5054,6 +5135,159 @@ paths:
       summary: Partially update a workout-fuel entry
       tags:
       - workout-fuel
+  /workout-templates:
+    get:
+      parameters:
+      - description: 'Filter by sport: run | bike | swim | strength | other'
+        in: query
+        name: sport
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ workout_templates: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: sport_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List workout templates
+      tags:
+      - workout-templates
+    post:
+      consumes:
+      - application/json
+      description: Create a reusable structured session (sport + ordered steps with
+        durations and target zones). `Idempotency-Key` supported.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Workout template
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workouttemplates.createRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workouttemplates.Template'
+        "400":
+          description: invalid_json | sport_invalid | name_required | estimated_duration_sec_invalid
+            | steps_empty | step_type_invalid | intent_invalid | duration_invalid
+            | target_invalid | target_range_invalid | repeat_invalid | repeat_nested
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a workout template
+      tags:
+      - workout-templates
+  /workout-templates/{id}:
+    delete:
+      parameters:
+      - description: Template UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: workout_template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a workout template
+      tags:
+      - workout-templates
+    get:
+      parameters:
+      - description: Template UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouttemplates.Template'
+        "404":
+          description: workout_template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a workout template by id
+      tags:
+      - workout-templates
+    patch:
+      consumes:
+      - application/json
+      description: Any of sport / name / description / estimated_duration_sec / steps
+        may be supplied; omitted fields are unchanged. A supplied `steps` array replaces
+        the prior steps wholesale.
+      parameters:
+      - description: Template UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workouttemplates.patchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouttemplates.Template'
+        "400":
+          description: invalid_json | sport_invalid | name_required | estimated_duration_sec_invalid
+            | steps_empty | step_type_invalid | intent_invalid | duration_invalid
+            | target_invalid | target_range_invalid | repeat_invalid | repeat_nested
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: workout_template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Partially update a workout template
+      tags:
+      - workout-templates
   /workouts:
     get:
       parameters:

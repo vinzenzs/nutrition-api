@@ -4674,6 +4674,238 @@
                 }
             }
         },
+        "/workout-templates": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-templates"
+                ],
+                "summary": "List workout templates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by sport: run | bike | swim | strength | other",
+                        "name": "sport",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ workout_templates: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "sport_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a reusable structured session (sport + ordered steps with durations and target zones). `Idempotency-Key` supported.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-templates"
+                ],
+                "summary": "Create a workout template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Workout template",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workouttemplates.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/workouttemplates.Template"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | sport_invalid | name_required | estimated_duration_sec_invalid | steps_empty | step_type_invalid | intent_invalid | duration_invalid | target_invalid | target_range_invalid | repeat_invalid | repeat_nested",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workout-templates/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-templates"
+                ],
+                "summary": "Get a workout template by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workouttemplates.Template"
+                        }
+                    },
+                    "404": {
+                        "description": "workout_template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "workout-templates"
+                ],
+                "summary": "Delete a workout template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "workout_template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Any of sport / name / description / estimated_duration_sec / steps may be supplied; omitted fields are unchanged. A supplied `steps` array replaces the prior steps wholesale.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workout-templates"
+                ],
+                "summary": "Partially update a workout template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workouttemplates.patchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workouttemplates.Template"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | sport_invalid | name_required | estimated_duration_sec_invalid | steps_empty | step_type_invalid | intent_invalid | duration_invalid | target_invalid | target_range_invalid | repeat_invalid | repeat_nested",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "workout_template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/workouts": {
             "get": {
                 "security": [
@@ -7737,6 +7969,129 @@
             "type": "object"
         },
         "workouts.createRequest": {
+            "type": "object"
+        },
+        "workouttemplates.Duration": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "meters": {
+                    "type": "integer"
+                },
+                "seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "workouttemplates.Step": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "--- repeat group (Type == \"repeat\") ---",
+                    "type": "integer"
+                },
+                "duration": {
+                    "$ref": "#/definitions/workouttemplates.Duration"
+                },
+                "intent": {
+                    "description": "--- single executable step (Type == \"step\") ---",
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouttemplates.Step"
+                    }
+                },
+                "target": {
+                    "$ref": "#/definitions/workouttemplates.Target"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "workouttemplates.Target": {
+            "type": "object",
+            "properties": {
+                "high": {
+                    "type": "integer"
+                },
+                "high_sec_per_km": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "low": {
+                    "type": "integer"
+                },
+                "low_sec_per_km": {
+                    "type": "integer"
+                }
+            }
+        },
+        "workouttemplates.Template": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "estimated_duration_sec": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sport": {
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouttemplates.Step"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "workouttemplates.createRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "estimated_duration_sec": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sport": {
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouttemplates.Step"
+                    }
+                }
+            }
+        },
+        "workouttemplates.patchRequest": {
             "type": "object"
         }
     },

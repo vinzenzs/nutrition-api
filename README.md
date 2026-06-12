@@ -475,6 +475,38 @@ curl -H "Authorization: Bearer $MOBILE_API_TOKEN" \
 #   }
 ```
 
+### Workout templates
+
+A library of reusable, **structured** sessions — a `sport`, a `name`, optional `description` and
+`estimated_duration_sec`, and an ordered list of `steps`. Each step is either a single executable
+step (an `intent` — warmup/active/interval/recovery/rest/cooldown — plus a `duration` by time /
+distance / lap-button / open, plus a `target`: `none`, `hr_zone`/`power_zone` (1–5), `pace`,
+`hr_bpm`, `power_w`, or `rpe`) or a `repeat` group (a `count` ≥ 2 and a nested list of single steps,
+one level deep). Steps are validated on write and stored as JSONB. This is the foundation the
+training plan references and the Garmin watch push compiles into a guided workout.
+
+```bash
+# Create a structured template (warmup, 5× interval/recovery, cooldown)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" \
+    -d '{"sport":"run","name":"VO2 intervals","estimated_duration_sec":1800,
+         "steps":[
+           {"type":"step","intent":"warmup","duration":{"kind":"time","seconds":600},"target":{"kind":"hr_zone","low":1,"high":2}},
+           {"type":"repeat","count":5,"steps":[
+             {"type":"step","intent":"interval","duration":{"kind":"time","seconds":180},"target":{"kind":"power_zone","low":4,"high":4}},
+             {"type":"step","intent":"recovery","duration":{"kind":"time","seconds":120},"target":{"kind":"hr_zone","low":1}}
+           ]},
+           {"type":"step","intent":"cooldown","duration":{"kind":"time","seconds":300},"target":{"kind":"hr_zone","low":1}}
+         ]}' \
+    http://localhost:8080/workout-templates
+
+# List (optional ?sport= filter), get, patch (a supplied steps array replaces the program), delete
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" "http://localhost:8080/workout-templates?sport=run"
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" http://localhost:8080/workout-templates/$ID
+curl -X PATCH -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" \
+    -d '{"name":"VO2 intervals (revised)"}' http://localhost:8080/workout-templates/$ID
+curl -X DELETE -H "Authorization: Bearer $MOBILE_API_TOKEN" http://localhost:8080/workout-templates/$ID
+```
+
 ### Body weight
 
 A measurement event — kg, optionally body-fat % and the smart-scale biometrics a full Garmin
@@ -1095,6 +1127,11 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `get_workout`                 | `GET /workouts/{id}`                   | Fetch a workout by id.                                        |
 | `patch_workout`               | `PATCH /workouts/{id}`                 | Edit `name`/`notes`/`kcal_burned`/`avg_hr`/`tss`. Sport, window, source, external_id are immutable. |
 | `delete_workout`              | `DELETE /workouts/{id}`                | Remove a workout.                                             |
+| `create_workout_template`     | `POST /workout-templates`              | Create a reusable structured session (sport + ordered steps with durations and target zones; repeat groups one level deep). The library the plan references and the watch push compiles. |
+| `list_workout_templates`      | `GET /workout-templates?sport=…`       | List templates, optional `?sport=` filter.                    |
+| `get_workout_template`        | `GET /workout-templates/{id}`          | Fetch one template including its full step program.           |
+| `patch_workout_template`      | `PATCH /workout-templates/{id}`        | Update fields; a supplied `steps` array replaces the whole program, omitted fields unchanged. |
+| `delete_workout_template`     | `DELETE /workout-templates/{id}`       | Delete a template.                                            |
 | `log_weight`                  | `POST /weight`                         | Record a body-weight measurement, optionally with body-fat %. |
 | `list_weights`                | `GET /weight?from=…&to=…`              | List body-weight entries in a 92-day window.                  |
 | `patch_weight`                | `PATCH /weight/{id}`                   | Edit weight / body-fat % / logged_at / note.                  |
