@@ -178,7 +178,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	hydrationRepo := hydration.NewRepo(pool)
 	hydrationSvc := hydration.NewService(hydrationRepo)
 	workoutsRepo := workouts.NewRepo(pool)
-	workoutsSvc := workouts.NewService(workoutsRepo)
+	workoutsSvc := workouts.NewService(workoutsRepo, pool, cfg.DefaultUserTZ)
 	// Wire workouts existence-checks into meals + hydration services so the
 	// optional workout_id link is validated before insert/patch (added by
 	// add-meal-workout-link).

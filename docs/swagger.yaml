@@ -2028,6 +2028,13 @@ definitions:
         type: number
       name:
         type: string
+      needs_link:
+        description: |-
+          NeedsLink (per add-workout-reconciliation) marks a completed import that
+          matched more than one open planned workout, so it was inserted standalone
+          rather than auto-merged — the app/agent should offer to link it. Cleared
+          on fulfill.
+        type: boolean
       notes:
         type: string
       plan_slot_id:
@@ -2067,6 +2074,11 @@ definitions:
   workouts.bulkCreateRequest:
     type: object
   workouts.createRequest:
+    type: object
+  workouts.fulfillRequest:
+    properties:
+      completed_id:
+        type: string
     type: object
   workouttemplates.Duration:
     properties:
@@ -6281,6 +6293,53 @@ paths:
       summary: 'Workout fueling: pre / intra / post windows'
       tags:
       - workouts
+  /workouts/{id}/fulfill:
+    post:
+      consumes:
+      - application/json
+      description: 'Merges an existing completed activity (`completed_id`) into the
+        planned workout at `{id}`: copies the activity''s external_id, source, and
+        actual metrics onto the planned row, flips it to `completed`, removes the
+        redundant standalone completed row, and clears any needs-link flag. The planned
+        row survives so its `plan_slot_id` stays stable. Used for the ambiguous/cross-day
+        cases auto-reconciliation declines.'
+      parameters:
+      - description: Planned workout UUID (the merge target)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: '{ completed_id }'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workouts.fulfillRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "400":
+          description: invalid_json | completed_id_invalid | planned_workout_required
+            | completed_workout_required | sport_mismatch
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Fulfill a planned workout with a completed activity
+      tags:
+      - workouts
   /workouts/{id}/program:
     get:
       description: Resolves the workout's template steps with its plan-slot target
@@ -6309,6 +6368,43 @@ paths:
       - BearerAuth: []
       summary: Get a planned workout's effective program (template steps + slot target
         overrides)
+      tags:
+      - workouts
+  /workouts/{id}/unfulfill:
+    post:
+      description: 'Reverses a merge: clears the workout''s external_id and actual
+        metrics and restores `status=''planned''`, retaining `template_id` and `plan_slot_id`.
+        The activity is not re-fetched; the next Garmin sync re-imports it as a fresh
+        standalone row. Errors unless the workout is a fulfilled planned row (completed
+        with a plan_slot_id).'
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workouts.Workout'
+        "400":
+          description: workout_not_fulfilled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reverse a fulfilled workout back to planned
       tags:
       - workouts
   /workouts/bulk:

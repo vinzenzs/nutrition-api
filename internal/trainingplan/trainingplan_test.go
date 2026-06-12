@@ -29,7 +29,7 @@ func setup(t *testing.T) *gin.Engine {
 	tr := workouttemplates.NewRepo(pool)
 	workouttemplates.NewHandlers(workouttemplates.NewService(tr)).Register(g)
 	wr := workouts.NewRepo(pool)
-	workouts.NewHandlers(workouts.NewService(wr)).Register(g)
+	workouts.NewHandlers(workouts.NewService(wr, pool, "UTC")).Register(g)
 	trainingplan.NewHandlers(trainingplan.NewService(trainingplan.NewRepo(pool), pool, wr, tr, "UTC")).Register(g)
 	return r
 }

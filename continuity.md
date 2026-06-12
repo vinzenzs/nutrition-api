@@ -2,41 +2,41 @@
 
 _Forward plan for OpenSpec changes. Tracks **what's next**, **what's in flight**, and **what's queued**._
 _Companion to `openspec/priorities.md` (tier/triage framing) — this file is the operational queue._
-_Last refreshed: 2026-06-12 by the `continuity` skill (workout-templates + training-plan + garmin-scheduling all archived; `add-chat-sessions` now in implementation → In progress; queue is the two remaining Option B follow-ups)._
+_Last refreshed: 2026-06-12 by the `continuity` skill (add-chat-sessions, add-companion-session-list, and add-plan-slot-targets all archived + merged to `main`; only `add-workout-reconciliation` remains planned)._
 
 ## In progress
 
 | Change | Branch | Started | Owner | Notes |
 |---|---|---|---|---|
-| add-chat-sessions | `feat/add-chat-sessions` | 2026-06-12 | Vinzenz | Implemented — `internal/chatsessions/`, migration `033` (`032` was taken by garmin-scheduling), `internal/chat/` session-backed rework. Artifacts complete, tests green, docs regenerated. `/opsx:archive` when committed. |
+| _(none)_ | | | | |
+
+_Nothing in flight. `feat/add-chat-sessions` was fast-forward-merged into `main` (it held chat-sessions + plan-slot-targets + companion-session-list); the tree is clean. `main` is ahead of `origin/main` and unpushed._
 
 ## Up next
 
-Ordered queue — top is next to pick up. The remaining **Option B training-plan program** (workout library + plan + the write-to-watch edge are all shipped), ordered by dependency.
+Ordered queue — top is next to pick up.
 
-1. **add-plan-slot-targets** — Per-slot target overrides so one template progresses across the plan (e.g. the same tempo run at 7:30 → 7:15 → 7:00) without authoring a template per pace; `GET /workouts/{id}/program` exposes the resolved steps. _Why now: depends only on shipped changes. ⚠️ `add-garmin-scheduling` already shipped reading **raw** template steps, so this change's task 6.1 must **retrofit** that compile path to use effective (override-resolved) steps — the clean seam was missed by the fast concurrent build._
-2. **add-workout-reconciliation** — Merge a completed Garmin import into its matching planned workout (planned→completed in place, keeping the prescription), with fulfill/unfulfill escape hatches. _Why now: needs the plan + the shipped bridge; closes the inbound loop so plan and actual stop double-listing._
+1. **add-workout-reconciliation** — Merge a completed Garmin import into its matching planned workout (planned→completed in place, keeping the prescription via `template_id`/`plan_slot_id`), with fulfill/unfulfill escape hatches. _Why now: the **last** open Option B follow-up; the plan + the bridge it needs are both shipped. Closes the inbound loop so a planned session and its actual stop double-listing._
 
 ## Backlog
 
 Planned changes not yet prioritized.
 
-- _Empty — `add-chat-sessions` moved to In progress; the two Option B follow-ups are queued above._
+- _Empty._
 
 ## Notes
 
-- **The active arc is the Garmin integration + Option B training plan.** Designed across two explore sessions. Four planes of the old `garmin.py` script move into api/mcp: ① auth (`add-garmin-auth-token` ✓ archived), ② read-import (`add-garmin-bridge` ✓ archived), ③ login (`add-garmin-mcp-login` ✓ archived), and the new program — workout library → plan-as-system-of-record → write-to-watch → reconcile. The Garmin **foundation, the workout library, the plan, and the write-to-watch edge are all shipped/archived**; what remains is per-slot pace progression (`add-plan-slot-targets`) and reconciliation (`add-workout-reconciliation`). Coaching synthesis (the old `coach` command) deliberately stays the **chat agent's** job, not an API endpoint.
+- **The active arc is the Garmin integration + Option B training plan.** Designed across two explore sessions. Four planes of the old `garmin.py` script move into api/mcp: ① auth (`add-garmin-auth-token` ✓ archived), ② read-import (`add-garmin-bridge` ✓ archived), ③ login (`add-garmin-mcp-login` ✓ archived), and the new program — workout library → plan-as-system-of-record → write-to-watch → reconcile. The Garmin **foundation, the workout library, the plan, the write-to-watch edge, and per-slot pace progression are all shipped/archived**; the **only remaining** piece is reconciliation (`add-workout-reconciliation`). Coaching synthesis (the old `coach` command) deliberately stays the **chat agent's** job, not an API endpoint.
   - **Option B was chosen** (backend owns the plan, not thin-control): the plan becomes a queryable, per-day-editable structure with structured (interval/zone) templates, so the watch gets real guided workouts and the fueling math can see upcoming load.
-  - **`add-plan-slot-targets` is the pace-progression follow-up**: pace is already a template-step target (e.g. `7:15` = `435 sec/km`); the slot override lets one template progress across the 18 weeks. Deliberately excludes a `pace_zone` kind + time-varying threshold profile (a larger separate model) and duration overrides.
+  - **`add-plan-slot-targets` shipped** (`1a7ace2`): per-slot `target_overrides` let one template progress across the 18 weeks (e.g. interval at `7:15` = `435 sec/km`); `GET /workouts/{id}/program` resolves the effective steps, and the Garmin compile path was retrofitted to use them. Deliberately excluded: a `pace_zone` kind + time-varying threshold profile (a larger separate model) and duration overrides.
   - **One deferred primitive captured separately** (`add-workout-reconciliation`): matching completed↔planned. Its own follow-ons remain future: reverse-direction matching (activity imported before the plan existed), a ±1-day tolerance window, and full **plan-adherence analytics** (a capability that would sit on top of reconciliation).
 - **Drift to clean up:**
-  - **`add-chat-sessions` is mid-implementation, uncommitted** (In progress) — `internal/chatsessions/`, migration `032`, `internal/chat/` edits on the tree. Its OpenSpec proposal artifacts are still thin (commit the proposal too when committing the feature).
-  - **Proposals committed, awaiting apply:** `add-plan-slot-targets`, `add-workout-reconciliation` (both validate `--strict`).
-  - **`roadmap.md` resynced** alongside this refresh — workout-templates/training-plan/garmin-scheduling now under Implemented.
-  - **Stale branch to prune:** `feat/add-recommend-workout-fuel`, a leftover from an already-archived change — safe to delete when convenient (this skill never prunes branches).
+  - **`main` is ahead of `origin/main` and unpushed** — push when ready (today's whole Garmin + Option B + chat-sessions arc is local-only).
+  - **`add-workout-reconciliation` proposal is committed, awaiting apply** (validates `--strict`).
+  - **Stale branches to prune:** `feat/add-chat-sessions` (now == `main` after the FF merge) and `feat/add-recommend-workout-fuel` (leftover from an archived change) — both safe to delete when convenient (this skill never prunes branches).
 - **Previously shipped (now historical):** the chat + meal-planning + recipes arc is complete and archived (`add-recipe-ingredients`, `add-meal-plan`, `add-shopping-list`, `add-chat-backend`, `add-companion-chat`, `add-companion-food-picker`) — end-to-end "what should I eat → plan → one shopping list", Cookidoo recipes included. Two open follow-ups from it (not yet proposed): a manual companion-chat e2e on a device, and a real-Anthropic `/chat` smoke once `ANTHROPIC_API_KEY` is set (endpoint returns 503 `chat_unavailable` until then).
 - **Still-open priorities-flagged work** (in `openspec/priorities.md`, independent of this arc): T2 #6E (retroactive freeform→product correction), #6F (`coach_recommendation` persistence — the rationale channel the in-app chat would read), #9 (supplement log); a derived sweat-rate (ml/hr) endpoint completing T2 #6C now its inputs exist; per-metric trend endpoints.
-- **Pattern notes (carried):** MODIFIED spec deltas are full-replace — copy prior scenarios into the MODIFIED block, prefer ADDED requirements for additive intent (the Garmin-scheduling deltas use ADDED against the not-yet-archived bridge/control specs precisely to stay decoupled from archive order). OpenSpec requirement bodies must lead with a SHALL/MUST sentence or `validate --strict` rejects them. Spec sync + archive runs cleanly via `openspec archive <slug> --yes`. Migration head is now `032` on disk (`030` workout-templates, `031` training-plan + workouts cols, `032` taken — `add-garmin-scheduling` shipped its garmin-ids migration AND `add-chat-sessions` is adding chat-sessions; **two changes contended for `032`** — verify/renumber). Remaining migrations: `add-plan-slot-targets` → `plan_slots.target_overrides`; `add-workout-reconciliation` → optional `needs_link`. Always verify the head before `migrate:new`, since out-of-band work can take the next slot.
+- **Pattern notes (carried):** MODIFIED spec deltas are full-replace — copy prior scenarios into the MODIFIED block, prefer ADDED requirements for additive intent (the Garmin-scheduling deltas use ADDED against the not-yet-archived bridge/control specs precisely to stay decoupled from archive order). OpenSpec requirement bodies must lead with a SHALL/MUST sentence or `validate --strict` rejects them. Spec sync + archive runs cleanly via `openspec archive <slug> --yes`. Migration head is now `034` on disk (`030` workout-templates, `031` training-plan, `032` workout garmin-ids, `033` chat-sessions, `034` plan-slot target_overrides). Remaining: `add-workout-reconciliation` → optional `needs_link` (would be `035`). Always verify the head before `migrate:new`, since out-of-band work can take the next slot — a `032` collision already happened this session (garmin-scheduling vs chat-sessions) and had to be renumbered.
 
 ---
 _To update: ask Claude "update continuity", "queue X next", or "start work on X"._

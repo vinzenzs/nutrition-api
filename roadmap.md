@@ -6,6 +6,9 @@ _Generated from OpenSpec changes. Last refreshed: 2026-06-12 by the `roadmap` sk
 
 | Date | Change | Summary | Implementer(s) | Commit |
 |---|---|---|---|---|
+| 2026-06-12 | add-companion-session-list | Flutter chat session-history screen — list, resume, and start conversations against the session-backed `/chat`. | Vinzenz Stadtmueller | [`c98f72d`](https://github.com/vinzenzs/nutrition-api/commit/c98f72d) |
+| 2026-06-12 | add-plan-slot-targets | Per-slot target overrides so one template progresses across the plan (e.g. a tempo run at 7:30→7:15→7:00); `GET /workouts/{id}/program` exposes resolved steps. | Vinzenz Stadtmueller | [`4d62851`](https://github.com/vinzenzs/nutrition-api/commit/4d62851) |
+| 2026-06-12 | add-chat-sessions | Make `/chat` stateful: conversations persist as resumable server-side sessions instead of every client carrying the full transcript. | Vinzenz Stadtmueller | [`1931ca4`](https://github.com/vinzenzs/nutrition-api/commit/1931ca4) |
 | 2026-06-12 | add-garmin-scheduling | The write-to-watch edge: compile a planned workout's steps into a structured Garmin workout and schedule it on the calendar (push/unschedule/read). | Vinzenz Stadtmueller | [`1066e53`](https://github.com/vinzenzs/nutrition-api/commit/1066e53) |
 | 2026-06-12 | add-training-plan | The 18-week plan as plan→weeks→slots→template with an idempotent `materialize` into planned workouts; retires `Plan.md`. | Vinzenz Stadtmueller | [`d2cc452`](https://github.com/vinzenzs/nutrition-api/commit/d2cc452) |
 | 2026-06-12 | add-workout-templates | The ~40-session workout library (`WORKOUT_DEFS`) as structured steps — intervals/zones/repeats — in JSONB. | Vinzenz Stadtmueller | [`e7225ad`](https://github.com/vinzenzs/nutrition-api/commit/e7225ad) |
@@ -55,8 +58,6 @@ _Generated from OpenSpec changes. Last refreshed: 2026-06-12 by the `roadmap` sk
 
 | Change | Summary | Proposed by | Proposed |
 |---|---|---|---|
-| add-chat-sessions | Make `/chat` stateful: the server holds conversation state instead of every client carrying the full transcript. | Vinzenz Stadtmueller | 2026-06-12 |
-| add-plan-slot-targets | Per-slot target overrides so one template progresses across the plan (e.g. a tempo run at 7:30→7:15→7:00); `GET /workouts/{id}/program` exposes resolved steps. | Vinzenz Stadtmueller | 2026-06-12 |
 | add-workout-reconciliation | Merge a completed Garmin import into its matching planned workout (planned→completed in place), with fulfill/unfulfill. | Vinzenz Stadtmueller | 2026-06-12 |
 
 ---

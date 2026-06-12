@@ -122,6 +122,12 @@ type Workout struct {
 	GarminWorkoutID  *string `json:"garmin_workout_id,omitempty"`
 	GarminScheduleID *string `json:"garmin_schedule_id,omitempty"`
 
+	// NeedsLink (per add-workout-reconciliation) marks a completed import that
+	// matched more than one open planned workout, so it was inserted standalone
+	// rather than auto-merged — the app/agent should offer to link it. Cleared
+	// on fulfill.
+	NeedsLink bool `json:"needs_link,omitempty"`
+
 	Notes *string `json:"notes,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`

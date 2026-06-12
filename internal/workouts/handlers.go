@@ -33,6 +33,8 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.GET("/workouts/:id", h.get)
 	rg.PATCH("/workouts/:id", h.patch)
 	rg.DELETE("/workouts/:id", h.delete)
+	rg.POST("/workouts/:id/fulfill", h.fulfill)
+	rg.POST("/workouts/:id/unfulfill", h.unfulfill)
 }
 
 // createRequest mirrors the POST /workouts body shape. All nullable columns
@@ -505,6 +507,91 @@ func (h *Handlers) patch(c *gin.Context) {
 			return
 		}
 		respondServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, w)
+}
+
+// fulfillRequest is the POST /workouts/{id}/fulfill body.
+type fulfillRequest struct {
+	CompletedID string `json:"completed_id"`
+}
+
+// fulfill godoc
+// @Summary      Fulfill a planned workout with a completed activity
+// @Description  Merges an existing completed activity (`completed_id`) into the planned workout at `{id}`: copies the activity's external_id, source, and actual metrics onto the planned row, flips it to `completed`, removes the redundant standalone completed row, and clears any needs-link flag. The planned row survives so its `plan_slot_id` stays stable. Used for the ambiguous/cross-day cases auto-reconciliation declines.
+// @Tags         workouts
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string          true  "Planned workout UUID (the merge target)"
+// @Param        body  body  fulfillRequest  true  "{ completed_id }"
+// @Success      200  {object}  Workout
+// @Failure      400  {object}  map[string]string  "invalid_json | completed_id_invalid | planned_workout_required | completed_workout_required | sport_mismatch"
+// @Failure      404  {object}  map[string]string  "workout_not_found"
+// @Security     BearerAuth
+// @Router       /workouts/{id}/fulfill [post]
+func (h *Handlers) fulfill(c *gin.Context) {
+	plannedID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusNotFound, "workout_not_found")
+		return
+	}
+	var req fulfillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	completedID, err := uuid.Parse(req.CompletedID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "completed_id_invalid")
+		return
+	}
+	w, err := h.svc.Fulfill(c.Request.Context(), plannedID, completedID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			respondError(c, http.StatusNotFound, "workout_not_found")
+		case errors.Is(err, ErrFulfillTargetNotPlanned):
+			respondError(c, http.StatusBadRequest, "planned_workout_required")
+		case errors.Is(err, ErrFulfillSourceNotCompleted):
+			respondError(c, http.StatusBadRequest, "completed_workout_required")
+		case errors.Is(err, ErrFulfillSportMismatch):
+			respondError(c, http.StatusBadRequest, "sport_mismatch")
+		default:
+			respondError(c, http.StatusInternalServerError, "fulfill_failed")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, w)
+}
+
+// unfulfill godoc
+// @Summary      Reverse a fulfilled workout back to planned
+// @Description  Reverses a merge: clears the workout's external_id and actual metrics and restores `status='planned'`, retaining `template_id` and `plan_slot_id`. The activity is not re-fetched; the next Garmin sync re-imports it as a fresh standalone row. Errors unless the workout is a fulfilled planned row (completed with a plan_slot_id).
+// @Tags         workouts
+// @Produce      json
+// @Param        id   path  string  true  "Workout UUID"
+// @Success      200  {object}  Workout
+// @Failure      400  {object}  map[string]string  "workout_not_fulfilled"
+// @Failure      404  {object}  map[string]string  "workout_not_found"
+// @Security     BearerAuth
+// @Router       /workouts/{id}/unfulfill [post]
+func (h *Handlers) unfulfill(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusNotFound, "workout_not_found")
+		return
+	}
+	w, err := h.svc.Unfulfill(c.Request.Context(), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			respondError(c, http.StatusNotFound, "workout_not_found")
+		case errors.Is(err, ErrNotFulfilled):
+			respondError(c, http.StatusBadRequest, "workout_not_fulfilled")
+		default:
+			respondError(c, http.StatusInternalServerError, "unfulfill_failed")
+		}
 		return
 	}
 	c.JSON(http.StatusOK, w)

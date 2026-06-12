@@ -151,6 +151,8 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"get_workout",
 		"patch_workout",
 		"delete_workout",
+		"fulfill_workout",
+		"unfulfill_workout",
 		"create_workout_template",
 		"list_workout_templates",
 		"get_workout_template",

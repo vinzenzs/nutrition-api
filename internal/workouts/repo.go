@@ -25,7 +25,7 @@ func NewRepo(q store.Querier) *Repo {
 	return &Repo{q: q}
 }
 
-const selectCols = `id, external_id, source, sport, status, name, started_at, ended_at, kcal_burned, avg_hr, tss, rpe, gi_distress_score, distance_m, avg_power_w, temperature_c, sweat_loss_ml, session_group, template_id, plan_slot_id, garmin_workout_id, garmin_schedule_id, notes, created_at, updated_at`
+const selectCols = `id, external_id, source, sport, status, name, started_at, ended_at, kcal_burned, avg_hr, tss, rpe, gi_distress_score, distance_m, avg_power_w, temperature_c, sweat_loss_ml, session_group, template_id, plan_slot_id, garmin_workout_id, garmin_schedule_id, needs_link, notes, created_at, updated_at`
 
 // Upsert inserts a new workout row, or updates an existing row when
 // external_id collides with the partial unique index. Returns `created=true`
@@ -57,7 +57,7 @@ func (r *Repo) Upsert(ctx context.Context, w *Workout) (created bool, err error)
             kcal_burned, avg_hr, tss,
             rpe, gi_distress_score,
             distance_m, avg_power_w, temperature_c, sweat_loss_ml, session_group,
-            notes, status,
+            notes, status, needs_link,
             created_at, updated_at
         ) VALUES (
             $1, $2, $3, $4, $5,
@@ -65,7 +65,7 @@ func (r *Repo) Upsert(ctx context.Context, w *Workout) (created bool, err error)
             $8, $9, $10,
             $11, $12,
             $13, $14, $15, $16, $17,
-            $18, $19,
+            $18, $19, $22,
             $20, $21
         )
         ON CONFLICT (external_id) WHERE external_id IS NOT NULL DO UPDATE SET
@@ -97,6 +97,7 @@ func (r *Repo) Upsert(ctx context.Context, w *Workout) (created bool, err error)
 		w.DistanceM, w.AvgPowerW, w.TemperatureC, w.SweatLossML, w.SessionGroup,
 		w.Notes, string(w.Status),
 		w.CreatedAt, w.UpdatedAt,
+		w.NeedsLink,
 	)
 	var (
 		returnedID uuid.UUID
@@ -187,6 +188,98 @@ func (r *Repo) getByPlanSlotID(ctx context.Context, q store.Querier, planSlotID 
 // GetByID returns a single workout row.
 func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*Workout, error) {
 	row := r.q.QueryRow(ctx, `SELECT `+selectCols+` FROM workouts WHERE id = $1`, id)
+	return scanWorkout(row)
+}
+
+// GetByExternalID returns the workout owning external_id. ErrNotFound if none —
+// used by reconciliation to distinguish a first-sight import from a re-sync.
+func (r *Repo) GetByExternalID(ctx context.Context, externalID string) (*Workout, error) {
+	row := r.q.QueryRow(ctx, `SELECT `+selectCols+` FROM workouts WHERE external_id = $1`, externalID)
+	return scanWorkout(row)
+}
+
+// FindOpenPlanned returns open planned workouts (status='planned',
+// external_id IS NULL) of the given sport whose started_at falls on the same
+// LOCAL calendar day as `start`, comparing in the IANA timezone `tz`. The
+// reconciliation candidate query (design D2/D6).
+func (r *Repo) FindOpenPlanned(ctx context.Context, sport string, start time.Time, tz string) ([]*Workout, error) {
+	const q = `SELECT ` + selectCols + ` FROM workouts
+        WHERE status = 'planned' AND external_id IS NULL AND sport = $1
+          AND (started_at AT TIME ZONE $3)::date = ($2 AT TIME ZONE $3)::date
+        ORDER BY started_at ASC`
+	rows, err := r.q.Query(ctx, q, sport, start, tz)
+	if err != nil {
+		return nil, fmt.Errorf("find open planned: %w", err)
+	}
+	defer rows.Close()
+	var out []*Workout
+	for rows.Next() {
+		w, err := scanWorkout(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
+// Merge fulfills the planned workout `plannedID` in place with the actuals from
+// activity `a`: it sets external_id/source/status=completed and the actual
+// metrics + window, COALESCE-ing name/session_group/notes so a planned label
+// survives when the activity carries none, clears needs_link, and retains
+// template_id/plan_slot_id (the prescription). Returns the merged row.
+func (r *Repo) Merge(ctx context.Context, plannedID uuid.UUID, a *Workout) (*Workout, error) {
+	const q = `UPDATE workouts SET
+            external_id   = $2,
+            source        = $3,
+            status        = 'completed',
+            name          = COALESCE($4, name),
+            started_at    = $5,
+            ended_at      = $6,
+            kcal_burned   = $7,
+            avg_hr        = $8,
+            tss           = $9,
+            distance_m    = $10,
+            avg_power_w   = $11,
+            temperature_c = $12,
+            sweat_loss_ml = $13,
+            session_group = COALESCE($14, session_group),
+            notes         = COALESCE($15, notes),
+            needs_link    = false,
+            updated_at    = now()
+        WHERE id = $1
+        RETURNING ` + selectCols
+	row := r.q.QueryRow(ctx, q,
+		plannedID, a.ExternalID, string(a.Source), a.Name,
+		a.StartedAt, a.EndedAt,
+		a.KcalBurned, a.AvgHR, a.TSS,
+		a.DistanceM, a.AvgPowerW, a.TemperatureC, a.SweatLossML,
+		a.SessionGroup, a.Notes,
+	)
+	return scanWorkout(row)
+}
+
+// RestorePlanned reverses a merge (unfulfill): clears external_id, the actual
+// metrics and needs_link, sets source back to 'manual' and status to 'planned',
+// retaining template_id/plan_slot_id. Returns the restored row. ErrNotFound if
+// no row matches.
+func (r *Repo) RestorePlanned(ctx context.Context, id uuid.UUID) (*Workout, error) {
+	const q = `UPDATE workouts SET
+            external_id   = NULL,
+            source        = 'manual',
+            status        = 'planned',
+            kcal_burned   = NULL,
+            avg_hr        = NULL,
+            tss           = NULL,
+            distance_m    = NULL,
+            avg_power_w   = NULL,
+            temperature_c = NULL,
+            sweat_loss_ml = NULL,
+            needs_link    = false,
+            updated_at    = now()
+        WHERE id = $1
+        RETURNING ` + selectCols
+	row := r.q.QueryRow(ctx, q, id)
 	return scanWorkout(row)
 }
 
@@ -427,6 +520,7 @@ func scanWorkout(s scanner) (*Workout, error) {
 		&w.DistanceM, &w.AvgPowerW, &w.TemperatureC, &w.SweatLossML, &w.SessionGroup,
 		&w.TemplateID, &w.PlanSlotID,
 		&w.GarminWorkoutID, &w.GarminScheduleID,
+		&w.NeedsLink,
 		&w.Notes,
 		&w.CreatedAt, &w.UpdatedAt,
 	)

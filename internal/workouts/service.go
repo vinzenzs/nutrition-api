@@ -7,6 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/vinzenzs/nutrition-api/internal/store"
 )
 
 // Validation errors map 1:1 to the API error codes documented in the
@@ -27,6 +31,14 @@ var (
 	ErrSweatLossMLInvalid     = errors.New("sweat_loss_ml_invalid")
 	ErrSessionGroupInvalid    = errors.New("session_group_invalid")
 	ErrStatusInvalid          = errors.New("status_invalid")
+)
+
+// Reconciliation (fulfill/unfulfill) sentinel errors — map 1:1 to API codes.
+var (
+	ErrFulfillTargetNotPlanned   = errors.New("planned_workout_required")
+	ErrFulfillSourceNotCompleted = errors.New("completed_workout_required")
+	ErrFulfillSportMismatch      = errors.New("sport_mismatch")
+	ErrNotFulfilled              = errors.New("workout_not_fulfilled")
 )
 
 // plannedMaxFuture bounds how far ahead a planned workout's started_at may be.
@@ -50,13 +62,24 @@ const (
 	SessionGroupMaxLen = 255
 )
 
-// Service orchestrates workout CRUD over the repo.
+// Service orchestrates workout CRUD over the repo. pool backs the
+// reconciliation transaction (candidate match + merge/insert as one unit); loc
+// is the local timezone used for same-calendar-day matching (design D6).
 type Service struct {
 	repo *Repo
+	pool *pgxpool.Pool
+	loc  *time.Location
 }
 
-func NewService(repo *Repo) *Service {
-	return &Service{repo: repo}
+// NewService wires the repo, the pool (for the reconciliation transaction), and
+// the local timezone name (e.g. "Europe/Vienna"). An empty or invalid tz falls
+// back to UTC.
+func NewService(repo *Repo, pool *pgxpool.Pool, localTZ string) *Service {
+	loc, err := time.LoadLocation(localTZ)
+	if err != nil || loc == nil {
+		loc = time.UTC
+	}
+	return &Service{repo: repo, pool: pool, loc: loc}
 }
 
 // CreateInput is the payload for POST /workouts.
@@ -81,19 +104,157 @@ type CreateInput struct {
 	Notes           *string
 }
 
-// Upsert validates input and applies the UPSERT-by-external_id semantics. The
-// returned bool is true when a new row was inserted; false when an existing
-// row was updated.
+// Upsert validates input and applies the UPSERT-by-external_id semantics, with
+// reconciliation for first-sight Garmin imports (merge into a matching open
+// planned workout — see reconcileUpsert). The returned bool is true when a new
+// row was inserted; false when an existing row was updated or merged.
 func (s *Service) Upsert(ctx context.Context, in CreateInput) (*Workout, bool, error) {
 	w, err := s.buildWorkout(in)
 	if err != nil {
 		return nil, false, err
 	}
-	created, err := s.repo.Upsert(ctx, w)
-	if err != nil {
-		return nil, false, err
+	return s.reconcileUpsert(ctx, w)
+}
+
+// reconcileUpsert persists a built workout. For a first-sight Garmin import
+// (source='garmin', external_id set and not already stored) it tries to fulfill
+// a single matching open planned workout in one transaction (design D2):
+// exactly one candidate → merge; zero → standalone insert; ≥2 → standalone
+// insert flagged needs_link. Everything else (manual rows, or a re-sync whose
+// external_id is already stored) takes the plain external_id UPSERT path.
+func (s *Service) reconcileUpsert(ctx context.Context, w *Workout) (*Workout, bool, error) {
+	if w.Source != SourceGarmin || w.ExternalID == nil {
+		created, err := s.repo.Upsert(ctx, w)
+		if err != nil {
+			return nil, false, err
+		}
+		return w, created, nil
 	}
-	return w, created, nil
+
+	var (
+		result  *Workout
+		created bool
+	)
+	txErr := store.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		tr := NewRepo(tx)
+		// Re-sync: the activity is already stored → plain UPSERT updates it in
+		// place; reconciliation does not re-run.
+		if _, err := tr.GetByExternalID(ctx, *w.ExternalID); err == nil {
+			c, err := tr.Upsert(ctx, w)
+			if err != nil {
+				return err
+			}
+			result, created = w, c
+			return nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		// First sight → candidate match on sport + local calendar day.
+		cands, err := tr.FindOpenPlanned(ctx, string(w.Sport), w.StartedAt, s.loc.String())
+		if err != nil {
+			return err
+		}
+		switch len(cands) {
+		case 1:
+			merged, err := tr.Merge(ctx, cands[0].ID, w)
+			if err != nil {
+				return err
+			}
+			result, created = merged, false
+			return nil
+		case 0:
+			c, err := tr.Upsert(ctx, w)
+			if err != nil {
+				return err
+			}
+			result, created = w, c
+			return nil
+		default:
+			w.NeedsLink = true
+			c, err := tr.Upsert(ctx, w)
+			if err != nil {
+				return err
+			}
+			result, created = w, c
+			return nil
+		}
+	})
+	if txErr != nil {
+		return nil, false, txErr
+	}
+	return result, created, nil
+}
+
+// Fulfill merges an existing completed activity (completedID) into an existing
+// planned workout (plannedID): copies the activity's external_id/source/actuals
+// onto the planned row, flips it to completed, removes the redundant standalone
+// row, and clears needs_link. The planned row survives so plan_slot_id stays
+// the stable identity. Returns the merged row.
+func (s *Service) Fulfill(ctx context.Context, plannedID, completedID uuid.UUID) (*Workout, error) {
+	var result *Workout
+	txErr := store.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		tr := NewRepo(tx)
+		planned, err := tr.GetByID(ctx, plannedID)
+		if err != nil {
+			return err
+		}
+		completed, err := tr.GetByID(ctx, completedID)
+		if err != nil {
+			return err
+		}
+		if planned.Status != StatusPlanned {
+			return ErrFulfillTargetNotPlanned
+		}
+		if completed.Status != StatusCompleted {
+			return ErrFulfillSourceNotCompleted
+		}
+		if planned.Sport != completed.Sport {
+			return ErrFulfillSportMismatch
+		}
+		// Remove the standalone row first so its external_id frees up before the
+		// merge writes the same external_id onto the planned row (the partial
+		// unique index would otherwise conflict).
+		if err := tr.Delete(ctx, completedID); err != nil {
+			return err
+		}
+		merged, err := tr.Merge(ctx, plannedID, completed)
+		if err != nil {
+			return err
+		}
+		result = merged
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	return result, nil
+}
+
+// Unfulfill reverses a merge: restores status='planned' and clears the
+// external_id and actual metrics, keeping template_id/plan_slot_id. Errors if
+// the workout is not a fulfilled planned row (completed with a plan_slot_id).
+func (s *Service) Unfulfill(ctx context.Context, id uuid.UUID) (*Workout, error) {
+	var result *Workout
+	txErr := store.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		tr := NewRepo(tx)
+		w, err := tr.GetByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if w.Status != StatusCompleted || w.PlanSlotID == nil {
+			return ErrNotFulfilled
+		}
+		restored, err := tr.RestorePlanned(ctx, id)
+		if err != nil {
+			return err
+		}
+		result = restored
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	return result, nil
 }
 
 // Get returns a single workout by id.
@@ -221,12 +382,12 @@ func (s *Service) BulkUpsert(ctx context.Context, items []CreateInput) []BulkIte
 			results[i] = BulkItemResult{Index: i, Err: err}
 			continue
 		}
-		created, err := s.repo.Upsert(ctx, w)
+		res, created, err := s.reconcileUpsert(ctx, w)
 		if err != nil {
 			results[i] = BulkItemResult{Index: i, Err: err}
 			continue
 		}
-		results[i] = BulkItemResult{Index: i, ID: w.ID, Created: created}
+		results[i] = BulkItemResult{Index: i, ID: res.ID, Created: created}
 	}
 	return results
 }

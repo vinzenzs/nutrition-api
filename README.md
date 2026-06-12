@@ -355,6 +355,18 @@ with `?session_group=`. Each leg stays its own real row with its own sport and w
 merged pseudo-workout. The fueling endpoint echoes `sweat_loss_ml` + `temperature_c` (sweat/
 heat context for evaluating intake); the performance fields are not echoed there.
 
+**Reconciliation (plan ↔ actual).** When a training plan has materialized a **planned**
+workout and the watch later imports the matching **completed** activity, the ingestion path
+merges them instead of leaving two rows: on first sight of a `source='garmin'` activity whose
+`external_id` is new, the backend looks for exactly one open planned workout (`status='planned'`,
+no `external_id`, same sport, same **local** calendar day) and, if found, **fulfills** it in
+place — filling in the actuals, flipping it to `completed`, and keeping its `template_id` /
+`plan_slot_id`. No match → a standalone completed row (the prior behavior); more than one
+candidate → standalone row flagged `needs_link` (auto-merge stays out of ambiguous calls).
+Re-syncs are unaffected (the row now owns the `external_id` and updates in place). For the cases
+auto-matching declines, two explicit controls: `POST /workouts/{plannedId}/fulfill {completed_id}`
+merges two existing rows, and `POST /workouts/{id}/unfulfill` reverses a merge back to planned.
+
 ```bash
 # Manual workout (gym session — no Garmin tracking)
 curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" \
@@ -1199,6 +1211,8 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `get_workout`                 | `GET /workouts/{id}`                   | Fetch a workout by id.                                        |
 | `patch_workout`               | `PATCH /workouts/{id}`                 | Edit `name`/`notes`/`kcal_burned`/`avg_hr`/`tss`. Sport, window, source, external_id are immutable. |
 | `delete_workout`              | `DELETE /workouts/{id}`                | Remove a workout.                                             |
+| `fulfill_workout`             | `POST /workouts/{plannedId}/fulfill`   | Merge a completed activity into a planned workout — the manual version of the automatic Garmin-sync reconciliation. |
+| `unfulfill_workout`           | `POST /workouts/{id}/unfulfill`        | Reverse a merge — restore a fulfilled workout to planned, clearing the import. |
 | `create_workout_template`     | `POST /workout-templates`              | Create a reusable structured session (sport + ordered steps with durations and target zones; repeat groups one level deep). The library the plan references and the watch push compiles. |
 | `list_workout_templates`      | `GET /workout-templates?sport=…`       | List templates, optional `?sport=` filter.                    |
 | `get_workout_template`        | `GET /workout-templates/{id}`          | Fetch one template including its full step program.           |

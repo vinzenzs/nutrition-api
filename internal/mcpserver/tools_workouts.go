@@ -87,6 +87,17 @@ type WorkoutFuelingSummaryArgs struct {
 	PostWindowMin *int   `json:"post_window_min,omitempty" jsonschema:"post-workout window in minutes (default 60, range 0..720)"`
 }
 
+type FulfillWorkoutArgs struct {
+	PlannedID      string `json:"planned_id" jsonschema:"the PLANNED workout id to fulfill (the merge target that holds the plan_slot_id)"`
+	CompletedID    string `json:"completed_id" jsonschema:"the standalone COMPLETED activity id to merge into the planned workout"`
+	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; if omitted, a stable key is derived from the other args"`
+}
+
+type UnfulfillWorkoutArgs struct {
+	ID             string `json:"id" jsonschema:"the fulfilled workout id to revert back to planned"`
+	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; if omitted, a stable key is derived from the other args"`
+}
+
 func handleLogWorkout(ctx context.Context, c *apiClient, args LogWorkoutArgs) *mcp.CallToolResult {
 	body, err := json.Marshal(struct {
 		ExternalID      *string  `json:"external_id,omitempty"`
@@ -231,6 +242,24 @@ func handleDeleteWorkout(ctx context.Context, c *apiClient, args DeleteWorkoutAr
 	return toToolResult(status, respBody, err)
 }
 
+func handleFulfillWorkout(ctx context.Context, c *apiClient, args FulfillWorkoutArgs) *mcp.CallToolResult {
+	body, err := json.Marshal(struct {
+		CompletedID string `json:"completed_id"`
+	}{CompletedID: args.CompletedID})
+	if err != nil {
+		return toToolResult(0, nil, &transportError{inner: err})
+	}
+	key := effectiveIdempotencyKey(args.IdempotencyKey, "fulfill_workout", args)
+	status, respBody, err := c.Post(ctx, "/workouts/"+url.PathEscape(args.PlannedID)+"/fulfill", nil, body, key)
+	return toToolResult(status, respBody, err)
+}
+
+func handleUnfulfillWorkout(ctx context.Context, c *apiClient, args UnfulfillWorkoutArgs) *mcp.CallToolResult {
+	key := effectiveIdempotencyKey(args.IdempotencyKey, "unfulfill_workout", args)
+	status, respBody, err := c.Post(ctx, "/workouts/"+url.PathEscape(args.ID)+"/unfulfill", nil, nil, key)
+	return toToolResult(status, respBody, err)
+}
+
 func handleWorkoutFuelingSummary(ctx context.Context, c *apiClient, args WorkoutFuelingSummaryArgs) *mcp.CallToolResult {
 	q := url.Values{}
 	if args.PreWindowMin != nil {
@@ -302,6 +331,27 @@ func registerWorkoutsTools(server *mcp.Server, c *apiClient) {
 		Description: "Delete a workout. Returns an empty result on success.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args DeleteWorkoutArgs) (*mcp.CallToolResult, any, error) {
 		return handleDeleteWorkout(ctx, c, args), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "fulfill_workout",
+		Description: "Manually merge a completed activity into a planned workout — the explicit version of the " +
+			"automatic reconciliation that runs on Garmin sync. Use this for cases the auto-match declined: a session " +
+			"done on a different calendar day than planned, or a day with two same-sport planned workouts where the " +
+			"import was flagged `needs_link`. Pass `planned_id` (the scheduled session, which holds the plan_slot_id) " +
+			"and `completed_id` (the standalone imported activity). The planned row survives with the activity's " +
+			"actuals and external_id and flips to completed; the standalone row is removed. Both must be the same sport.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args FulfillWorkoutArgs) (*mcp.CallToolResult, any, error) {
+		return handleFulfillWorkout(ctx, c, args), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "unfulfill_workout",
+		Description: "Reverse a fulfilled workout back to planned — undo a wrong merge (auto or manual). Clears the " +
+			"workout's external_id and actual metrics and restores status=planned, keeping its template_id and " +
+			"plan_slot_id. The activity is not re-fetched; the next Garmin sync re-imports it as a fresh standalone row.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args UnfulfillWorkoutArgs) (*mcp.CallToolResult, any, error) {
+		return handleUnfulfillWorkout(ctx, c, args), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,16 +27,17 @@ func init() {
 type fixture struct {
 	r    *gin.Engine
 	repo *workouts.Repo
+	pool *pgxpool.Pool
 }
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
 	pool := storetest.NewPool(t)
 	repo := workouts.NewRepo(pool)
-	svc := workouts.NewService(repo)
+	svc := workouts.NewService(repo, pool, "UTC")
 	r := gin.New()
 	workouts.NewHandlers(svc).Register(r.Group("/"))
-	return &fixture{r: r, repo: repo}
+	return &fixture{r: r, repo: repo, pool: pool}
 }
 
 func doReq(t *testing.T, r *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
