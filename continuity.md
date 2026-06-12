@@ -2,7 +2,7 @@
 
 _Forward plan for OpenSpec changes. Tracks **what's next**, **what's in flight**, and **what's queued**._
 _Companion to `openspec/priorities.md` (tier/triage framing) — this file is the operational queue._
-_Last refreshed: 2026-06-12 by the `continuity` skill (archived `add-shopping-list`, `add-chat-backend`, and `add-companion-chat` — the chat/meal-planning arc is fully shipped; the queue is now empty)._
+_Last refreshed: 2026-06-12 by the `continuity` skill (Garmin foundation — auth-token, bridge, mcp-login — all archived; queue is now the four-change Option B training-plan program in dependency order)._
 
 ## In progress
 
@@ -10,33 +10,36 @@ _Last refreshed: 2026-06-12 by the `continuity` skill (archived `add-shopping-li
 |---|---|---|---|---|
 | _(none)_ | | | | |
 
-_Nothing in flight._
+_Nothing in flight. The four queued proposals are drafted but uncommitted on `main` — see Drift._
 
 ## Up next
 
-_Empty — every proposed change has shipped. The next pickup comes from `openspec/priorities.md`: propose a change with `/opsx:propose <slug>`, and it lands here._
+Ordered queue — top is next to pick up. This is the **Option B training-plan program** (the Garmin auth/bridge/login foundation is shipped), ordered by dependency.
+
+1. **add-workout-templates** — The ~40-session workout library (`WORKOUT_DEFS`) as structured steps (intents · time/distance/lap/open durations · HR/power-zone/pace/RPE targets · repeat groups) in JSONB. _Why now: offline foundation of Option B — no Garmin dependency; everything below references it._
+2. **add-training-plan** — The 18-week plan as plan→weeks→slots→template, race/phase-anchored, with an idempotent `materialize` that expands it into planned `workouts`. Retires `Plan.md`. _Why now: depends on (1); the `WHERE status='planned'` materialize guard is already folded in so it composes with reconciliation._
+3. **add-garmin-scheduling** — The write-to-watch edge: compile template steps → structured Garmin workout → schedule on the calendar (push workout / push plan-week / unschedule / read calendar). _Why now: needs (1)+(2); the bridge + `garmin-control` foundation it extends is already shipped; closes the outbound loop._
+4. **add-workout-reconciliation** — Merge a completed Garmin import into its matching planned workout (planned→completed in place, keeping the prescription), with fulfill/unfulfill escape hatches. _Why now: needs (2) + the shipped bridge; closes the inbound loop so plan and actual stop double-listing._
 
 ## Backlog
 
-_Empty — no proposed-but-unprioritized changes. New ideas live in `openspec/priorities.md` until proposed._
+Planned changes not yet prioritized.
+
+- _Empty — all six in-flight changes are sequenced in In progress / Up next above._
 
 ## Notes
 
-- **The chat + meal-planning + recipes arc is COMPLETE.** All six proposals from the explore session are implemented and archived. End-to-end, the app now does "what should I eat today / the next 3 days → pick → plan + one consolidated shopping list", with Thermomix recipes pulled from Cookidoo. The pieces:
-  - `add-recipe-ingredients` — server-side Cookidoo import + verbatim ingredient lists (`feat` `d3fc3da` / archive `78f547b`).
-  - `add-meal-plan` — planned meals + the eaten→real-meal transition (`feat` `61bff4c` / archive `4686f10`).
-  - `add-shopping-list` — the dumb-checklist primitive (`feat` `633b66d` / archive `1de88cd`).
-  - `add-chat-backend` — server-side Anthropic SSE agent loop with loopback-HTTP tool dispatch, plus `PATCH /products/{id}` (`feat` `5c44ff7` / archive `9938907`).
-  - `add-companion-chat` — Flutter chat screen + Today plan card + shopping-list screen (`feat` `6a99c30` / archive `c57c58e`).
-  - `add-companion-food-picker` — camera recent/search/quick-create (code `81d00e3`, archive `127a935`).
-- **Two follow-ups carried out of this arc** (not yet proposed; candidates for `openspec/priorities.md`):
-  - **Manual e2e for the companion chat** (was task 5.2 of `add-companion-chat`, left open): on a device against a deployed backend — plan 3 dinners in chat → entries on Today → ate-it offline → replay → adherence updates; shopping check-off in airplane mode.
-  - **Real-Anthropic smoke for `/chat`** (was task 4.4 of `add-chat-backend`): a live "plan 3 dinners" conversation once the server runs with `ANTHROPIC_API_KEY` set. The endpoint returns 503 `chat_unavailable` until the key is configured.
-- **Everything sits on `main`.** No `feat/` branches this session — solo near-done work committed directly to `main` in the repo's two-commit-per-change rhythm (`feat(...)` then `chore(openspec): archive ...`). The working tree still carries the generated `apps/companion/devtools_options.yaml` (untracked tooling artifact, deliberately not committed) and the `continuity.md`/`roadmap.md` derived docs.
-- **`roadmap.md` is stale** — five changes archived since its last refresh and it does not yet list them as implemented. Run the `roadmap` skill to resync the historical companion.
-- **Stale branch to prune:** `feat/add-recommend-workout-fuel` is a leftover from an already-archived change — safe to delete when convenient (this skill never prunes branches itself).
-- **Still-open priorities-flagged work** (in `openspec/priorities.md`): T2 #6E (retroactive freeform→product correction), #6F (`coach_recommendation` persistence — now especially relevant, as it's the rationale channel the in-app chat would read to ground "why this target today"), #9 (supplement log); a derived sweat-rate (ml/hr) endpoint that completes T2 #6C now its inputs exist; per-metric trend endpoints. The `garmin.py` importer (separate repo) wiring its existing fetches to the recovery / fitness / hydration-balance endpoints remains the highest-leverage out-of-repo move — the backend can store that data but nothing fills it yet.
-- **Pattern notes (carried):** MODIFIED spec deltas are full-replace — copy prior scenarios into the MODIFIED block, prefer ADDED requirements for additive intent. Spec sync + archive runs cleanly via the `openspec archive <slug> --yes` CLI (auto-applies delta specs into `openspec/specs/` and moves the change dir; renames stage as `git mv`); no separate sync skill is needed. The chat loop's loopback dispatch (in-process `ServeHTTP` through the real middleware) is the pattern to reuse if a second agent surface is ever added.
+- **The active arc is the Garmin integration + Option B training plan.** Designed across two explore sessions. Four planes of the old `garmin.py` script move into api/mcp: ① auth (`add-garmin-auth-token` ✓ archived), ② read-import (`add-garmin-bridge` ✓ archived), ③ login (`add-garmin-mcp-login` ✓ archived), and the new program — workout library → plan-as-system-of-record → write-to-watch → reconcile (the four queued changes). The Garmin **foundation is fully shipped**; what remains is the training-plan program. Coaching synthesis (the old `coach` command) deliberately stays the **chat agent's** job, not an API endpoint.
+  - **Option B was chosen** (backend owns the plan, not thin-control): the plan becomes a queryable, per-day-editable structure with structured (interval/zone) templates, so the watch gets real guided workouts and the fueling math can see upcoming load.
+  - **One deferred primitive captured separately** (`add-workout-reconciliation`): matching completed↔planned. Its own follow-ons remain future: reverse-direction matching (activity imported before the plan existed), a ±1-day tolerance window, and full **plan-adherence analytics** (a capability that would sit on top of reconciliation).
+- **Drift to clean up:**
+  - **Four proposals are drafted but uncommitted on `main`** — `add-workout-templates`, `add-training-plan`, `add-garmin-scheduling`, `add-workout-reconciliation` (all validate `--strict`). Commit them as a `docs(openspec): propose …` batch before/at first apply.
+  - **`roadmap.md` is stale** — `add-garmin-auth-token`, `add-garmin-bridge`, and `add-garmin-mcp-login` all archived 2026-06-12 since its last refresh; run the `roadmap` skill to resync.
+  - **Stale branch to prune:** `feat/add-recommend-workout-fuel`, a leftover from an already-archived change — safe to delete when convenient (this skill never prunes branches).
+  - Working tree also carries unrelated `.gitignore` + `Taskfile.yml` edits (from the bridge work) — not part of the proposal batch.
+- **Previously shipped (now historical):** the chat + meal-planning + recipes arc is complete and archived (`add-recipe-ingredients`, `add-meal-plan`, `add-shopping-list`, `add-chat-backend`, `add-companion-chat`, `add-companion-food-picker`) — end-to-end "what should I eat → plan → one shopping list", Cookidoo recipes included. Two open follow-ups from it (not yet proposed): a manual companion-chat e2e on a device, and a real-Anthropic `/chat` smoke once `ANTHROPIC_API_KEY` is set (endpoint returns 503 `chat_unavailable` until then).
+- **Still-open priorities-flagged work** (in `openspec/priorities.md`, independent of this arc): T2 #6E (retroactive freeform→product correction), #6F (`coach_recommendation` persistence — the rationale channel the in-app chat would read), #9 (supplement log); a derived sweat-rate (ml/hr) endpoint completing T2 #6C now its inputs exist; per-metric trend endpoints.
+- **Pattern notes (carried):** MODIFIED spec deltas are full-replace — copy prior scenarios into the MODIFIED block, prefer ADDED requirements for additive intent (the Garmin-scheduling deltas use ADDED against the not-yet-archived bridge/control specs precisely to stay decoupled from archive order). OpenSpec requirement bodies must lead with a SHALL/MUST sentence or `validate --strict` rejects them. Spec sync + archive runs cleanly via `openspec archive <slug> --yes`. Migration head is `029` (after `add-garmin-auth-token`); the program's migrations are `030` templates → `031` plan+workouts-cols → `032` workout garmin-ids → optional `needs_link` — verify the head before each `migrate:new`, since out-of-band work can take the next slot.
 
 ---
 _To update: ask Claude "update continuity", "queue X next", or "start work on X"._

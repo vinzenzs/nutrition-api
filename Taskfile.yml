@@ -16,6 +16,8 @@ vars:
     sh: echo "$HOME/.local/bin/nutrition-api"
   MIGRATIONS_DIR: internal/store/migrations
   DATABASE_URL: postgres://nutrition:nutrition@localhost:5432/nutrition?sslmode=disable
+  GARMIN_BRIDGE_DIR: apps/garmin-bridge
+  GARMIN_BRIDGE_PORT: '8090'              # NOT 8080 — that's the backend (task dev)
 
 tasks:
   default:
@@ -199,6 +201,11 @@ tasks:
         NUTRITION_API_URL=http://localhost:8080
         MCP_REQUEST_TIMEOUT_SECONDS=10
         SWAGGER_ENABLED=true
+        # Garmin integration: enables the /garmin/token endpoints the bridge
+        # writes to. The bridge's GARMIN_API_TOKEN must match this value.
+        # Enc key is a fixed 32-byte dev key so a token persists across restarts.
+        GARMIN_API_TOKEN=dev-garmin-token-0000000000ccccc
+        GARMIN_TOKEN_ENC_KEY=ZGV2LWdhcm1pbi1lbmMta2V5LTMyLWJ5dGVzISEhISE=
         EOF
       - echo "wrote .env.local (dev tokens — not for production)"
 
@@ -218,6 +225,7 @@ tasks:
         echo ""
         echo " Mobile token: $(grep ^MOBILE_API_TOKEN .env.local | cut -d= -f2-)"
         echo " Agent token:  $(grep ^AGENT_API_TOKEN .env.local | cut -d= -f2-)"
+        echo " Garmin token:  $(grep ^GARMIN_API_TOKEN .env.local | cut -d= -f2-)"
         echo ""
         echo " Try:     curl http://localhost:8080/healthz"
         echo "──────────────────────────────────────────────────────────────"
@@ -279,3 +287,91 @@ tasks:
     desc: Alias for `task dev:pair` — print the pairing QR for the companion app
     cmds:
       - task: dev:pair
+
+  # ---- Garmin bridge (Python) — local login + sync testing ----
+  #
+  # The bridge does interactive Garmin SSO and persists the token to the
+  # backend's /garmin/token endpoints. To test the login locally:
+  #   1. `task dev`                      # backend on :8080 (now garmin-enabled)
+  #   2. `task garmin:bridge`            # bridge on :8090 (separate shell)
+  #   3. `task garmin:login`             # → {"needs_mfa": true} (usually)
+  #   4. `task garmin:login:mfa CODE=123456`
+  #   5. `task garmin:sync`              # optional: pull a day and write it
+  # Credentials live in apps/garmin-bridge/.env.local (gitignored) — the
+  # bridge tasks scaffold it on first run for you to fill in.
+
+  garmin:setup:
+    desc: Create the garmin-bridge Python venv and install it (idempotent)
+    dir: '{{.GARMIN_BRIDGE_DIR}}'
+    status:
+      - test -x .venv/bin/python
+    cmds:
+      - python3 -m venv .venv
+      - .venv/bin/pip install -q -e ".[dev]"
+      - echo "garmin-bridge venv ready ({{.GARMIN_BRIDGE_DIR}}/.venv)"
+
+  _garmin-env:
+    internal: true
+    dir: '{{.GARMIN_BRIDGE_DIR}}'
+    status:
+      - test -f .env.local
+    cmds:
+      - |
+        cat > .env.local <<'EOF'
+        # garmin-bridge local env (gitignored). Fill in your Garmin Connect login.
+        # GARMIN_API_TOKEN must match the backend's value in the repo-root .env.local.
+        GARMIN_EMAIL=
+        GARMIN_PASSWORD=
+        GARMIN_API_TOKEN=dev-garmin-token-0000000000ccccc
+        NUTRITION_API_URL=http://localhost:8080
+        SYNC_TZ=Europe/Berlin
+        PORT={{.GARMIN_BRIDGE_PORT}}
+        LOG_LEVEL=INFO
+        EOF
+      - echo "scaffolded {{.GARMIN_BRIDGE_DIR}}/.env.local — add GARMIN_EMAIL and GARMIN_PASSWORD"
+
+  garmin:bridge:
+    desc: Run the Garmin bridge locally on :{{.GARMIN_BRIDGE_PORT}} (needs `task dev` in another shell)
+    deps: [garmin:setup, _garmin-env]
+    dir: '{{.GARMIN_BRIDGE_DIR}}'
+    cmds:
+      - |
+        set -a && . ./.env.local && set +a
+        if [ -z "${GARMIN_EMAIL:-}" ] || [ -z "${GARMIN_PASSWORD:-}" ]; then
+          echo "Set GARMIN_EMAIL and GARMIN_PASSWORD in {{.GARMIN_BRIDGE_DIR}}/.env.local, then re-run." >&2
+          exit 1
+        fi
+        echo ""
+        echo "──────────────────────────────────────────────────────────────"
+        echo " garmin-bridge  →  http://localhost:${PORT:-{{.GARMIN_BRIDGE_PORT}}}"
+        echo " backend        →  $NUTRITION_API_URL"
+        echo "──────────────────────────────────────────────────────────────"
+        echo " Login:  task garmin:login   then   task garmin:login:mfa CODE=123456"
+        echo " Sync:   task garmin:sync    (or   task garmin:sync DATE=2026-06-10)"
+        echo "──────────────────────────────────────────────────────────────"
+        echo ""
+        exec .venv/bin/python -m garmin_bridge
+
+  garmin:login:
+    desc: Start Garmin SSO via the local bridge (POST /login)
+    cmds:
+      - curl -sS -X POST "localhost:{{.GARMIN_BRIDGE_PORT}}/login"; echo
+
+  garmin:login:mfa:
+    desc: 'Complete MFA login (usage: task garmin:login:mfa CODE=123456)'
+    requires:
+      vars: [CODE]
+    cmds:
+      - |
+        curl -sS -X POST "localhost:{{.GARMIN_BRIDGE_PORT}}/login/mfa" -H 'Content-Type: application/json' -d '{"code":"{{.CODE}}"}'; echo
+
+  garmin:sync:
+    desc: 'Trigger a sync via the local bridge (optional DATE=2026-06-10 for a specific day)'
+    cmds:
+      - |
+        if [ -n "{{.DATE}}" ]; then
+          curl -sS -X POST "localhost:{{.GARMIN_BRIDGE_PORT}}/sync" -H 'Content-Type: application/json' -d '{"date":"{{.DATE}}"}'
+        else
+          curl -sS -X POST "localhost:{{.GARMIN_BRIDGE_PORT}}/sync"
+        fi
+        echo

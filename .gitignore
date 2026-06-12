@@ -5,3 +5,6 @@ bin/
 .env
 .env.local
 mcp
+
+# flutter
+apps/companion/devtools_options.yaml
