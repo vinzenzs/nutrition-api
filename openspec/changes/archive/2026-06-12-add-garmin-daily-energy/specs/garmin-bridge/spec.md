@@ -35,8 +35,10 @@ Garmin data, and writes it to the existing nutrition REST API under
 `GARMIN_API_TOKEN`. The mapping SHALL be: sleep/HRV/RHR/stress →
 `/recovery-metrics`; VO2max/training-load → `/fitness-metrics`; sweat loss →
 `/hydration-balance`; whole-day energy/activity totals → `/daily-summary`;
-weigh-ins → `/weight`; activities → `/workouts` (`source = "garmin"`). Sync
-SHALL require no MFA or human interaction.
+weigh-ins → `/weight`; activities → `/workouts` (`source = "garmin"`), where
+each activity additionally carries the scalar performance and HR-zone fields
+plus nested `splits`/`sets` detail when Garmin provides them. Sync SHALL require
+no MFA or human interaction.
 
 #### Scenario: Daily sync writes a day's data
 
@@ -45,6 +47,7 @@ SHALL require no MFA or human interaction.
 - **AND** posts the day's recovery, fitness, hydration-balance, daily-summary,
   weight, and activity data to their respective endpoints under the garmin
   identity
+- **AND** each activity item carries the available scalar/zone/split/set detail
 
 #### Scenario: Re-running a day is idempotent
 
@@ -52,6 +55,7 @@ SHALL require no MFA or human interaction.
 - **THEN** the date-keyed metrics (including `/daily-summary`) are upserted (not duplicated)
 - **AND** activities are deduped by `external_id = "garmin:<activity_id>"` via the
   existing `/workouts` UPSERT (no new field or migration)
+- **AND** each activity's nested splits and sets are replaced (not duplicated) on the second run
 
 #### Scenario: Sync with no stored token fails clearly
 
