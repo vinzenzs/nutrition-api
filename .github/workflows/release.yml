@@ -61,6 +61,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Build + push garmin-bridge image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/garmin-bridge
+          file: apps/garmin-bridge/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/garmin-bridge:${{ steps.ver.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/garmin-bridge:latest
+          # Distinct gha cache scope so it never collides with the api image's.
+          cache-from: type=gha,scope=bridge
+          cache-to: type=gha,mode=max,scope=bridge
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
