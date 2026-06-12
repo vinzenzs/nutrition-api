@@ -1,0 +1,79 @@
+{
+  "date": "2026-06-12",
+  "sleep": {
+    "dailySleepDTO": {
+      "sleepTimeSeconds": 27000,
+      "sleepScores": { "overall": { "value": 82 } }
+    }
+  },
+  "hrv": { "hrvSummary": { "lastNightAvg": 64.5 } },
+  "rhr": { "restingHeartRate": 48 },
+  "stress": { "avgStressLevel": 31 },
+  "training_readiness": [ { "score": 73 } ],
+  "body_battery": [ { "charged": 61, "drained": 44 } ],
+  "max_metrics": [
+    {
+      "generic": { "vo2MaxPreciseValue": 56.4 },
+      "cycling": { "vo2MaxPreciseValue": 60.1 }
+    }
+  ],
+  "training_status": {
+    "acuteTrainingLoad": 412.0,
+    "chronicTrainingLoad": 388.5
+  },
+  "race_predictions": {
+    "time5K": 1180,
+    "time10K": 2475,
+    "timeHalfMarathon": 5460,
+    "timeMarathon": 11820
+  },
+  "hydration": {
+    "sweatLossInML": 950.0,
+    "activityIntakeInML": 400.0,
+    "goalInML": 2600.0
+  },
+  "weigh_ins": {
+    "dailyWeightSummaries": [
+      {
+        "allWeightMetrics": [
+          {
+            "timestampGMT": 1781222400000,
+            "weight": 72500.0,
+            "bodyFat": 12.4,
+            "muscleMass": 34200.0,
+            "bodyWater": 58.1,
+            "boneMass": 3100.0,
+            "bmi": 22.1
+          }
+        ]
+      }
+    ]
+  },
+  "activities": [
+    {
+      "activityId": 1234567,
+      "activityName": "Morning Run",
+      "activityType": { "typeKey": "running" },
+      "startTimeGMT": "2026-06-12 05:30:00",
+      "duration": 3600.0,
+      "distance": 12000.0,
+      "calories": 780.0,
+      "averageHR": 152,
+      "avgPower": 0,
+      "minTemperature": 14.0
+    },
+    {
+      "activityId": 1234568,
+      "activityName": "Brick Bike",
+      "activityType": { "typeKey": "cycling" },
+      "startTimeGMT": "2026-06-12 06:45:00",
+      "duration": 5400.0,
+      "distance": 45000.0,
+      "calories": 1100.0,
+      "averageHR": 141,
+      "avgPower": 210,
+      "minTemperature": 16.0,
+      "parentId": 1234566
+    }
+  ]
+}

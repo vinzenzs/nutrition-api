@@ -134,3 +134,55 @@ podLabels: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# -- garmin-bridge: opt-in Garmin Connect → REST sync sidecar
+#    (apps/garmin-bridge/). Disabled by default — when enabled is false the
+#    chart renders no bridge Deployment/Service/Secret/CronJob at all. See
+#    apps/garmin-bridge/README.md for the one-time MFA login bootstrap.
+garminBridge:
+  enabled: false
+
+  image:
+    repository: ghcr.io/vinzenzs/garmin-bridge
+    # -- Defaults to the chart appVersion when empty.
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # -- IANA timezone the daily sync resolves "today" in (the user's local day).
+  syncTz: UTC
+
+  # -- Backend base URL the bridge POSTs to. Empty → the in-cluster backend
+  #    Service DNS (http://<fullname>:<service.port>).
+  nutritionApiUrl: ""
+
+  # -- Reference an externally-managed Secret instead of the chart-rendered one.
+  #    Must contain keys: GARMIN_EMAIL, GARMIN_PASSWORD, GARMIN_API_TOKEN.
+  existingSecret: ""
+
+  # -- Secret values for the chart-rendered Secret. REQUIRED when enabled and
+  #    existingSecret is empty. GARMIN_API_TOKEN must equal the backend's
+  #    configured GARMIN_API_TOKEN (the `garmin` identity).
+  secrets:
+    garminEmail: ""
+    garminPassword: ""
+    garminApiToken: ""
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  # -- Daily sync CronJob that POSTs /sync on the bridge Service.
+  cron:
+    enabled: true
+    # -- 05:00 in the cluster's timezone by default.
+    schedule: "0 5 * * *"
+    # -- Tiny image with curl + a POSIX shell for the trigger.
+    image: curlimages/curl:8.7.1
+    # -- First-run backfill: when > 0, the Job loops POST /sync over the last N
+    #    days (safe to re-run — date upserts + external_id dedup). Set back to 0
+    #    after the initial import.
+    backfillDays: 0

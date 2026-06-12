@@ -32,6 +32,17 @@ home-screen widget that works offline. It talks to this same REST API using
 `MOBILE_API_TOKEN`, paired once by scanning the QR printed by `task dev:pair`.
 See [`apps/companion/README.md`](apps/companion/README.md) to build and run it.
 
+## Garmin bridge
+
+A small Python service in [`apps/garmin-bridge/`](apps/garmin-bridge/) fills the
+recovery / fitness / hydration-balance / weight / workout tables from Garmin
+Connect. It owns all of Garmin's unofficial-API surface (SSO, MFA, token
+minting) so the Go backend stays Garmin-agnostic — a rare interactive MFA login
+mints a long-lived token (stored in the backend), and a daily k8s CronJob drives
+a headless `POST /sync` that maps a day's data onto this same REST API under
+`GARMIN_API_TOKEN`. It is opt-in in the Helm chart (`garminBridge.enabled`). See
+[`apps/garmin-bridge/README.md`](apps/garmin-bridge/README.md).
+
 ## Quickstart
 
 ```bash

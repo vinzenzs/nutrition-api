@@ -1,0 +1,9 @@
+# garmin-bridge runtime dependencies.
+# Garmin's private API is reached via garminconnect (+ garth, its auth/token
+# layer). When Garmin breaks something the fix is bumping these two — that is
+# the whole reason this service is Python and not Go (see design.md).
+garminconnect>=0.2.19
+garth>=0.4.45
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27

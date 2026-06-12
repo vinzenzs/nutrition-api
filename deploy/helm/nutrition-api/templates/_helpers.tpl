@@ -86,3 +86,56 @@ Image reference. Falls back to .Chart.AppVersion when .Values.image.tag is empty
 {{- $tag := default .Chart.AppVersion .Values.image.tag }}
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
+
+{{/*
+garmin-bridge — the opt-in Garmin sync sidecar. Its objects share the chart's
+naming/labelling but carry a "-garmin-bridge" suffix and their own selector so
+they never collide with the backend's.
+*/}}
+{{- define "garmin-bridge.fullname" -}}
+{{- printf "%s-garmin-bridge" (include "nutrition-api.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "garmin-bridge.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "nutrition-api.name" . }}-garmin-bridge
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "garmin-bridge.labels" -}}
+helm.sh/chart: {{ include "nutrition-api.chart" . }}
+{{ include "garmin-bridge.selectorLabels" . }}
+app.kubernetes.io/component: garmin-bridge
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Secret name the bridge binds to — the externally-managed one if supplied,
+else the chart-rendered bridge Secret.
+*/}}
+{{- define "garmin-bridge.secretName" -}}
+{{- if .Values.garminBridge.existingSecret }}
+{{- .Values.garminBridge.existingSecret }}
+{{- else }}
+{{- include "garmin-bridge.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Bridge image reference. tag falls back to the chart appVersion when empty.
+*/}}
+{{- define "garmin-bridge.image" -}}
+{{- $tag := default .Chart.AppVersion .Values.garminBridge.image.tag }}
+{{- printf "%s:%s" .Values.garminBridge.image.repository $tag }}
+{{- end }}
+
+{{/*
+The in-cluster base URL the bridge posts to. Defaults to the backend Service
+DNS when garminBridge.nutritionApiUrl is left empty.
+*/}}
+{{- define "garmin-bridge.nutritionApiUrl" -}}
+{{- if .Values.garminBridge.nutritionApiUrl }}
+{{- .Values.garminBridge.nutritionApiUrl }}
+{{- else }}
+{{- printf "http://%s:%v" (include "nutrition-api.fullname" .) .Values.service.port }}
+{{- end }}
+{{- end }}

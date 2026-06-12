@@ -1,0 +1,170 @@
+{{- if .Values.garminBridge.enabled -}}
+{{- /*
+  garmin-bridge: opt-in Garmin → REST sync sidecar. Everything here is gated on
+  garminBridge.enabled, so when the integration is unconfigured the chart
+  renders none of it. See apps/garmin-bridge/README.md for the bootstrap.
+*/ -}}
+{{- if not .Values.garminBridge.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "garmin-bridge.fullname" . }}
+  labels:
+    {{- include "garmin-bridge.labels" . | nindent 4 }}
+type: Opaque
+# GARMIN_API_TOKEN must match the backend's configured GARMIN_API_TOKEN (the
+# `garmin` bearer identity from add-garmin-auth-token), else writes are 403'd.
+stringData:
+  GARMIN_EMAIL: {{ required "garminBridge.secrets.garminEmail is required when garminBridge.enabled and no existingSecret" .Values.garminBridge.secrets.garminEmail | quote }}
+  GARMIN_PASSWORD: {{ required "garminBridge.secrets.garminPassword is required when garminBridge.enabled and no existingSecret" .Values.garminBridge.secrets.garminPassword | quote }}
+  GARMIN_API_TOKEN: {{ required "garminBridge.secrets.garminApiToken is required when garminBridge.enabled and no existingSecret" .Values.garminBridge.secrets.garminApiToken | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "garmin-bridge.fullname" . }}
+  labels:
+    {{- include "garmin-bridge.labels" . | nindent 4 }}
+spec:
+  # Single replica: the two login calls hold transient SSO state in memory, so
+  # the MFA resume must reach the pod that began the login (design D3).
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "garmin-bridge.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- if not .Values.garminBridge.existingSecret }}
+      annotations:
+        # Roll the pod when the bridge Secret values change.
+        checksum/secret: {{ .Values.garminBridge.secrets | toYaml | sha256sum }}
+      {{- end }}
+      labels:
+        {{- include "garmin-bridge.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: garmin-bridge
+          image: {{ include "garmin-bridge.image" . }}
+          imagePullPolicy: {{ .Values.garminBridge.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: NUTRITION_API_URL
+              value: {{ include "garmin-bridge.nutritionApiUrl" . | quote }}
+            - name: SYNC_TZ
+              value: {{ .Values.garminBridge.syncTz | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "garmin-bridge.secretName" . }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.garminBridge.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "garmin-bridge.fullname" . }}
+  labels:
+    {{- include "garmin-bridge.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "garmin-bridge.selectorLabels" . | nindent 4 }}
+{{- if .Values.garminBridge.cron.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "garmin-bridge.fullname" . }}-sync
+  labels:
+    {{- include "garmin-bridge.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.garminBridge.cron.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "garmin-bridge.selectorLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: trigger-sync
+              image: {{ .Values.garminBridge.cron.image | quote }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  BASE="http://{{ include "garmin-bridge.fullname" . }}"
+                  BACKFILL={{ .Values.garminBridge.cron.backfillDays | int }}
+                  if [ "$BACKFILL" -gt 0 ]; then
+                    # First-run backfill: POST /sync for each of the last N days
+                    # (today .. today-N+1). Date-upsert + external_id dedup make
+                    # this safe to re-run.
+                    NOW=$(date -u +%s)
+                    i=0
+                    while [ "$i" -lt "$BACKFILL" ]; do
+                      D=$(date -u -d "@$((NOW - i*86400))" +%Y-%m-%d 2>/dev/null || date -u -r "$((NOW - i*86400))" +%Y-%m-%d)
+                      echo "syncing $D"
+                      curl -fsS -X POST "$BASE/sync" -H 'Content-Type: application/json' -d "{\"date\":\"$D\"}"
+                      i=$((i+1))
+                    done
+                  else
+                    curl -fsS -X POST "$BASE/sync"
+                  fi
+{{- end }}
+{{- end }}

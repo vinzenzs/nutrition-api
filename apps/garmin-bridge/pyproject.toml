@@ -1,0 +1,28 @@
+[project]
+name = "garmin-bridge"
+version = "0.1.0"
+description = "Authenticates to Garmin Connect and writes a day's recovery/fitness/hydration/weight/activity data to the nutrition REST API."
+requires-python = ">=3.11"
+dependencies = [
+    "garminconnect>=0.2.19",
+    "garth>=0.4.45",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "respx>=0.21",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["garmin_bridge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
