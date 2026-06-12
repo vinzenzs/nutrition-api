@@ -2177,7 +2177,8 @@ paths:
         message}` — an existing chat session and the single new user message; the
         server loads the session's prior turns, persists the new ones, and holds the
         conversation as the source of truth. The response is text/event-stream with
-        four event types — `text` (assistant delta), `tool` (name+status+summary),
+        four event types — `text` (assistant delta), `tool` (id+name+status+summary;
+        a call's started and ok/error events share one id so clients coalesce them),
         `done` (final message, stop_reason, usage), and `error` (typed code). Tools
         are dispatched as loopback REST calls under the caller's bearer token. Returns
         503 chat_unavailable when ANTHROPIC_API_KEY is unset, 404 session_not_found

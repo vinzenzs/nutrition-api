@@ -173,11 +173,11 @@ func (s *Service) stream(ctx context.Context, sse *sseWriter, sessionID uuid.UUI
 		})
 		resultBlocks := make([]json.RawMessage, 0, len(turn.ClientToolCalls))
 		for _, call := range turn.ClientToolCalls {
-			sse.tool(call.Name, "started", "running")
+			sse.tool(call.ID, call.Name, "started", "")
 			res := s.dispatcher.execute(ctx, call.Name, call.Input, bearer)
 			resultBlocks = append(resultBlocks, toolResultBlock(call.ID, res))
 			name, status, summary := toolEventFields(call.Name, res)
-			sse.tool(name, status, summary)
+			sse.tool(call.ID, name, status, summary)
 		}
 		toolResultContent := marshalBlocks(resultBlocks)
 		messages = append(messages, anthropicMessage{
@@ -312,6 +312,8 @@ func toolEventFields(name string, res toolResult) (string, string, string) {
 	case !res.ok:
 		return name, "error", fmt.Sprintf("failed (status %d)", res.status)
 	default:
-		return name, "ok", "done"
+		// Success carries no summary; the client labels the chip by name and
+		// shows status via the icon.
+		return name, "ok", ""
 	}
 }

@@ -223,11 +223,18 @@ class _ToolChip extends StatelessWidget {
         color: error ? scheme.onErrorContainer : null,
       ),
       label: Text(
-        tool.summary.isNotEmpty ? tool.summary : tool.name,
+        // Label by the tool name (status is the avatar icon); append the
+        // summary only on error, where it adds information.
+        error && tool.summary.isNotEmpty
+            ? '${_humanize(tool.name)} — ${tool.summary}'
+            : _humanize(tool.name),
         style: TextStyle(fontSize: 12, color: error ? scheme.onErrorContainer : null),
       ),
     );
   }
+
+  // Turns a tool name like "get_daily_context" into "get daily context".
+  static String _humanize(String name) => name.replaceAll('_', ' ');
 }
 
 class _Composer extends ConsumerWidget {

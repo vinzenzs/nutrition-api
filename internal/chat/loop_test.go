@@ -201,6 +201,10 @@ func TestChat_GroundedRecommendationStream(t *testing.T) {
 	assert.Contains(t, body, `"name":"get_daily_context"`)
 	assert.Contains(t, body, `"status":"started"`)
 	assert.Contains(t, body, `"status":"ok"`)
+	// The call's started and ok tool events carry the same tool_use id so the
+	// client can coalesce them into one chip; the old "running" summary is gone.
+	assert.Equal(t, 2, strings.Count(body, `"id":"t1"`), "started + ok tool events share the call id")
+	assert.NotContains(t, body, `"summary":"running"`)
 	// Then the streamed answer + a terminal done event.
 	assert.Contains(t, body, "event: text")
 	assert.Contains(t, body, "Three options")

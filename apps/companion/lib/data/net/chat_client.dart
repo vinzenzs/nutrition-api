@@ -203,6 +203,7 @@ ChatEvent? _decodeEvent(String event, String data) {
       return ChatTextEvent(j['text'] as String? ?? '');
     case 'tool':
       return ChatToolEvent(
+        id: j['id'] as String? ?? '',
         name: j['name'] as String? ?? '',
         status: j['status'] as String? ?? '',
         summary: j['summary'] as String? ?? '',

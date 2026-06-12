@@ -4,6 +4,19 @@ import '../data/net/idempotency.dart';
 import '../domain/chat.dart';
 import 'app_providers.dart';
 
+/// Inserts or coalesces a tool event into [tools] (mutated in place): a call's
+/// `started` event inserts a chip and its matching `ok`/`error` event (same
+/// `id`) replaces it — so one chip transitions running→done with no stale
+/// "running" leftover. An empty `id` falls back to append.
+void upsertToolEvent(List<ChatToolEvent> tools, ChatToolEvent ev) {
+  final i = ev.id.isEmpty ? -1 : tools.indexWhere((t) => t.id == ev.id);
+  if (i >= 0) {
+    tools[i] = ev;
+  } else {
+    tools.add(ev);
+  }
+}
+
 /// One active conversation. The streaming bubble's text lives in
 /// [streamingText] while a turn is in flight; tool chips for the current turn
 /// live in [tools]. [error] holds the last turn's failure code (retryable).
@@ -144,7 +157,7 @@ class ChatNotifier extends Notifier<ChatState> {
             buffer.write(text);
             state = state.copyWith(streamingText: buffer.toString());
           case ChatToolEvent():
-            tools.add(ev);
+            upsertToolEvent(tools, ev);
             state = state.copyWith(tools: List.of(tools));
           case ChatDoneEvent(:final message):
             await _finalize(message.isNotEmpty ? message : buffer.toString());

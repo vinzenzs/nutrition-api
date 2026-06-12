@@ -34,10 +34,13 @@ class ChatTextEvent extends ChatEvent {
 /// A tool's lifecycle: status is started | ok | error; summary is a short
 /// human string (never raw bodies).
 class ChatToolEvent extends ChatEvent {
+  /// The upstream tool_use id; a call's started and ok/error events share it,
+  /// so the UI coalesces them into one chip.
+  final String id;
   final String name;
   final String status;
   final String summary;
-  ChatToolEvent({required this.name, required this.status, required this.summary});
+  ChatToolEvent({required this.id, required this.name, required this.status, required this.summary});
   bool get isError => status == 'error';
 }
 

@@ -42,10 +42,12 @@ func (s *sseWriter) text(delta string) {
 	s.emit("text", map[string]string{"text": delta})
 }
 
-// toolEvent reports a tool's lifecycle: status is started|ok|error, summary is a
-// short human string — never raw request/response bodies.
-func (s *sseWriter) tool(name, status, summary string) {
-	s.emit("tool", map[string]string{"name": name, "status": status, "summary": summary})
+// toolEvent reports a tool's lifecycle: id is the upstream tool_use id (shared
+// by a call's started and terminal events so a client can coalesce them), status
+// is started|ok|error, summary is a short human string — never raw request/
+// response bodies.
+func (s *sseWriter) tool(id, name, status, summary string) {
+	s.emit("tool", map[string]string{"id": id, "name": name, "status": status, "summary": summary})
 }
 
 // doneEvent terminates a successful stream with the full final message.
