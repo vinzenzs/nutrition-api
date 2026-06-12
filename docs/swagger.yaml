@@ -429,6 +429,60 @@ definitions:
       workout_id:
         type: string
     type: object
+  gear.Gear:
+    properties:
+      created_at:
+        type: string
+      date_begin:
+        type: string
+      date_end:
+        type: string
+      display_name:
+        type: string
+      external_id:
+        type: string
+      gear_type:
+        $ref: '#/definitions/gear.Type'
+      id:
+        type: string
+      retired:
+        type: boolean
+      total_activities:
+        type: integer
+      total_distance_m:
+        type: number
+      updated_at:
+        type: string
+    type: object
+  gear.Type:
+    enum:
+    - shoes
+    - bike
+    - other
+    type: string
+    x-enum-varnames:
+    - TypeShoes
+    - TypeBike
+    - TypeOther
+  gear.upsertRequest:
+    properties:
+      date_begin:
+        type: string
+      date_end:
+        type: string
+      display_name:
+        type: string
+      external_id:
+        type: string
+      gear_type:
+        type: string
+      retired:
+        type: boolean
+      total_activities:
+        type: integer
+      total_distance_m:
+        type: number
+    type: object
   goals.Goals:
     properties:
       calcium_mg:
@@ -773,6 +827,42 @@ definitions:
             "<uuid>"  → set the link
             ""        → clear the link
         type: string
+    type: object
+  personalrecords.PersonalRecord:
+    properties:
+      achieved_at:
+        type: string
+      activity_id:
+        type: string
+      created_at:
+        type: string
+      external_id:
+        type: string
+      id:
+        type: string
+      pr_type:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: number
+    type: object
+  personalrecords.upsertRequest:
+    properties:
+      achieved_at:
+        type: string
+      activity_id:
+        type: string
+      external_id:
+        type: string
+      pr_type:
+        type: string
+      unit:
+        type: string
+      value:
+        type: number
     type: object
   products.Nutriments:
     properties:
@@ -3188,6 +3278,93 @@ paths:
       summary: Store the garmin-bridge auth token blob
       tags:
       - garmin
+  /gear:
+    get:
+      parameters:
+      - description: Filter by retirement state (true|false)
+        in: query
+        name: retired
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ gear: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List gear records
+      tags:
+      - gear
+    post:
+      consumes:
+      - application/json
+      description: Creates or updates a piece of gear, upserting by `external_id`
+        (the Garmin gear uuid). Slowly-changing inventory — re-observing the same
+        gear updates it in place. Standard `Idempotency-Key` header supported. Gear
+        is coaching context only; its distance never feeds nutrition computation.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Gear record
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/gear.upsertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: UPDATE (external_id already present)
+          schema:
+            $ref: '#/definitions/gear.Gear'
+        "201":
+          description: INSERT
+          schema:
+            $ref: '#/definitions/gear.Gear'
+        "400":
+          description: external_id_required | gear_type_invalid | display_name_required
+            | total_distance_m_invalid | total_activities_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a gear record (by Garmin gear id)
+      tags:
+      - gear
+  /gear/{id}:
+    get:
+      parameters:
+      - description: Gear UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gear.Gear'
+        "404":
+          description: gear_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a gear record by id
+      tags:
+      - gear
   /goal-templates:
     get:
       produces:
@@ -4015,6 +4192,67 @@ paths:
       summary: Log a meal from a photo via Claude Vision
       tags:
       - meals
+  /personal-records:
+    get:
+      parameters:
+      - description: Filter to a single PR type (e.g. 5k)
+        in: query
+        name: pr_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ personal_records: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List personal records
+      tags:
+      - personal-records
+    post:
+      consumes:
+      - application/json
+      description: Creates or updates a personal record, upserting by `external_id`
+        (the Garmin PR id). A beaten PR overwrites the prior value in place. Standard
+        `Idempotency-Key` header supported. PR values are coaching context only; they
+        never feed nutrition computation.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Personal record
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/personalrecords.upsertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: UPDATE (external_id already present)
+          schema:
+            $ref: '#/definitions/personalrecords.PersonalRecord'
+        "201":
+          description: INSERT
+          schema:
+            $ref: '#/definitions/personalrecords.PersonalRecord'
+        "400":
+          description: external_id_required | pr_type_required | value_invalid | unit_required
+            | achieved_at_required
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upsert a personal record (by Garmin PR id)
+      tags:
+      - personal-records
   /phases:
     get:
       parameters:

@@ -170,7 +170,45 @@ def fetch_day(api, date: str) -> dict[str, Any]:
             "weather": safe("activity_weather", lambda aid=aid: api.get_activity_weather(aid)),
         }
     raw["activity_details"] = details
+
+    # Slowly-changing inventory (per add-garmin-gear-and-prs): gear + personal
+    # records. Not date-keyed — the backend upserts them by Garmin external id.
+    # Each fetch is guarded so a bad inventory endpoint degrades to "no refresh
+    # this sync", never an aborted day. Gear stats are fetched per gear uuid and
+    # keyed so the mapper can join mileage onto the gear record.
+    upn = _user_profile_number(api)
+    gear_list = safe("gear", lambda: api.get_gear(upn)) if upn is not None else None
+    raw["gear"] = gear_list
+    gear_stats: dict[str, Any] = {}
+    for g in gear_list or []:
+        guid = g.get("uuid") or g.get("gearPk") or g.get("gearUuid")
+        if guid is None:
+            continue
+        stat = safe("gear_stats", lambda guid=guid: api.get_gear_stats(guid))
+        if stat is not None:
+            gear_stats[str(guid)] = stat
+    raw["gear_stats"] = gear_stats
+    raw["personal_records"] = safe(
+        "personal_records", lambda: api.get_personal_record()
+    )
     return raw
+
+
+def _user_profile_number(api) -> Any:
+    """The Garmin `userProfilePk` the gear endpoints are keyed by.
+
+    It lives on the garth client's social profile (``garth.profile``), not on the
+    Garmin wrapper. We probe the common key shapes and return None if it can't be
+    found — the gear fetch is then skipped, never fatal. Fully defensive: this
+    runs outside the ``safe()`` guard, so it must not raise.
+    """
+    garth = getattr(api, "client", None) or getattr(api, "garth", None)
+    prof = getattr(garth, "profile", None)
+    if isinstance(prof, dict):
+        for key in ("userProfilePk", "profileId", "userProfileId", "id"):
+            if prof.get(key) is not None:
+                return prof[key]
+    return None
 
 
 # --- structured-workout write/read (per add-garmin-scheduling) ----------

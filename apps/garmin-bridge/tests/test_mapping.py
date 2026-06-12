@@ -121,6 +121,61 @@ def test_daily_summary_empty_payload_yields_none():
     assert mapping.map_daily_summary({"user_summary": {}}, "2026-06-12") is None
 
 
+def test_gear_mapping_joins_stats(raw_day):
+    gear = mapping.map_gear(raw_day)
+    by_id = {g["external_id"]: g for g in gear}
+
+    shoes = by_id["gear-shoes-1"]
+    assert shoes["gear_type"] == "shoes"
+    assert shoes["display_name"] == "Daily Trainers"
+    assert shoes["total_distance_m"] == 780000.0  # joined from gear_stats
+    assert shoes["total_activities"] == 120
+    assert shoes.get("retired", False) is False
+    assert shoes["date_begin"] == "2025-01-01"
+
+    bike = by_id["gear-bike-1"]
+    assert bike["gear_type"] == "bike"
+    assert bike["retired"] is True
+    assert bike["total_distance_m"] == 5000000.0
+    assert bike["date_end"] == "2026-04-01"
+
+
+def test_gear_mapping_absent_stats_and_type_fallback(raw_day):
+    """A gear with no stats syncs without mileage; an unmapped type → other."""
+    kayak = next(g for g in mapping.map_gear(raw_day) if g["external_id"] == "gear-kayak-1")
+    assert kayak["gear_type"] == "other"  # 'Kayak' not in the enum
+    assert kayak["display_name"] == "Sea Kayak"
+    assert "total_distance_m" not in kayak  # no gear_stats entry → omitted
+    assert "total_activities" not in kayak
+
+
+def test_personal_records_mapping(raw_day):
+    prs = mapping.map_personal_records(raw_day)
+    by_id = {p["external_id"]: p for p in prs}
+
+    fivek = by_id["101"]
+    assert fivek["pr_type"] == "5k"
+    assert fivek["value"] == 1320.0
+    assert fivek["unit"] == "s"
+    assert fivek["activity_id"] == "555"
+    assert fivek["achieved_at"] == "2026-05-20T08:00:00Z"
+
+    tenk = by_id["102"]
+    assert tenk["pr_type"] == "10k"
+    assert tenk["value"] == 2790.5
+    assert "activity_id" not in tenk  # absent → omitted
+
+    ride = by_id["103"]
+    assert ride["pr_type"] == "longest-ride"
+    assert ride["unit"] == "m"
+    assert ride["value"] == 90000.0
+
+
+def test_inventory_empty_when_absent():
+    assert mapping.map_gear({}) == []
+    assert mapping.map_personal_records({}) == []
+
+
 def test_weight_mapping_grams_to_kg(raw_day):
     weights = mapping.map_weights(raw_day)
     assert len(weights) == 1

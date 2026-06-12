@@ -81,8 +81,41 @@ def sync_day(backend: Backend, raw: dict[str, Any], date: str) -> dict[str, Any]
             logger.warning("workouts bulk post failed: %s", exc)
             summary["errors"]["workouts"] = str(exc)
 
+    # Inventory: gear + personal records, each an idempotent upsert by external
+    # id. Mirrors the weight loop's per-item partial-failure accounting; one bad
+    # inventory item (or an empty inventory) never aborts the rest of the sync.
+    _upsert_each(backend, "/gear", mapped.get("gear") or [], "gear", summary)
+    _upsert_each(
+        backend,
+        "/personal-records",
+        mapped.get("personal_records") or [],
+        "personal_records",
+        summary,
+    )
+
     summary["ok"] = not summary["errors"]
     return summary
+
+
+def _upsert_each(
+    backend: Backend, route: str, items: list, key: str, summary: dict[str, Any]
+) -> None:
+    """POST each inventory item to its upsert endpoint, accounting per item."""
+    if not items:
+        summary["results"][key] = "skipped (no data)"
+        return
+    ok = 0
+    for body in items:
+        try:
+            resp = backend.post_json(route, body)
+            if resp.status_code in (200, 201):
+                ok += 1
+            else:
+                summary["errors"].setdefault(key, []).append(f"{resp.status_code}")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("%s post failed: %s", key, exc)
+            summary["errors"].setdefault(key, []).append(str(exc))
+    summary["results"][key] = f"{ok}/{len(items)} upserted"
 
 
 def _attempt(

@@ -403,6 +403,136 @@ def _cm_to_m(cm: float | None) -> float | None:
     return None if cm is None else cm / 100.0
 
 
+# --- inventory mappers (gear + personal records) ------------------------
+
+# Garmin gearTypeName phrase → our small enum. Substring match; anything
+# unmapped falls back to "other" (mirrors the sport-enum fallback).
+def _gear_type(name: Any) -> str:
+    if not isinstance(name, str):
+        return "other"
+    low = name.strip().lower()
+    if "shoe" in low:
+        return "shoes"
+    if "bike" in low or "cycl" in low or "bicycle" in low:
+        return "bike"
+    return "other"
+
+
+def _date_only(value: Any) -> str | None:
+    """Garmin date/datetime string → YYYY-MM-DD (or None)."""
+    if not isinstance(value, str) or len(value) < 10:
+        return None
+    candidate = value[:10]
+    if candidate[4] == "-" and candidate[7] == "-":
+        return candidate
+    return None
+
+
+def map_gear(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Garmin gear (joined with gear-stats by uuid) → /gear upsert items.
+
+    Mileage/activity totals come from ``gear_stats`` keyed by gear uuid; an item
+    whose stats are absent still syncs with type + display name (distance/count
+    omitted → stored NULL). Defensive: a gear without a uuid or display name is
+    skipped, never crashes the sync.
+    """
+    out: list[dict[str, Any]] = []
+    stats = raw.get("gear_stats") or {}
+    for g in raw.get("gear") or []:
+        guid = g.get("uuid") or g.get("gearPk") or g.get("gearUuid")
+        if guid is None:
+            continue
+        st = stats.get(str(guid)) or {}
+        display = (
+            _as_str(g.get("displayName"))
+            or _as_str(g.get("customMakeModel"))
+            or _as_str(
+                " ".join(
+                    p for p in (g.get("gearMakeName"), g.get("gearModelName")) if p
+                )
+            )
+        )
+        if display is None:
+            continue
+        status = g.get("gearStatusName")
+        item = _prune(
+            {
+                "external_id": str(guid),
+                "gear_type": _gear_type(g.get("gearTypeName") or g.get("typeName")),
+                "display_name": display,
+                "total_distance_m": _as_float(st.get("totalDistance"))
+                if st.get("totalDistance") is not None
+                else _as_float(g.get("totalDistance")),
+                "total_activities": _as_int(st.get("totalActivities"))
+                if st.get("totalActivities") is not None
+                else _as_int(g.get("totalActivities")),
+                "retired": isinstance(status, str) and status.strip().lower() == "retired",
+                "date_begin": _date_only(g.get("dateBegin")),
+                "date_end": _date_only(g.get("dateEnd")),
+            }
+        )
+        out.append(item)
+    return out
+
+
+# Garmin personal-record typeId → (pr_type, unit). value is seconds for time
+# PRs, metres for distance PRs. Best-effort; an unmapped typeId becomes a
+# generic label with a seconds unit (the common case) rather than dropping it.
+_PR_TYPE_BY_TYPEID = {
+    1: ("1k", "s"),
+    2: ("1mi", "s"),
+    3: ("5k", "s"),
+    4: ("10k", "s"),
+    7: ("longest-run", "m"),
+    8: ("longest-ride", "m"),
+    12: ("total-ascent", "m"),
+}
+
+
+def map_personal_records(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Garmin personal records → /personal-records upsert items."""
+    out: list[dict[str, Any]] = []
+    for pr in raw.get("personal_records") or []:
+        pid = pr.get("id")
+        value = _as_float(pr.get("value"))
+        achieved = _pr_achieved_at(pr)
+        if pid is None or value is None or achieved is None:
+            continue
+        type_id = _as_int(pr.get("typeId"))
+        pr_type, unit = _PR_TYPE_BY_TYPEID.get(
+            type_id,
+            (f"garmin-type-{type_id}" if type_id is not None else "unknown", "s"),
+        )
+        activity_id = pr.get("activityId")
+        item = _prune(
+            {
+                "external_id": str(pid),
+                "pr_type": pr_type,
+                "value": value,
+                "unit": unit,
+                "activity_id": str(activity_id) if activity_id is not None else None,
+                "achieved_at": achieved,
+            }
+        )
+        out.append(item)
+    return out
+
+
+def _pr_achieved_at(pr: dict[str, Any]) -> str | None:
+    """PR achievement timestamp → RFC3339.
+
+    Prefers Garmin's already-GMT formatted string (e.g. ``2026-05-20T08:00:00.0``)
+    and falls back to the epoch-ms field.
+    """
+    fmt = _as_str(pr.get("prStartTimeGmtFormatted"))
+    if fmt and "T" in fmt:
+        return fmt.split(".")[0].rstrip("Z") + "Z"
+    ms = _as_int(pr.get("prStartTimeGmt"))
+    if ms is not None:
+        return _epoch_ms_to_rfc3339(ms)
+    return None
+
+
 def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
     """Map a full raw Garmin day into the per-capability request bodies."""
     return {
@@ -412,6 +542,8 @@ def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
         "daily_summary": map_daily_summary(raw, date),
         "weights": map_weights(raw),
         "workouts": map_workouts(raw),
+        "gear": map_gear(raw),
+        "personal_records": map_personal_records(raw),
     }
 
 

@@ -33,6 +33,8 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/raceprep"
 	"github.com/vinzenzs/nutrition-api/internal/races"
 	"github.com/vinzenzs/nutrition-api/internal/dailysummary"
+	"github.com/vinzenzs/nutrition-api/internal/gear"
+	"github.com/vinzenzs/nutrition-api/internal/personalrecords"
 	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
 	"github.com/vinzenzs/nutrition-api/internal/shoppinglist"
 	"github.com/vinzenzs/nutrition-api/internal/store"
@@ -195,6 +197,10 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	recoveryMetricsSvc := recoverymetrics.NewService(recoveryMetricsRepo)
 	dailySummaryRepo := dailysummary.NewRepo(pool)
 	dailySummarySvc := dailysummary.NewService(dailySummaryRepo)
+	gearRepo := gear.NewRepo(pool)
+	gearSvc := gear.NewService(gearRepo)
+	personalRecordsRepo := personalrecords.NewRepo(pool)
+	personalRecordsSvc := personalrecords.NewService(personalRecordsRepo)
 	fitnessMetricsRepo := fitnessmetrics.NewRepo(pool)
 	fitnessMetricsSvc := fitnessmetrics.NewService(fitnessMetricsRepo)
 	hydrationBalanceRepo := hydrationbalance.NewRepo(pool)
@@ -287,6 +293,8 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	bodyweight.NewHandlers(bodyWeightSvc, cfg.DefaultUserTZ, logger).Register(api)
 	recoverymetrics.NewHandlers(recoveryMetricsSvc).Register(api)
 	dailysummary.NewHandlers(dailySummarySvc).Register(api)
+	gear.NewHandlers(gearSvc).Register(api)
+	personalrecords.NewHandlers(personalRecordsSvc).Register(api)
 	fitnessmetrics.NewHandlers(fitnessMetricsSvc).Register(api)
 	hydrationbalance.NewHandlers(hydrationBalanceSvc).Register(api)
 	garminauth.NewHandlers(garminAuthSvc, garminEnabled).Register(api)

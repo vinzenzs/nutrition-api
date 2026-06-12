@@ -1315,6 +1315,139 @@ const docTemplate = `{
                 }
             }
         },
+        "/gear": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gear"
+                ],
+                "summary": "List gear records",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Filter by retirement state (true|false)",
+                        "name": "retired",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ gear: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates or updates a piece of gear, upserting by ` + "`" + `external_id` + "`" + ` (the Garmin gear uuid). Slowly-changing inventory — re-observing the same gear updates it in place. Standard ` + "`" + `Idempotency-Key` + "`" + ` header supported. Gear is coaching context only; its distance never feeds nutrition computation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gear"
+                ],
+                "summary": "Upsert a gear record (by Garmin gear id)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Gear record",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gear.upsertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UPDATE (external_id already present)",
+                        "schema": {
+                            "$ref": "#/definitions/gear.Gear"
+                        }
+                    },
+                    "201": {
+                        "description": "INSERT",
+                        "schema": {
+                            "$ref": "#/definitions/gear.Gear"
+                        }
+                    },
+                    "400": {
+                        "description": "external_id_required | gear_type_invalid | display_name_required | total_distance_m_invalid | total_activities_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/gear/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gear"
+                ],
+                "summary": "Get a gear record by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Gear UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gear.Gear"
+                        }
+                    },
+                    "404": {
+                        "description": "gear_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/goal-templates": {
             "get": {
                 "security": [
@@ -2555,6 +2688,97 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "meal_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/personal-records": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal-records"
+                ],
+                "summary": "List personal records",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter to a single PR type (e.g. 5k)",
+                        "name": "pr_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{ personal_records: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates or updates a personal record, upserting by ` + "`" + `external_id` + "`" + ` (the Garmin PR id). A beaten PR overwrites the prior value in place. Standard ` + "`" + `Idempotency-Key` + "`" + ` header supported. PR values are coaching context only; they never feed nutrition computation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "personal-records"
+                ],
+                "summary": "Upsert a personal record (by Garmin PR id)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Personal record",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/personalrecords.upsertRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "UPDATE (external_id already present)",
+                        "schema": {
+                            "$ref": "#/definitions/personalrecords.PersonalRecord"
+                        }
+                    },
+                    "201": {
+                        "description": "INSERT",
+                        "schema": {
+                            "$ref": "#/definitions/personalrecords.PersonalRecord"
+                        }
+                    },
+                    "400": {
+                        "description": "external_id_required | pr_type_required | value_invalid | unit_required | achieved_at_required",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7136,6 +7360,86 @@ const docTemplate = `{
                 }
             }
         },
+        "gear.Gear": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "date_begin": {
+                    "type": "string"
+                },
+                "date_end": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "gear_type": {
+                    "$ref": "#/definitions/gear.Type"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "retired": {
+                    "type": "boolean"
+                },
+                "total_activities": {
+                    "type": "integer"
+                },
+                "total_distance_m": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "gear.Type": {
+            "type": "string",
+            "enum": [
+                "shoes",
+                "bike",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "TypeShoes",
+                "TypeBike",
+                "TypeOther"
+            ]
+        },
+        "gear.upsertRequest": {
+            "type": "object",
+            "properties": {
+                "date_begin": {
+                    "type": "string"
+                },
+                "date_end": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "gear_type": {
+                    "type": "string"
+                },
+                "retired": {
+                    "type": "boolean"
+                },
+                "total_activities": {
+                    "type": "integer"
+                },
+                "total_distance_m": {
+                    "type": "number"
+                }
+            }
+        },
         "goals.Goals": {
             "type": "object",
             "properties": {
@@ -7643,6 +7947,61 @@ const docTemplate = `{
                 "workout_id": {
                     "description": "WorkoutID supports the empty-string sentinel for clear:\n  omitted   → leave unchanged\n  \"\u003cuuid\u003e\"  → set the link\n  \"\"        → clear the link",
                     "type": "string"
+                }
+            }
+        },
+        "personalrecords.PersonalRecord": {
+            "type": "object",
+            "properties": {
+                "achieved_at": {
+                    "type": "string"
+                },
+                "activity_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "pr_type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "personalrecords.upsertRequest": {
+            "type": "object",
+            "properties": {
+                "achieved_at": {
+                    "type": "string"
+                },
+                "activity_id": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "pr_type": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
                 }
             }
         },

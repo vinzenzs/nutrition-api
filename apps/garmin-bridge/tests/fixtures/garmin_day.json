@@ -54,6 +54,55 @@
     "vigorousIntensityMinutes": 48,
     "totalDistanceMeters": 9320.4789
   },
+  "gear": [
+    {
+      "uuid": "gear-shoes-1",
+      "gearTypeName": "Shoes",
+      "displayName": "Daily Trainers",
+      "gearStatusName": "active",
+      "dateBegin": "2025-01-01T00:00:00.0"
+    },
+    {
+      "uuid": "gear-bike-1",
+      "gearTypeName": "Bike",
+      "displayName": "Road Bike",
+      "gearStatusName": "retired",
+      "dateBegin": "2023-03-15T00:00:00.0",
+      "dateEnd": "2026-04-01T00:00:00.0"
+    },
+    {
+      "uuid": "gear-kayak-1",
+      "gearTypeName": "Kayak",
+      "displayName": "Sea Kayak",
+      "gearStatusName": "active"
+    }
+  ],
+  "gear_stats": {
+    "gear-shoes-1": { "totalDistance": 780000.0, "totalActivities": 120 },
+    "gear-bike-1": { "totalDistance": 5000000.0, "totalActivities": 300 }
+  },
+  "personal_records": [
+    {
+      "id": 101,
+      "typeId": 3,
+      "value": 1320.0,
+      "activityId": 555,
+      "prStartTimeGmtFormatted": "2026-05-20T08:00:00.0"
+    },
+    {
+      "id": 102,
+      "typeId": 4,
+      "value": 2790.5,
+      "prStartTimeGmtFormatted": "2026-05-18T07:30:00.0"
+    },
+    {
+      "id": 103,
+      "typeId": 8,
+      "value": 90000.0,
+      "activityId": 556,
+      "prStartTimeGmtFormatted": "2026-04-12T09:00:00.0"
+    }
+  ],
   "weigh_ins": {
     "dailyWeightSummaries": [
       {
