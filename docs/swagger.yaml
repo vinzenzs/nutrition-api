@@ -2122,6 +2122,79 @@ paths:
       summary: Get the fitness snapshot for a date
       tags:
       - fitness-metrics
+  /garmin/login:
+    post:
+      description: 'Forwards to the garmin-bridge''s POST /login, returning its response
+        verbatim (e.g. `{"needs_mfa": true}`). Carries NO credentials — the bridge
+        reads them from its own configuration. Returns 503 garmin_disabled when GARMIN_BRIDGE_URL
+        is unset. Any authenticated identity may call it.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Bridge response verbatim (e.g. {needs_mfa:true} or {logged_in:true})
+          schema:
+            additionalProperties: true
+            type: object
+        "502":
+          description: garmin_bridge_unreachable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start the Garmin bridge login (proxy)
+      tags:
+      - garmin
+  /garmin/login/mfa:
+    post:
+      consumes:
+      - application/json
+      description: Forwards the supplied 6-digit code to the garmin-bridge's POST
+        /login/mfa, returning its success/error response verbatim. On success the
+        bridge persists the minted token to the backend; it is never returned here.
+        Returns 503 garmin_disabled when GARMIN_BRIDGE_URL is unset.
+      parameters:
+      - description: '{ \'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Bridge response verbatim (e.g. {logged_in:true})
+          schema:
+            additionalProperties: true
+            type: object
+        "502":
+          description: garmin_bridge_unreachable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Submit the Garmin bridge MFA code (proxy)
+      tags:
+      - garmin
   /garmin/token:
     delete:
       description: Removes the stored token, forcing the bridge to re-login. Restricted

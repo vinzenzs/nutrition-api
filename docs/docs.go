@@ -378,6 +378,111 @@ const docTemplate = `{
                 }
             }
         },
+        "/garmin/login": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Forwards to the garmin-bridge's POST /login, returning its response verbatim (e.g. ` + "`" + `{\"needs_mfa\": true}` + "`" + `). Carries NO credentials — the bridge reads them from its own configuration. Returns 503 garmin_disabled when GARMIN_BRIDGE_URL is unset. Any authenticated identity may call it.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Start the Garmin bridge login (proxy)",
+                "responses": {
+                    "200": {
+                        "description": "Bridge response verbatim (e.g. {needs_mfa:true} or {logged_in:true})",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "502": {
+                        "description": "garmin_bridge_unreachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/garmin/login/mfa": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Forwards the supplied 6-digit code to the garmin-bridge's POST /login/mfa, returning its success/error response verbatim. On success the bridge persists the minted token to the backend; it is never returned here. Returns 503 garmin_disabled when GARMIN_BRIDGE_URL is unset.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Submit the Garmin bridge MFA code (proxy)",
+                "parameters": [
+                    {
+                        "description": "{ \\",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bridge response verbatim (e.g. {logged_in:true})",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "502": {
+                        "description": "garmin_bridge_unreachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/garmin/token": {
             "get": {
                 "security": [

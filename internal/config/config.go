@@ -37,6 +37,11 @@ type Config struct {
 	// stored token blob at rest; required only when GarminToken is set.
 	GarminToken         string        `mapstructure:"GARMIN_API_TOKEN"`
 	GarminTokenEncKey   string        `mapstructure:"GARMIN_TOKEN_ENC_KEY"`
+	// GarminBridgeURL is the in-cluster base URL of the garmin-bridge (per
+	// add-garmin-mcp-login). When set, /garmin/login + /garmin/login/mfa proxy
+	// to it; when empty those endpoints return 503 garmin_disabled. Optional and
+	// independent of GarminToken (the bridge owns its own token identity).
+	GarminBridgeURL     string        `mapstructure:"GARMIN_BRIDGE_URL"`
 	DefaultUserTZ       string        `mapstructure:"DEFAULT_USER_TZ"`
 	OFFTimeout          time.Duration `mapstructure:"-"`
 	OFFTimeoutSeconds   int           `mapstructure:"OFF_TIMEOUT_SECONDS"`
@@ -86,6 +91,7 @@ var envKeys = []string{
 	"AGENT_API_TOKEN",
 	"GARMIN_API_TOKEN",
 	"GARMIN_TOKEN_ENC_KEY",
+	"GARMIN_BRIDGE_URL",
 	"DEFAULT_USER_TZ",
 	"OFF_TIMEOUT_SECONDS",
 	"OFF_USER_AGENT_CONTACT",

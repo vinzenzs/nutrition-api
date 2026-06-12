@@ -20,6 +20,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/energy"
 	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
 	"github.com/vinzenzs/nutrition-api/internal/garminauth"
+	"github.com/vinzenzs/nutrition-api/internal/garmincontrol"
 	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/hydration"
 	"github.com/vinzenzs/nutrition-api/internal/hydrationbalance"
@@ -273,6 +274,10 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	fitnessmetrics.NewHandlers(fitnessMetricsSvc).Register(api)
 	hydrationbalance.NewHandlers(hydrationBalanceSvc).Register(api)
 	garminauth.NewHandlers(garminAuthSvc, garminEnabled).Register(api)
+	// Garmin login proxy (per add-garmin-mcp-login): forwards /garmin/login +
+	// /garmin/login/mfa to the bridge at GARMIN_BRIDGE_URL. Empty URL ⇒ the
+	// endpoints return 503 garmin_disabled. Any authenticated identity may call.
+	garmincontrol.NewHandlers(cfg.GarminBridgeURL).Register(api)
 	energy.NewHandlers(energySvc, cfg.DefaultUserTZ).Register(api)
 	dailyCtxSvc := dailycontext.NewService(
 		summarySvc, hydrationRepo, workoutsRepo, workoutFuelRepo,

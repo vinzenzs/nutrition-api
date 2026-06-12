@@ -186,6 +186,8 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"get_goal_template",
 		"delete_goal_template",
 		"daily_context",
+		"garmin_login",
+		"garmin_submit_mfa",
 	} {
 		assert.True(t, names[want], "tool %q should be announced", want)
 	}

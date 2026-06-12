@@ -97,6 +97,7 @@ serve-specific flag today is `--addr`, which overrides `HTTP_ADDR`).
 | `AGENT_API_TOKEN`        | _required_                                    | Bearer token for the LLM agent (must differ from `MOBILE_API_TOKEN`) |
 | `GARMIN_API_TOKEN`       | _unset_                                       | Optional bearer token (`client_id=garmin`) for the garmin-bridge; when set must be ≥16 bytes and differ from the other two. Unset disables the `/garmin/token` endpoints (503 `garmin_disabled`) |
 | `GARMIN_TOKEN_ENC_KEY`   | _unset_                                       | Base64-encoded 32-byte AES-256 key encrypting the stored Garmin token blob at rest; required only when `GARMIN_API_TOKEN` is set |
+| `GARMIN_BRIDGE_URL`      | _unset_                                       | In-cluster base URL of the garmin-bridge. When set, `/garmin/login` + `/garmin/login/mfa` proxy to it (driving the interactive re-link from the agent); unset returns 503 `garmin_disabled` |
 | `DEFAULT_USER_TZ`        | `UTC`                                         | IANA timezone used when summary endpoints omit `tz`                  |
 | `OFF_TIMEOUT_SECONDS`    | `5`                                           | Open Food Facts request timeout                                      |
 | `OFF_USER_AGENT_CONTACT` | `+https://github.com/vinzenzs/nutrition-api`  | Identification baked into the OFF `User-Agent`                       |
@@ -1115,6 +1116,17 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `get_goal_template`           | `GET /goal-templates/{name}`           | Fetch one template by name. |
 | `delete_goal_template`        | `DELETE /goal-templates/{name}`        | Refused with 409 `template_in_use` (referencing_phases echoed) if any phase points at it. |
 | `daily_context`               | `GET /context/daily?date=…&tz=…`       | One call returns adherence + totals + hydration + today's workouts + fuel + weight + phase + goal-override presence. Recommended first call of a session. |
+| `garmin_login`                | `POST /garmin/login`                   | Start re-linking Garmin (renews the ~yearly token). No args — the bridge holds the credentials. `{needs_mfa:true}` ⇒ ask the user for their authenticator code, then call `garmin_submit_mfa`. `503 garmin_disabled` when the integration is off. |
+| `garmin_submit_mfa`           | `POST /garmin/login/mfa`               | Complete a Garmin re-link with the 6-digit `code`. `{logged_in:true}` on success; `mfa_invalid` ⇒ restart with `garmin_login`. |
+
+**Re-link Garmin from chat.** The Garmin token expires roughly yearly (or on a
+password change / forced re-auth). To renew it without a `kubectl exec`, ask the
+agent to "re-link Garmin": it calls `garmin_login`, relays the `needs_mfa`
+prompt, you read the 6-digit code from your authenticator, and it submits it via
+`garmin_submit_mfa`. The Garmin password never transits the agent — only the
+throwaway code does. These tools proxy to the garmin-bridge via the backend
+(`GARMIN_BRIDGE_URL`); they report `garmin_disabled` when the bridge isn't
+configured. See [`apps/garmin-bridge/README.md`](apps/garmin-bridge/README.md).
 
 Write tools accept an optional `idempotency_key`. When omitted, the wrapper
 derives a stable key from the tool arguments so the agent's automatic retries
