@@ -19,6 +19,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/dailycontext"
 	"github.com/vinzenzs/nutrition-api/internal/energy"
 	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
+	"github.com/vinzenzs/nutrition-api/internal/garminauth"
 	"github.com/vinzenzs/nutrition-api/internal/goals"
 	"github.com/vinzenzs/nutrition-api/internal/hydration"
 	"github.com/vinzenzs/nutrition-api/internal/hydrationbalance"
@@ -68,9 +69,25 @@ func BuildEngine() *gin.Engine {
 // Run boots the HTTP API and blocks until ctx is cancelled. The caller is
 // responsible for installing signal handlers that cancel ctx.
 func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
-	authCfg := auth.Config{MobileToken: cfg.MobileToken, AgentToken: cfg.AgentToken}
+	authCfg := auth.Config{
+		MobileToken: cfg.MobileToken,
+		AgentToken:  cfg.AgentToken,
+		GarminToken: cfg.GarminToken,
+	}
 	if err := authCfg.Validate(); err != nil {
 		return err
+	}
+
+	// Garmin integration is opt-in: only decode the enc key when the dedicated
+	// token is set. ValidateForServe already verified the key shape.
+	garminEnabled := cfg.GarminToken != ""
+	var garminEncKey []byte
+	if garminEnabled {
+		k, err := cfg.GarminEncKey()
+		if err != nil {
+			return err
+		}
+		garminEncKey = k
 	}
 
 	if cfg.MigrateOnStart {
@@ -199,6 +216,14 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	racePrepSvc.SetBodyWeightRepo(bodyWeightRepo)
 	idempRepo := idempotency.NewRepo(pool)
 
+	// Garmin token store (encrypted single-row blob). The service is wired with
+	// the enc key only when the integration is enabled; the handler short-
+	// circuits 503 garmin_disabled otherwise.
+	garminAuthSvc, err := garminauth.NewService(garminauth.NewRepo(pool), garminEncKey)
+	if err != nil {
+		return err
+	}
+
 	cleanupCtx, cleanupCancel := context.WithCancel(ctx)
 	defer cleanupCancel()
 	go idempotency.RunCleanup(cleanupCtx, idempRepo, cfg.IdempotencyTTL, 15*time.Minute, logger)
@@ -247,6 +272,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	recoverymetrics.NewHandlers(recoveryMetricsSvc).Register(api)
 	fitnessmetrics.NewHandlers(fitnessMetricsSvc).Register(api)
 	hydrationbalance.NewHandlers(hydrationBalanceSvc).Register(api)
+	garminauth.NewHandlers(garminAuthSvc, garminEnabled).Register(api)
 	energy.NewHandlers(energySvc, cfg.DefaultUserTZ).Register(api)
 	dailyCtxSvc := dailycontext.NewService(
 		summarySvc, hydrationRepo, workoutsRepo, workoutFuelRepo,

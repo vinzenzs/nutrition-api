@@ -84,6 +84,8 @@ serve-specific flag today is `--addr`, which overrides `HTTP_ADDR`).
 | `HTTP_ADDR`              | `:8080`                                       | HTTP listen address                                                  |
 | `MOBILE_API_TOKEN`       | _required_                                    | Bearer token for the mobile app                                      |
 | `AGENT_API_TOKEN`        | _required_                                    | Bearer token for the LLM agent (must differ from `MOBILE_API_TOKEN`) |
+| `GARMIN_API_TOKEN`       | _unset_                                       | Optional bearer token (`client_id=garmin`) for the garmin-bridge; when set must be ≥16 bytes and differ from the other two. Unset disables the `/garmin/token` endpoints (503 `garmin_disabled`) |
+| `GARMIN_TOKEN_ENC_KEY`   | _unset_                                       | Base64-encoded 32-byte AES-256 key encrypting the stored Garmin token blob at rest; required only when `GARMIN_API_TOKEN` is set |
 | `DEFAULT_USER_TZ`        | `UTC`                                         | IANA timezone used when summary endpoints omit `tz`                  |
 | `OFF_TIMEOUT_SECONDS`    | `5`                                           | Open Food Facts request timeout                                      |
 | `OFF_USER_AGENT_CONTACT` | `+https://github.com/vinzenzs/nutrition-api`  | Identification baked into the OFF `User-Agent`                       |
@@ -964,6 +966,16 @@ intake during a swim set). `sport=run` caps `carbs_g_per_hour` at 60 even on
 long runs where bike/row would suggest 90 — running's impact loading limits
 GI tolerance. Run cap behaviour surfaces in both the rationale string and an
 extra entry in `notes[]` so agents that summarise notes separately see it too.
+
+### Garmin token store
+
+`PUT` / `GET` / `DELETE /garmin/token` hold a single opaque auth-token blob for
+the (separate) garmin-bridge service — stored encrypted at rest (AES-256-GCM)
+and returned byte-identical. These endpoints are **garmin-identity-only**: only
+a request bearing `GARMIN_API_TOKEN` may use them (the mobile and agent tokens
+get `403 forbidden`). When `GARMIN_API_TOKEN` is unset the integration is off
+and the endpoints return `503 garmin_disabled`. The backend never parses or
+interprets the blob.
 
 ## API documentation (Swagger / OpenAPI)
 

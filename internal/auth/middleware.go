@@ -14,6 +14,7 @@ type ClientID string
 const (
 	ClientMobile ClientID = "mobile"
 	ClientAgent  ClientID = "agent"
+	ClientGarmin ClientID = "garmin"
 )
 
 const clientContextKey = "auth.client_id"
@@ -24,6 +25,9 @@ const clientContextKey = "auth.client_id"
 func Middleware(cfg Config) gin.HandlerFunc {
 	mobile := []byte(cfg.MobileToken)
 	agent := []byte(cfg.AgentToken)
+	// The garmin identity is optional; recognize it only when configured.
+	garmin := []byte(cfg.GarminToken)
+	garminEnabled := cfg.GarminToken != ""
 
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
@@ -43,6 +47,8 @@ func Middleware(cfg Config) gin.HandlerFunc {
 			c.Set(clientContextKey, ClientMobile)
 		case subtle.ConstantTimeCompare(token, agent) == 1:
 			c.Set(clientContextKey, ClientAgent)
+		case garminEnabled && subtle.ConstantTimeCompare(token, garmin) == 1:
+			c.Set(clientContextKey, ClientGarmin)
 		default:
 			abort(c, http.StatusUnauthorized, "auth_invalid")
 			return

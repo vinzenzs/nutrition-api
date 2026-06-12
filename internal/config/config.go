@@ -7,6 +7,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,6 +18,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// garminEncKeyBytes is the required decoded length of GARMIN_TOKEN_ENC_KEY
+// (AES-256 → 32-byte key).
+const garminEncKeyBytes = 32
+
 // Config is the resolved runtime configuration. Field tags use the env var
 // names that prior versions of the api and mcp binaries already accepted.
 type Config struct {
@@ -25,6 +30,13 @@ type Config struct {
 	HTTPAddr            string        `mapstructure:"HTTP_ADDR"`
 	MobileToken         string        `mapstructure:"MOBILE_API_TOKEN"`
 	AgentToken          string        `mapstructure:"AGENT_API_TOKEN"`
+	// Garmin integration (opt-in, per add-garmin-auth-token). GarminToken is the
+	// dedicated bearer identity (client_id="garmin") the garmin-bridge calls
+	// under; when empty the /garmin/token endpoints return 503 garmin_disabled.
+	// GarminTokenEncKey is the base64-encoded AES-256 key used to encrypt the
+	// stored token blob at rest; required only when GarminToken is set.
+	GarminToken         string        `mapstructure:"GARMIN_API_TOKEN"`
+	GarminTokenEncKey   string        `mapstructure:"GARMIN_TOKEN_ENC_KEY"`
 	DefaultUserTZ       string        `mapstructure:"DEFAULT_USER_TZ"`
 	OFFTimeout          time.Duration `mapstructure:"-"`
 	OFFTimeoutSeconds   int           `mapstructure:"OFF_TIMEOUT_SECONDS"`
@@ -72,6 +84,8 @@ var envKeys = []string{
 	"HTTP_ADDR",
 	"MOBILE_API_TOKEN",
 	"AGENT_API_TOKEN",
+	"GARMIN_API_TOKEN",
+	"GARMIN_TOKEN_ENC_KEY",
 	"DEFAULT_USER_TZ",
 	"OFF_TIMEOUT_SECONDS",
 	"OFF_USER_AGENT_CONTACT",
@@ -172,7 +186,31 @@ func (c *Config) ValidateForServe() error {
 	if c.IdempotencyTTLHours <= 0 {
 		return errors.New("IDEMPOTENCY_TTL_HOURS must be a positive integer")
 	}
+	// Garmin integration is opt-in: only validate the enc key when the dedicated
+	// token is set. Both halves are required together.
+	if c.GarminToken != "" {
+		if _, err := c.GarminEncKey(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// GarminEncKey decodes GARMIN_TOKEN_ENC_KEY from base64 and verifies it is a
+// 32-byte AES-256 key. Returns an error when the key is unset or malformed.
+// Callers must gate on GarminToken being set before relying on this.
+func (c *Config) GarminEncKey() ([]byte, error) {
+	if c.GarminTokenEncKey == "" {
+		return nil, errors.New("GARMIN_TOKEN_ENC_KEY is required when GARMIN_API_TOKEN is set")
+	}
+	key, err := base64.StdEncoding.DecodeString(c.GarminTokenEncKey)
+	if err != nil {
+		return nil, fmt.Errorf("GARMIN_TOKEN_ENC_KEY is not valid base64: %w", err)
+	}
+	if len(key) != garminEncKeyBytes {
+		return nil, fmt.Errorf("GARMIN_TOKEN_ENC_KEY must decode to %d bytes, got %d", garminEncKeyBytes, len(key))
+	}
+	return key, nil
 }
 
 // ValidateForMigrate enforces the requirements of the `migrate` subcommand.
@@ -209,6 +247,8 @@ func (c *Config) Redacted() Config {
 	cp := *c
 	cp.MobileToken = redact(cp.MobileToken)
 	cp.AgentToken = redact(cp.AgentToken)
+	cp.GarminToken = redact(cp.GarminToken)
+	cp.GarminTokenEncKey = redact(cp.GarminTokenEncKey)
 	return cp
 }
 

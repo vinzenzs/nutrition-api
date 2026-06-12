@@ -2122,6 +2122,115 @@ paths:
       summary: Get the fitness snapshot for a date
       tags:
       - fitness-metrics
+  /garmin/token:
+    delete:
+      description: Removes the stored token, forcing the bridge to re-login. Restricted
+        to the `garmin` identity; 404 when nothing is stored; 503 when the integration
+        is unconfigured.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "403":
+          description: forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: garmin_token_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Clear the garmin-bridge auth token blob
+      tags:
+      - garmin
+    get:
+      description: Returns the decrypted token blob byte-identical to what was stored.
+        Restricted to the `garmin` identity; 404 when nothing is stored; 503 when
+        the integration is unconfigured.
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Opaque token blob
+          schema:
+            type: string
+        "403":
+          description: forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: garmin_token_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Read the garmin-bridge auth token blob
+      tags:
+      - garmin
+    put:
+      consumes:
+      - application/octet-stream
+      description: Persists the opaque garth token blob (encrypted at rest), replacing
+        any prior value. The body is treated as raw bytes and returned byte-identical
+        on GET. Restricted to the `garmin` identity; returns 503 when the Garmin integration
+        is unconfigured. `Idempotency-Key` is rejected on PUT (full-replace semantics).
+      parameters:
+      - description: Opaque token blob
+        in: body
+        name: body
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "400":
+          description: garmin_token_empty | garmin_token_too_large
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Store the garmin-bridge auth token blob
+      tags:
+      - garmin
   /goal-templates:
     get:
       produces:

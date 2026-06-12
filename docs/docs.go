@@ -378,6 +378,166 @@ const docTemplate = `{
                 }
             }
         },
+        "/garmin/token": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the decrypted token blob byte-identical to what was stored. Restricted to the ` + "`" + `garmin` + "`" + ` identity; 404 when nothing is stored; 503 when the integration is unconfigured.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Read the garmin-bridge auth token blob",
+                "responses": {
+                    "200": {
+                        "description": "Opaque token blob",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "garmin_token_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists the opaque garth token blob (encrypted at rest), replacing any prior value. The body is treated as raw bytes and returned byte-identical on GET. Restricted to the ` + "`" + `garmin` + "`" + ` identity; returns 503 when the Garmin integration is unconfigured. ` + "`" + `Idempotency-Key` + "`" + ` is rejected on PUT (full-replace semantics).",
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Store the garmin-bridge auth token blob",
+                "parameters": [
+                    {
+                        "description": "Opaque token blob",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "400": {
+                        "description": "garmin_token_empty | garmin_token_too_large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the stored token, forcing the bridge to re-login. Restricted to the ` + "`" + `garmin` + "`" + ` identity; 404 when nothing is stored; 503 when the integration is unconfigured.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Clear the garmin-bridge auth token blob",
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "403": {
+                        "description": "forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "garmin_token_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/goal-templates": {
             "get": {
                 "security": [

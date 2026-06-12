@@ -18,13 +18,19 @@ func init() {
 const (
 	testMobileToken = "mobile-token-aaaaaaaaaaaaaa"
 	testAgentToken  = "agent-token-bbbbbbbbbbbbbbbb"
+	testGarminToken = "garmin-token-cccccccccccccc"
 )
 
 func newTestRouter(t *testing.T) (*gin.Engine, *clientCapture) {
 	t.Helper()
+	return newTestRouterFor(t, Config{MobileToken: testMobileToken, AgentToken: testAgentToken})
+}
+
+func newTestRouterFor(t *testing.T, cfg Config) (*gin.Engine, *clientCapture) {
+	t.Helper()
 	cap := &clientCapture{}
 	r := gin.New()
-	r.Use(Middleware(Config{MobileToken: testMobileToken, AgentToken: testAgentToken}))
+	r.Use(Middleware(cfg))
 	r.GET("/protected", func(c *gin.Context) {
 		cap.id = ClientFromContext(c)
 		c.Status(http.StatusOK)
@@ -81,6 +87,59 @@ func TestMiddleware_UnknownToken(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 	assert.JSONEq(t, `{"error":"auth_invalid"}`, rec.Body.String())
+}
+
+func TestMiddleware_GarminTokenSetsContext(t *testing.T) {
+	r, cap := newTestRouterFor(t, Config{
+		MobileToken: testMobileToken,
+		AgentToken:  testAgentToken,
+		GarminToken: testGarminToken,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+testGarminToken)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, ClientGarmin, cap.id)
+}
+
+func TestMiddleware_GarminTokenNotRecognizedWhenUnset(t *testing.T) {
+	// GarminToken omitted → the value is not a configured token, so it is 401.
+	r, _ := newTestRouterFor(t, Config{MobileToken: testMobileToken, AgentToken: testAgentToken})
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+testGarminToken)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.JSONEq(t, `{"error":"auth_invalid"}`, rec.Body.String())
+}
+
+func TestConfig_Validate_GarminTooShort(t *testing.T) {
+	err := Config{MobileToken: testMobileToken, AgentToken: testAgentToken, GarminToken: "short"}.Validate()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrTokenTooShort))
+}
+
+func TestConfig_Validate_GarminEqualMobile(t *testing.T) {
+	err := Config{MobileToken: testMobileToken, AgentToken: testAgentToken, GarminToken: testMobileToken}.Validate()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGarminEqual))
+}
+
+func TestConfig_Validate_GarminEqualAgent(t *testing.T) {
+	err := Config{MobileToken: testMobileToken, AgentToken: testAgentToken, GarminToken: testAgentToken}.Validate()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGarminEqual))
+}
+
+func TestConfig_Validate_GarminUnsetOk(t *testing.T) {
+	err := Config{MobileToken: testMobileToken, AgentToken: testAgentToken}.Validate()
+	assert.NoError(t, err)
+}
+
+func TestConfig_Validate_GarminSetOk(t *testing.T) {
+	err := Config{MobileToken: testMobileToken, AgentToken: testAgentToken, GarminToken: testGarminToken}.Validate()
+	assert.NoError(t, err)
 }
 
 func TestConfig_Validate_MissingMobileToken(t *testing.T) {
