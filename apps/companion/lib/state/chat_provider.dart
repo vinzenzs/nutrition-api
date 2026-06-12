@@ -39,12 +39,12 @@ class ChatState {
   }
 }
 
-/// History sent to the backend is capped client-side; the backend truncates
-/// further. System messages are never sent (we only hold user/assistant).
-const _maxHistory = 40;
-
 class ChatNotifier extends Notifier<ChatState> {
+  // _conversationId keys the local Drift cache (scrollback); _sessionId is the
+  // server-side conversation the backend persists turns into. The server is the
+  // source of truth — Drift is only a render cache.
   late String _conversationId;
+  String? _sessionId;
   String? _lastUserText;
 
   @override
@@ -53,9 +53,11 @@ class ChatNotifier extends Notifier<ChatState> {
     return const ChatState();
   }
 
-  /// Starts a fresh conversation. Old messages stay in Drift for scrollback.
+  /// Starts a fresh conversation. Old messages stay in Drift for scrollback;
+  /// the next send opens a new server session.
   void newChat() {
     _conversationId = newIdempotencyKey();
+    _sessionId = null;
     _lastUserText = null;
     state = const ChatState();
   }
@@ -78,24 +80,42 @@ class ChatNotifier extends Notifier<ChatState> {
       clearError: true,
     );
     await _persist(user);
-    await _runStream();
+    await _runTurn(trimmed);
   }
 
-  /// Re-runs the last user turn after a failure (idempotent on the backend).
+  /// Re-runs the last user turn after a failure. The backend resumes from the
+  /// persisted session and replays any completed tool writes idempotently.
   Future<void> retry() async {
     if (_lastUserText == null || state.streaming) return;
     state = state.copyWith(streamingText: '', tools: const [], clearError: true);
-    await _runStream();
+    await _runTurn(_lastUserText!);
   }
 
-  Future<void> _runStream() async {
-    final history = state.messages.length > _maxHistory
-        ? state.messages.sublist(state.messages.length - _maxHistory)
-        : state.messages;
+  /// Ensures a server session exists, creating one lazily on the first turn.
+  /// Returns false (and surfaces a retryable error) when creation fails.
+  Future<bool> _ensureSession() async {
+    if (_sessionId != null) return true;
+    final id = await ref.read(chatClientProvider).createSession();
+    if (id == null) {
+      state = state.copyWith(clearStreaming: true, error: 'chat_session_error');
+      return false;
+    }
+    _sessionId = id;
+    return true;
+  }
+
+  Future<void> _runTurn(String message) async {
+    if (!await _ensureSession()) return;
+    await _runStream(message);
+  }
+
+  Future<void> _runStream(String message) async {
     final buffer = StringBuffer();
     final tools = <ChatToolEvent>[];
     try {
-      await for (final ev in ref.read(chatClientProvider).stream(history)) {
+      await for (final ev in ref
+          .read(chatClientProvider)
+          .stream(sessionId: _sessionId!, message: message)) {
         switch (ev) {
           case ChatTextEvent(:final text):
             buffer.write(text);

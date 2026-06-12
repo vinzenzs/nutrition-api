@@ -5,10 +5,11 @@ import 'package:http/http.dart' as http;
 import '../../domain/chat.dart';
 import '../auth/token_store.dart';
 
-/// Streams a chat turn over the backend SSE endpoint. The backend is stateless,
-/// so each call POSTs the full client-held transcript and the response is a
-/// `text/event-stream` of four event types. Hand-rolled (no SSE package) per
-/// design D2 — the parser is pulled out as a pure function for testing.
+/// Streams a chat turn over the backend SSE endpoint. The backend is
+/// session-backed: each call POSTs `{session_id, message}` (the server holds
+/// the transcript) and the response is a `text/event-stream` of four event
+/// types. Hand-rolled (no SSE package) per design D2 — the parser is pulled out
+/// as a pure function for testing.
 class ChatClient {
   final TokenStore tokenStore;
   final http.Client _http;
@@ -16,7 +17,36 @@ class ChatClient {
   ChatClient({required this.tokenStore, http.Client? client})
       : _http = client ?? http.Client();
 
-  Stream<ChatEvent> stream(List<ChatMessage> history) async* {
+  /// Opens a new server-side conversation, returning its session id (or null on
+  /// a network/not-paired failure — the caller surfaces a retryable error).
+  Future<String?> createSession() async {
+    final baseUrl = await tokenStore.getBaseUrl();
+    final token = await tokenStore.getToken();
+    if (baseUrl == null || token == null) return null;
+    try {
+      final resp = await _http.post(
+        Uri.parse('$baseUrl/chat/sessions'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(const <String, dynamic>{}),
+      );
+      if (resp.statusCode != 201) return null;
+      final j = jsonDecode(resp.body);
+      if (j is Map && j['id'] is String) return j['id'] as String;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Streams one turn: posts [message] against the existing [sessionId]; the
+  /// server loads prior turns and persists the new ones.
+  Stream<ChatEvent> stream({
+    required String sessionId,
+    required String message,
+  }) async* {
     final baseUrl = await tokenStore.getBaseUrl();
     final token = await tokenStore.getToken();
     if (baseUrl == null || token == null) {
@@ -27,12 +57,7 @@ class ChatClient {
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Content-Type'] = 'application/json'
       ..headers['Accept'] = 'text/event-stream'
-      ..body = jsonEncode({
-        'messages': [
-          for (final m in history)
-            {'role': chatRoleName(m.role), 'content': m.content},
-        ],
-      });
+      ..body = jsonEncode({'session_id': sessionId, 'message': message});
 
     http.StreamedResponse resp;
     try {
