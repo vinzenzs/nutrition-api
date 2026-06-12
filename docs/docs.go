@@ -6137,6 +6137,49 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/workouts/{id}/program": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves the workout's template steps with its plan-slot target overrides applied per intent. A workout with no template returns its sport/name and an empty step list.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workouts"
+                ],
+                "summary": "Get a planned workout's effective program (template steps + slot target overrides)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workout UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/trainingplan.Program"
+                        }
+                    },
+                    "404": {
+                        "description": "workout_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -8665,6 +8708,13 @@ const docTemplate = `{
                 "plan_week_id": {
                     "type": "string"
                 },
+                "target_overrides": {
+                    "description": "TargetOverrides supersede the referenced template's step targets, matched\nby intent, when the planned workout's effective program is resolved. At\nmost one entry per intent; nil/empty means no overrides.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/trainingplan.SlotTargetOverride"
+                    }
+                },
                 "template_id": {
                     "type": "string"
                 },
@@ -8712,6 +8762,37 @@ const docTemplate = `{
                 }
             }
         },
+        "trainingplan.Program": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sport": {
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workouttemplates.Step"
+                    }
+                },
+                "workout_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "trainingplan.SlotTargetOverride": {
+            "type": "object",
+            "properties": {
+                "intent": {
+                    "type": "string"
+                },
+                "target": {
+                    "$ref": "#/definitions/workouttemplates.Target"
+                }
+            }
+        },
         "trainingplan.createPlanRequest": {
             "type": "object",
             "properties": {
@@ -8734,6 +8815,12 @@ const docTemplate = `{
             "properties": {
                 "ordinal": {
                     "type": "integer"
+                },
+                "target_overrides": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/trainingplan.SlotTargetOverride"
+                    }
                 },
                 "template_id": {
                     "type": "string"

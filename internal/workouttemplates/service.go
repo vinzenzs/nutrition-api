@@ -164,6 +164,21 @@ func validateSingleStep(n Step) error {
 	return validateTarget(n.Target)
 }
 
+// ValidIntent reports whether s is a recognized step intent. Exported so other
+// capabilities (e.g. training-plan slot overrides) can validate against the
+// same intent vocabulary.
+func ValidIntent(s string) bool {
+	switch s {
+	case IntentWarmup, IntentActive, IntentInterval, IntentRecovery, IntentRest, IntentCooldown:
+		return true
+	}
+	return false
+}
+
+// ValidateTarget validates a single effort target using the same rules applied
+// to template steps. Exported for reuse by training-plan slot target overrides.
+func ValidateTarget(t *Target) error { return validateTarget(t) }
+
 func validateDuration(d *Duration) error {
 	if d == nil {
 		return ErrDurationInvalid

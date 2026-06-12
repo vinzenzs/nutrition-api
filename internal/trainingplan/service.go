@@ -13,17 +13,21 @@ import (
 
 	"github.com/vinzenzs/nutrition-api/internal/store"
 	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
 )
 
 // Validation errors map 1:1 to API error codes.
 var (
-	ErrNameRequired     = errors.New("name_required")
-	ErrStartDateInvalid = errors.New("start_date_invalid")
-	ErrOrdinalInvalid   = errors.New("ordinal_invalid")
-	ErrWeekdayInvalid   = errors.New("weekday_invalid")
-	ErrTimeOfDayInvalid = errors.New("time_of_day_invalid")
-	ErrTemplateRequired = errors.New("template_id_required")
-	ErrScopeInvalid     = errors.New("scope_invalid")
+	ErrNameRequired          = errors.New("name_required")
+	ErrStartDateInvalid      = errors.New("start_date_invalid")
+	ErrOrdinalInvalid        = errors.New("ordinal_invalid")
+	ErrWeekdayInvalid        = errors.New("weekday_invalid")
+	ErrTimeOfDayInvalid      = errors.New("time_of_day_invalid")
+	ErrTemplateRequired      = errors.New("template_id_required")
+	ErrScopeInvalid          = errors.New("scope_invalid")
+	ErrOverrideIntentInvalid = errors.New("override_intent_invalid")
+	ErrOverrideDuplicate     = errors.New("override_intent_duplicate")
+	ErrOverrideTargetInvalid = errors.New("override_target_invalid")
 )
 
 const dateLayout = "2006-01-02"
@@ -38,21 +42,23 @@ const fallbackDurationSec = 3600
 
 // Service orchestrates plan/week/slot CRUD plus materialize.
 type Service struct {
-	repo         *Repo
-	pool         *pgxpool.Pool
-	workoutsRepo *workouts.Repo
-	loc          *time.Location
+	repo          *Repo
+	pool          *pgxpool.Pool
+	workoutsRepo  *workouts.Repo
+	templatesRepo *workouttemplates.Repo
+	loc           *time.Location
 }
 
 // NewService wires the plan repo, the pool (for the materialize transaction),
-// the workouts repo (slot upsert target), and the default timezone the planned
-// start times resolve in.
-func NewService(repo *Repo, pool *pgxpool.Pool, workoutsRepo *workouts.Repo, tz string) *Service {
+// the workouts repo (slot upsert target), the workout-templates repo (effective
+// program resolution), and the default timezone the planned start times resolve
+// in.
+func NewService(repo *Repo, pool *pgxpool.Pool, workoutsRepo *workouts.Repo, templatesRepo *workouttemplates.Repo, tz string) *Service {
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		loc = time.UTC
 	}
-	return &Service{repo: repo, pool: pool, workoutsRepo: workoutsRepo, loc: loc}
+	return &Service{repo: repo, pool: pool, workoutsRepo: workoutsRepo, templatesRepo: templatesRepo, loc: loc}
 }
 
 // ----- plan -----
@@ -171,10 +177,11 @@ func (s *Service) DeleteWeek(ctx context.Context, weekID uuid.UUID) error {
 // ----- slot -----
 
 type SlotInput struct {
-	Weekday    int
-	Ordinal    int
-	TemplateID uuid.UUID
-	TimeOfDay  *string
+	Weekday         int
+	Ordinal         int
+	TemplateID      uuid.UUID
+	TimeOfDay       *string
+	TargetOverrides []SlotTargetOverride
 }
 
 func (s *Service) CreateSlot(ctx context.Context, weekID uuid.UUID, in SlotInput) (*PlanSlot, error) {
@@ -187,21 +194,28 @@ func (s *Service) CreateSlot(ctx context.Context, weekID uuid.UUID, in SlotInput
 	if in.TimeOfDay != nil && !validTime(*in.TimeOfDay) {
 		return nil, ErrTimeOfDayInvalid
 	}
+	if err := validateOverrides(in.TargetOverrides); err != nil {
+		return nil, err
+	}
 	if _, err := s.repo.GetWeek(ctx, weekID); err != nil {
 		return nil, err
 	}
 	return s.repo.CreateSlot(ctx, &PlanSlot{
 		PlanWeekID: weekID, Weekday: in.Weekday, Ordinal: in.Ordinal,
-		TemplateID: in.TemplateID, TimeOfDay: in.TimeOfDay,
+		TemplateID: in.TemplateID, TimeOfDay: in.TimeOfDay, TargetOverrides: in.TargetOverrides,
 	})
 }
 
 type SlotPatch struct {
-	Weekday    *int
-	Ordinal    *int
-	TemplateID *uuid.UUID
-	SetTime    bool
-	TimeOfDay  *string
+	Weekday      *int
+	Ordinal      *int
+	TemplateID   *uuid.UUID
+	SetTime      bool
+	TimeOfDay    *string
+	SetOverrides bool
+	// TargetOverrides is the replacement list when SetOverrides is true; an
+	// empty/nil slice clears all overrides.
+	TargetOverrides []SlotTargetOverride
 }
 
 func (s *Service) PatchSlot(ctx context.Context, slotID uuid.UUID, p SlotPatch) (*PlanSlot, error) {
@@ -230,7 +244,33 @@ func (s *Service) PatchSlot(ctx context.Context, slotID uuid.UUID, p SlotPatch) 
 		}
 		sl.TimeOfDay = p.TimeOfDay
 	}
+	if p.SetOverrides {
+		if err := validateOverrides(p.TargetOverrides); err != nil {
+			return nil, err
+		}
+		sl.TargetOverrides = p.TargetOverrides
+	}
 	return s.repo.UpdateSlot(ctx, sl)
+}
+
+// validateOverrides enforces: each intent is a known template intent, no intent
+// repeats, and each target passes the workout-templates Target validator.
+func validateOverrides(overrides []SlotTargetOverride) error {
+	seen := make(map[string]bool, len(overrides))
+	for _, o := range overrides {
+		if !workouttemplates.ValidIntent(o.Intent) {
+			return ErrOverrideIntentInvalid
+		}
+		if seen[o.Intent] {
+			return ErrOverrideDuplicate
+		}
+		seen[o.Intent] = true
+		t := o.Target
+		if err := workouttemplates.ValidateTarget(&t); err != nil {
+			return ErrOverrideTargetInvalid
+		}
+	}
+	return nil
 }
 
 func (s *Service) DeleteSlot(ctx context.Context, slotID uuid.UUID) error {
@@ -352,6 +392,68 @@ func (s *Service) PlannedWorkoutsInScope(ctx context.Context, planID uuid.UUID, 
 		return nil, err
 	}
 	return s.repo.PlannedWorkoutsInScope(ctx, planID, scope.Kind, scope.Week, scope.From, scope.To)
+}
+
+// ----- effective program -----
+
+// EffectiveProgram resolves a workout's program: the steps of its template with
+// the workout's slot target overrides applied (matched by step intent). A
+// workout with no template returns its metadata and an empty step list. Returns
+// workouts.ErrNotFound when the workout is missing.
+func (s *Service) EffectiveProgram(ctx context.Context, workoutID uuid.UUID) (*Program, error) {
+	w, err := s.workoutsRepo.GetByID(ctx, workoutID)
+	if err != nil {
+		return nil, err
+	}
+	prog := &Program{WorkoutID: w.ID, Sport: string(w.Sport), Name: w.Name, Steps: []workouttemplates.Step{}}
+	if w.TemplateID == nil {
+		return prog, nil
+	}
+	tmpl, err := s.templatesRepo.GetByID(ctx, w.TemplateID.String())
+	if err != nil {
+		return nil, err
+	}
+	var overrides []SlotTargetOverride
+	if w.PlanSlotID != nil {
+		if sl, err := s.repo.GetSlot(ctx, *w.PlanSlotID); err == nil {
+			overrides = sl.TargetOverrides
+		}
+	}
+	prog.Steps = applyOverrides(tmpl.Steps, overrides)
+	return prog, nil
+}
+
+// applyOverrides returns a copy of steps with each step's target replaced when
+// its intent has a matching override; repeat groups are recursed one level.
+func applyOverrides(steps []workouttemplates.Step, overrides []SlotTargetOverride) []workouttemplates.Step {
+	if len(steps) == 0 {
+		return []workouttemplates.Step{}
+	}
+	byIntent := make(map[string]workouttemplates.Target, len(overrides))
+	for _, o := range overrides {
+		byIntent[o.Intent] = o.Target
+	}
+	out := make([]workouttemplates.Step, len(steps))
+	for i, st := range steps {
+		out[i] = applyOverrideToStep(st, byIntent)
+	}
+	return out
+}
+
+func applyOverrideToStep(st workouttemplates.Step, byIntent map[string]workouttemplates.Target) workouttemplates.Step {
+	if st.Type == workouttemplates.NodeRepeat {
+		inner := make([]workouttemplates.Step, len(st.Steps))
+		for i, child := range st.Steps {
+			inner[i] = applyOverrideToStep(child, byIntent)
+		}
+		st.Steps = inner
+		return st
+	}
+	if t, ok := byIntent[st.Intent]; ok {
+		tt := t
+		st.Target = &tt
+	}
+	return st
 }
 
 // ----- validators -----

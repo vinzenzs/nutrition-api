@@ -26,9 +26,11 @@ func setup(t *testing.T) *gin.Engine {
 	pool := storetest.NewPool(t)
 	r := gin.New()
 	g := r.Group("/")
-	workouttemplates.NewHandlers(workouttemplates.NewService(workouttemplates.NewRepo(pool))).Register(g)
+	tr := workouttemplates.NewRepo(pool)
+	workouttemplates.NewHandlers(workouttemplates.NewService(tr)).Register(g)
 	wr := workouts.NewRepo(pool)
-	trainingplan.NewHandlers(trainingplan.NewService(trainingplan.NewRepo(pool), pool, wr, "UTC")).Register(g)
+	workouts.NewHandlers(workouts.NewService(wr)).Register(g)
+	trainingplan.NewHandlers(trainingplan.NewService(trainingplan.NewRepo(pool), pool, wr, tr, "UTC")).Register(g)
 	return r
 }
 
@@ -149,8 +151,9 @@ func TestDeletePlan_CascadesAndNullsWorkoutLink(t *testing.T) {
 	pool := storetest.NewPool(t)
 	r := gin.New()
 	g := r.Group("/")
-	workouttemplates.NewHandlers(workouttemplates.NewService(workouttemplates.NewRepo(pool))).Register(g)
-	trainingplan.NewHandlers(trainingplan.NewService(trainingplan.NewRepo(pool), pool, workouts.NewRepo(pool), "UTC")).Register(g)
+	tr := workouttemplates.NewRepo(pool)
+	workouttemplates.NewHandlers(workouttemplates.NewService(tr)).Register(g)
+	trainingplan.NewHandlers(trainingplan.NewService(trainingplan.NewRepo(pool), pool, workouts.NewRepo(pool), tr, "UTC")).Register(g)
 
 	tmpl := createTemplate(t, r)
 	planID := mustID(t, do(t, r, http.MethodPost, "/training-plans", `{"name":"p","start_date":"2026-06-01"}`))

@@ -168,6 +168,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"patch_plan_slot",
 		"delete_plan_slot",
 		"materialize_training_plan",
+		"get_workout_program",
 		"log_weight",
 		"list_weights",
 		"patch_weight",

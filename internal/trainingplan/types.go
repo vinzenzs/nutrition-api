@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
 )
 
 // Plan mirrors a training_plans row. Weeks is populated only by the nested
@@ -44,6 +46,28 @@ type PlanSlot struct {
 	Ordinal    int       `json:"ordinal"`
 	TemplateID uuid.UUID `json:"template_id"`
 	TimeOfDay  *string   `json:"time_of_day,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	// TargetOverrides supersede the referenced template's step targets, matched
+	// by intent, when the planned workout's effective program is resolved. At
+	// most one entry per intent; nil/empty means no overrides.
+	TargetOverrides []SlotTargetOverride `json:"target_overrides,omitempty"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+}
+
+// SlotTargetOverride replaces the effort target of every template step whose
+// intent matches, when a planned workout's effective program is resolved. The
+// Target reuses the workout-templates Target shape and validator verbatim.
+type SlotTargetOverride struct {
+	Intent string                  `json:"intent"`
+	Target workouttemplates.Target `json:"target"`
+}
+
+// Program is a planned workout's effective program: its template steps with the
+// slot's target overrides applied (per-intent). Steps is empty for a workout
+// with no template.
+type Program struct {
+	WorkoutID uuid.UUID               `json:"workout_id"`
+	Sport     string                  `json:"sport"`
+	Name      *string                 `json:"name,omitempty"`
+	Steps     []workouttemplates.Step `json:"steps"`
 }

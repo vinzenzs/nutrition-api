@@ -1726,6 +1726,14 @@ definitions:
         type: integer
       plan_week_id:
         type: string
+      target_overrides:
+        description: |-
+          TargetOverrides supersede the referenced template's step targets, matched
+          by intent, when the planned workout's effective program is resolved. At
+          most one entry per intent; nil/empty means no overrides.
+        items:
+          $ref: '#/definitions/trainingplan.SlotTargetOverride'
+        type: array
       template_id:
         type: string
       time_of_day:
@@ -1757,6 +1765,26 @@ definitions:
       updated_at:
         type: string
     type: object
+  trainingplan.Program:
+    properties:
+      name:
+        type: string
+      sport:
+        type: string
+      steps:
+        items:
+          $ref: '#/definitions/workouttemplates.Step'
+        type: array
+      workout_id:
+        type: string
+    type: object
+  trainingplan.SlotTargetOverride:
+    properties:
+      intent:
+        type: string
+      target:
+        $ref: '#/definitions/workouttemplates.Target'
+    type: object
   trainingplan.createPlanRequest:
     properties:
       name:
@@ -1772,6 +1800,10 @@ definitions:
     properties:
       ordinal:
         type: integer
+      target_overrides:
+        items:
+          $ref: '#/definitions/trainingplan.SlotTargetOverride'
+        type: array
       template_id:
         type: string
       time_of_day:
@@ -6247,6 +6279,36 @@ paths:
       security:
       - BearerAuth: []
       summary: 'Workout fueling: pre / intra / post windows'
+      tags:
+      - workouts
+  /workouts/{id}/program:
+    get:
+      description: Resolves the workout's template steps with its plan-slot target
+        overrides applied per intent. A workout with no template returns its sport/name
+        and an empty step list.
+      parameters:
+      - description: Workout UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/trainingplan.Program'
+        "404":
+          description: workout_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a planned workout's effective program (template steps + slot target
+        overrides)
       tags:
       - workouts
   /workouts/bulk:

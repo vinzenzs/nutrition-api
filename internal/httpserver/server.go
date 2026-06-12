@@ -277,7 +277,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	workouts.NewHandlers(workoutsSvc).Register(api)
 	workoutTemplatesRepo := workouttemplates.NewRepo(pool)
 	workouttemplates.NewHandlers(workouttemplates.NewService(workoutTemplatesRepo)).Register(api)
-	trainingPlanSvc := trainingplan.NewService(trainingplan.NewRepo(pool), pool, workoutsRepo, cfg.DefaultUserTZ)
+	trainingPlanSvc := trainingplan.NewService(trainingplan.NewRepo(pool), pool, workoutsRepo, workoutTemplatesRepo, cfg.DefaultUserTZ)
 	trainingplan.NewHandlers(trainingPlanSvc).Register(api)
 	workoutfueling.NewHandlers(fuelingSvc).Register(api)
 	workoutfuel.NewHandlers(workoutFuelSvc).Register(api)

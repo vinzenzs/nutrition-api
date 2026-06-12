@@ -63,23 +63,36 @@ type DeletePlanWeekArgs struct {
 
 // ----- slot -----
 
+// SlotTargetOverrideArg overrides the effort target of every template step whose
+// intent matches, when the planned workout's effective program is resolved.
+type SlotTargetOverrideArg struct {
+	Intent string         `json:"intent" jsonschema:"step intent to override: warmup|active|interval|recovery|rest|cooldown"`
+	Target map[string]any `json:"target" jsonschema:"effort target, same shape as a workout-template step target (e.g. {\"kind\":\"pace\",\"low_sec_per_km\":435,\"high_sec_per_km\":435} for 7:15/km)"`
+}
+
 type AddPlanSlotArgs struct {
-	PlanID         string  `json:"plan_id" jsonschema:"the plan UUID"`
-	WeekID         string  `json:"week_id" jsonschema:"the week UUID"`
-	Weekday        int     `json:"weekday" jsonschema:"day of week 0 (Monday) through 6 (Sunday)"`
-	Ordinal        int     `json:"ordinal" jsonschema:"order of this session within the day (0-based)"`
-	TemplateID     string  `json:"template_id" jsonschema:"the workout-template UUID this slot schedules"`
-	TimeOfDay      *string `json:"time_of_day,omitempty" jsonschema:"optional local start time HH:MM or HH:MM:SS"`
-	IdempotencyKey string  `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
+	PlanID          string                  `json:"plan_id" jsonschema:"the plan UUID"`
+	WeekID          string                  `json:"week_id" jsonschema:"the week UUID"`
+	Weekday         int                     `json:"weekday" jsonschema:"day of week 0 (Monday) through 6 (Sunday)"`
+	Ordinal         int                     `json:"ordinal" jsonschema:"order of this session within the day (0-based)"`
+	TemplateID      string                  `json:"template_id" jsonschema:"the workout-template UUID this slot schedules"`
+	TimeOfDay       *string                 `json:"time_of_day,omitempty" jsonschema:"optional local start time HH:MM or HH:MM:SS"`
+	TargetOverrides []SlotTargetOverrideArg `json:"target_overrides,omitempty" jsonschema:"optional per-intent target overrides that supersede the template's targets (e.g. progress an interval pace across weeks); at most one per intent"`
+	IdempotencyKey  string                  `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
 }
 
 type PatchPlanSlotArgs struct {
-	PlanID     string  `json:"plan_id" jsonschema:"the plan UUID"`
-	SlotID     string  `json:"slot_id" jsonschema:"the slot UUID"`
-	Weekday    *int    `json:"weekday,omitempty" jsonschema:"optional new weekday 0..6"`
-	Ordinal    *int    `json:"ordinal,omitempty" jsonschema:"optional new within-day order"`
-	TemplateID *string `json:"template_id,omitempty" jsonschema:"optional new template UUID"`
-	TimeOfDay  *string `json:"time_of_day,omitempty" jsonschema:"optional new local start time HH:MM or HH:MM:SS"`
+	PlanID          string                   `json:"plan_id" jsonschema:"the plan UUID"`
+	SlotID          string                   `json:"slot_id" jsonschema:"the slot UUID"`
+	Weekday         *int                     `json:"weekday,omitempty" jsonschema:"optional new weekday 0..6"`
+	Ordinal         *int                     `json:"ordinal,omitempty" jsonschema:"optional new within-day order"`
+	TemplateID      *string                  `json:"template_id,omitempty" jsonschema:"optional new template UUID"`
+	TimeOfDay       *string                  `json:"time_of_day,omitempty" jsonschema:"optional new local start time HH:MM or HH:MM:SS"`
+	TargetOverrides *[]SlotTargetOverrideArg `json:"target_overrides,omitempty" jsonschema:"optional replacement override list (replaces wholesale; empty list clears all overrides)"`
+}
+
+type GetWorkoutProgramArgs struct {
+	ID string `json:"id" jsonschema:"the planned workout UUID; returns the effective steps (template + slot target overrides)"`
 }
 
 type DeletePlanSlotArgs struct {
@@ -172,7 +185,11 @@ func handleDeletePlanWeek(ctx context.Context, c *apiClient, args DeletePlanWeek
 }
 
 func handleAddPlanSlot(ctx context.Context, c *apiClient, args AddPlanSlotArgs) *mcp.CallToolResult {
-	body, err := json.Marshal(map[string]any{"weekday": args.Weekday, "ordinal": args.Ordinal, "template_id": args.TemplateID, "time_of_day": args.TimeOfDay})
+	payload := map[string]any{"weekday": args.Weekday, "ordinal": args.Ordinal, "template_id": args.TemplateID, "time_of_day": args.TimeOfDay}
+	if args.TargetOverrides != nil {
+		payload["target_overrides"] = args.TargetOverrides
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return toToolResult(0, nil, &transportError{inner: err})
 	}
@@ -195,7 +212,16 @@ func handlePatchPlanSlot(ctx context.Context, c *apiClient, args PatchPlanSlotAr
 	if args.TimeOfDay != nil {
 		payload["time_of_day"] = *args.TimeOfDay
 	}
+	if args.TargetOverrides != nil {
+		// Present (possibly empty → clears all overrides); replaces wholesale.
+		payload["target_overrides"] = *args.TargetOverrides
+	}
 	return patchJSON(ctx, c, "/training-plans/"+url.PathEscape(args.PlanID)+"/slots/"+url.PathEscape(args.SlotID), payload)
+}
+
+func handleGetWorkoutProgram(ctx context.Context, c *apiClient, args GetWorkoutProgramArgs) *mcp.CallToolResult {
+	status, body, err := c.Get(ctx, "/workouts/"+url.PathEscape(args.ID)+"/program", nil)
+	return toToolResult(status, body, err)
 }
 
 func handleDeletePlanSlot(ctx context.Context, c *apiClient, args DeletePlanSlotArgs) *mcp.CallToolResult {
@@ -270,11 +296,11 @@ func registerTrainingPlanTools(server *mcp.Server, c *apiClient) {
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "add_plan_slot",
-		Description: "Add a day-slot to a plan week: a weekday (0=Mon..6=Sun), a within-day ordinal, the workout-template to schedule, and an optional time_of_day."},
+		Description: "Add a day-slot to a plan week: a weekday (0=Mon..6=Sun), a within-day ordinal, the workout-template to schedule, an optional time_of_day, and optional per-intent target_overrides (e.g. run a tempo template's interval at pace 7:15 this week, faster next week) so one template can progress across the plan."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, a AddPlanSlotArgs) (*mcp.CallToolResult, any, error) {
 			return handleAddPlanSlot(ctx, c, a), nil, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "patch_plan_slot", Description: "Update a slot's weekday / ordinal / template_id / time_of_day. Re-materialize to retarget the planned workout."},
+	mcp.AddTool(server, &mcp.Tool{Name: "patch_plan_slot", Description: "Update a slot's weekday / ordinal / template_id / time_of_day / target_overrides (replaces the override list wholesale; empty clears). Re-materialize to retarget the planned workout."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, a PatchPlanSlotArgs) (*mcp.CallToolResult, any, error) {
 			return handlePatchPlanSlot(ctx, c, a), nil, nil
 		})
@@ -287,5 +313,11 @@ func registerTrainingPlanTools(server *mcp.Server, c *apiClient) {
 		Description: "Expand a plan into dated, planned workouts. scope is all, week (with week ordinal), or range (with from/to dates). Idempotent and slot-keyed: re-running updates the same planned workouts rather than duplicating; completed sessions are never reverted."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, a MaterializeTrainingPlanArgs) (*mcp.CallToolResult, any, error) {
 			return handleMaterializeTrainingPlan(ctx, c, a), nil, nil
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "get_workout_program",
+		Description: "Get a planned workout's effective program — its template steps with the plan slot's per-intent target overrides applied (e.g. the interval at pace 7:15). A workout with no template returns sport/name and no steps."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, a GetWorkoutProgramArgs) (*mcp.CallToolResult, any, error) {
+			return handleGetWorkoutProgram(ctx, c, a), nil, nil
 		})
 }

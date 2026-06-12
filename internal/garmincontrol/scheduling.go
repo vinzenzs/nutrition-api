@@ -31,6 +31,9 @@ type templatesRepo interface {
 
 type planService interface {
 	PlannedWorkoutsInScope(ctx context.Context, planID uuid.UUID, scope trainingplan.Scope) ([]uuid.UUID, error)
+	// EffectiveProgram resolves a planned workout's template steps with its slot
+	// target overrides applied — what the watch compile must build from.
+	EffectiveProgram(ctx context.Context, workoutID uuid.UUID) (*trainingplan.Program, error)
 }
 
 // Orchestration sentinels.
@@ -247,13 +250,19 @@ func (h *Handlers) pushOne(ctx context.Context, id uuid.UUID) (*workouts.Workout
 	if err != nil {
 		return nil, errNotSchedulable
 	}
+	// Compile from the workout's EFFECTIVE program — the template steps with the
+	// plan slot's per-intent target overrides applied — not the raw template.
+	prog, err := h.planSvc.EffectiveProgram(ctx, id)
+	if err != nil {
+		return nil, errNotSchedulable
+	}
 	// Re-push: remove the prior calendar entry first so no orphan is left.
 	if w.GarminScheduleID != nil {
 		if err := h.bridgeUnschedule(ctx, *w.GarminScheduleID); err != nil {
 			return nil, err
 		}
 	}
-	garminWorkoutID, err := h.bridgeCreateWorkout(ctx, tmpl)
+	garminWorkoutID, err := h.bridgeCreateWorkout(ctx, tmpl.Sport, tmpl.Name, prog.Steps)
 	if err != nil {
 		return nil, err
 	}
@@ -270,8 +279,8 @@ func (h *Handlers) pushOne(ctx context.Context, id uuid.UUID) (*workouts.Workout
 
 // ----- bridge client -----
 
-func (h *Handlers) bridgeCreateWorkout(ctx context.Context, tmpl *workouttemplates.Template) (string, error) {
-	body, _ := json.Marshal(map[string]any{"sport": tmpl.Sport, "name": tmpl.Name, "steps": tmpl.Steps})
+func (h *Handlers) bridgeCreateWorkout(ctx context.Context, sport, name string, steps []workouttemplates.Step) (string, error) {
+	body, _ := json.Marshal(map[string]any{"sport": sport, "name": name, "steps": steps})
 	var out struct {
 		GarminWorkoutID string `json:"garmin_workout_id"`
 	}

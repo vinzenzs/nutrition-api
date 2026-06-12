@@ -45,6 +45,12 @@ steps), uploads it, and returns the Garmin workout id. This keeps Garmin's
 churning payload schema out of Go — when Garmin changes it, the fix is a `pip`
 bump and a bridge edit, consistent with the read-sync design.
 
+> **Retrofit (add-plan-slot-targets):** the backend now sends the planned
+> workout's **effective program** — its template steps with the plan slot's
+> per-intent target overrides applied, via `trainingplan.Service.EffectiveProgram`
+> — rather than the raw template steps. The override resolution happens before
+> this step; the bridge translation below is unchanged.
+
 ```
 backend (planned workout + template steps)
    └─POST /workouts──▶ bridge: build garmin payload, create in library

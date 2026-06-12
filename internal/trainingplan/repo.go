@@ -2,6 +2,7 @@ package trainingplan
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -36,7 +37,7 @@ func NewRepo(q store.Querier) *Repo {
 const (
 	planCols = `id, name, race_id, to_char(start_date, 'YYYY-MM-DD') AS start_date, notes, created_at, updated_at`
 	weekCols = `id, plan_id, ordinal, phase_id, notes, created_at, updated_at`
-	slotCols = `id, plan_week_id, weekday, ordinal, template_id, to_char(time_of_day, 'HH24:MI:SS') AS time_of_day, created_at, updated_at`
+	slotCols = `id, plan_week_id, weekday, ordinal, template_id, to_char(time_of_day, 'HH24:MI:SS') AS time_of_day, target_overrides, created_at, updated_at`
 )
 
 // ----- plan -----
@@ -199,11 +200,15 @@ func (r *Repo) DeleteWeek(ctx context.Context, id uuid.UUID) error {
 // ----- slot -----
 
 func (r *Repo) CreateSlot(ctx context.Context, s *PlanSlot) (*PlanSlot, error) {
+	overrides, err := marshalOverrides(s.TargetOverrides)
+	if err != nil {
+		return nil, err
+	}
 	row := r.q.QueryRow(ctx, `
-        INSERT INTO plan_slots (plan_week_id, weekday, ordinal, template_id, time_of_day, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5::time, now(), now())
+        INSERT INTO plan_slots (plan_week_id, weekday, ordinal, template_id, time_of_day, target_overrides, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5::time, $6::jsonb, now(), now())
         RETURNING `+slotCols,
-		s.PlanWeekID, s.Weekday, s.Ordinal, s.TemplateID, s.TimeOfDay,
+		s.PlanWeekID, s.Weekday, s.Ordinal, s.TemplateID, s.TimeOfDay, overrides,
 	)
 	out, err := scanSlot(row)
 	return out, mapWriteErr(err)
@@ -219,12 +224,16 @@ func (r *Repo) GetSlot(ctx context.Context, id uuid.UUID) (*PlanSlot, error) {
 }
 
 func (r *Repo) UpdateSlot(ctx context.Context, s *PlanSlot) (*PlanSlot, error) {
+	overrides, err := marshalOverrides(s.TargetOverrides)
+	if err != nil {
+		return nil, err
+	}
 	row := r.q.QueryRow(ctx, `
         UPDATE plan_slots
-        SET weekday = $2, ordinal = $3, template_id = $4, time_of_day = $5::time, updated_at = now()
+        SET weekday = $2, ordinal = $3, template_id = $4, time_of_day = $5::time, target_overrides = $6::jsonb, updated_at = now()
         WHERE id = $1
         RETURNING `+slotCols,
-		s.ID, s.Weekday, s.Ordinal, s.TemplateID, s.TimeOfDay,
+		s.ID, s.Weekday, s.Ordinal, s.TemplateID, s.TimeOfDay, overrides,
 	)
 	out, err := scanSlot(row)
 	if errors.Is(err, ErrPlanNotFound) {
@@ -360,14 +369,33 @@ func scanWeek(s scanner) (*PlanWeek, error) {
 
 func scanSlot(s scanner) (*PlanSlot, error) {
 	var sl PlanSlot
-	err := s.Scan(&sl.ID, &sl.PlanWeekID, &sl.Weekday, &sl.Ordinal, &sl.TemplateID, &sl.TimeOfDay, &sl.CreatedAt, &sl.UpdatedAt)
+	var overrides []byte
+	err := s.Scan(&sl.ID, &sl.PlanWeekID, &sl.Weekday, &sl.Ordinal, &sl.TemplateID, &sl.TimeOfDay, &overrides, &sl.CreatedAt, &sl.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPlanNotFound // remapped by callers to ErrSlotNotFound
 		}
 		return nil, fmt.Errorf("scan slot: %w", err)
 	}
+	if len(overrides) > 0 {
+		if err := json.Unmarshal(overrides, &sl.TargetOverrides); err != nil {
+			return nil, fmt.Errorf("scan slot target_overrides: %w", err)
+		}
+	}
 	return &sl, nil
+}
+
+// marshalOverrides returns the JSONB bytes for a slot's overrides, or nil (SQL
+// NULL) when there are none.
+func marshalOverrides(o []SlotTargetOverride) ([]byte, error) {
+	if len(o) == 0 {
+		return nil, nil
+	}
+	b, err := json.Marshal(o)
+	if err != nil {
+		return nil, fmt.Errorf("marshal slot target_overrides: %w", err)
+	}
+	return b, nil
 }
 
 // mapWriteErr turns Postgres FK / unique violations into typed sentinels.

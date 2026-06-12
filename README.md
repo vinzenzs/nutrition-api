@@ -541,6 +541,25 @@ curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: appl
 #   scope: {"scope":"all"} | {"scope":"week","week":N} | {"scope":"range","from":"…","to":"…"}
 ```
 
+**Per-slot target overrides + the effective program.** A slot may carry an optional
+`target_overrides` list — `{intent, target}` entries, at most one per intent — that supersede the
+template's step targets, matched by step `intent`, so one template can progress across the plan
+(e.g. the same tempo run at 7:15/km this week, 7:00/km later) without authoring a template per
+pace. The `target` reuses the workout-template target shape (`pace` as `low/high_sec_per_km`,
+`hr_zone`/`power_zone` 1–5, `hr_bpm`, `power_w`, `rpe`). `GET /workouts/{id}/program` returns a
+planned workout's **effective program**: its template steps with the slot overrides applied
+(a workout with no template returns its sport/name and an empty step list). The Garmin watch push
+compiles from this effective program.
+
+```bash
+# Slot whose interval step runs at 7:15/km (435 s/km); patch replaces the list wholesale ([] clears)
+curl -X POST -H "Authorization: Bearer $MOBILE_API_TOKEN" -H "Content-Type: application/json" \
+    -d '{"weekday":0,"ordinal":0,"template_id":"'"$TEMPLATE_ID"'","target_overrides":[{"intent":"interval","target":{"kind":"pace","low_sec_per_km":435,"high_sec_per_km":435}}]}' \
+    http://localhost:8080/training-plans/$PLAN/weeks/$WEEK/slots
+# Resolve a planned workout's effective steps (template + slot overrides)
+curl -H "Authorization: Bearer $MOBILE_API_TOKEN" http://localhost:8080/workouts/$WORKOUT_ID/program
+```
+
 ### Body weight
 
 A measurement event — kg, optionally body-fat % and the smart-scale biometrics a full Garmin
@@ -1193,10 +1212,11 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `add_plan_week`               | `POST /training-plans/{id}/weeks`      | Add a week (ordinal ≥ 1, optional phase link).                |
 | `patch_plan_week`             | `PATCH /training-plans/{id}/weeks/{weekId}` | Update a week's ordinal / phase_id / notes.              |
 | `delete_plan_week`            | `DELETE /training-plans/{id}/weeks/{weekId}` | Delete a week (cascades its slots).                     |
-| `add_plan_slot`               | `POST /training-plans/{id}/weeks/{weekId}/slots` | Add a day-slot (weekday + template + optional time_of_day). |
-| `patch_plan_slot`             | `PATCH /training-plans/{id}/slots/{slotId}` | Update a slot's weekday / ordinal / template_id / time_of_day. |
+| `add_plan_slot`               | `POST /training-plans/{id}/weeks/{weekId}/slots` | Add a day-slot (weekday + template + optional time_of_day + optional per-intent `target_overrides`). |
+| `patch_plan_slot`             | `PATCH /training-plans/{id}/slots/{slotId}` | Update a slot's weekday / ordinal / template_id / time_of_day / target_overrides (replaces wholesale; empty clears). |
 | `delete_plan_slot`            | `DELETE /training-plans/{id}/slots/{slotId}` | Delete a slot.                                          |
 | `materialize_training_plan`   | `POST /training-plans/{id}/materialize` | Expand a scope (all / week / range) into dated planned workouts; idempotent, slot-keyed. |
+| `get_workout_program`         | `GET /workouts/{id}/program`           | A planned workout's effective program — template steps with the slot's per-intent target overrides applied (e.g. the interval at pace 7:15). |
 | `log_weight`                  | `POST /weight`                         | Record a body-weight measurement, optionally with body-fat %. |
 | `list_weights`                | `GET /weight?from=…&to=…`              | List body-weight entries in a 92-day window.                  |
 | `patch_weight`                | `PATCH /weight/{id}`                   | Edit weight / body-fat % / logged_at / note.                  |

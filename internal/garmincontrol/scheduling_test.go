@@ -73,6 +73,15 @@ func (f *fakePlan) PlannedWorkoutsInScope(_ context.Context, _ uuid.UUID, _ trai
 	return f.ids, nil
 }
 
+func (f *fakePlan) EffectiveProgram(_ context.Context, workoutID uuid.UUID) (*trainingplan.Program, error) {
+	return &trainingplan.Program{
+		WorkoutID: workoutID,
+		Sport:     "run",
+		Steps: []workouttemplates.Step{{Type: "step", Intent: "active",
+			Duration: &workouttemplates.Duration{Kind: "open"}, Target: &workouttemplates.Target{Kind: "none"}}},
+	}, nil
+}
+
 // --- stub bridge ---
 
 type bridgeStub struct {
