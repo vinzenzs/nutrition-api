@@ -14,6 +14,7 @@ import (
 	"github.com/vinzenzs/nutrition-api/internal/auth"
 	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
 	"github.com/vinzenzs/nutrition-api/internal/chat"
+	"github.com/vinzenzs/nutrition-api/internal/chatsessions"
 	"github.com/vinzenzs/nutrition-api/internal/config"
 	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
 	"github.com/vinzenzs/nutrition-api/internal/dailycontext"
@@ -157,6 +158,11 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		}
 		chatSvc = cs
 	}
+	// Chat-session persistence is independent of the API key: the CRUD surface
+	// (and the store the loop writes into) works even when chatSvc is nil — only
+	// POST /chat itself returns 503 without a key.
+	chatSessionsRepo := chatsessions.NewRepo(pool)
+	chatSessionsSvc := chatsessions.NewService(chatSessionsRepo)
 	goalsRepo := goals.NewRepo(pool)
 	goalsOverridesRepo := goals.NewOverridesRepo(pool)
 	templatesRepo := trainingphases.NewTemplatesRepo(pool)
@@ -300,13 +306,17 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	// idempotency it needs lives one level down, on the individual tool calls the
 	// loop dispatches, each of which carries its own derived key).
 	chat.NewHandlers(chatSvc).Register(api)
+	chatsessions.NewHandlers(chatSessionsSvc).Register(api)
 
 	// The chat loop dispatches tools as in-process HTTP calls back through this
 	// same engine (full auth + idempotency + logging middleware). Wire the
 	// loopback target now that every route — including /chat itself — is
 	// registered. Guarded because chatSvc is nil when no API key is configured.
+	// The session store is injected here too: the loop loads history from and
+	// persists turns into chat_sessions / chat_messages.
 	if chatSvc != nil {
 		chatSvc.SetLoopbackHandler(r)
+		chatSvc.SetSessionStore(chatSessionStore{repo: chatSessionsRepo})
 	}
 
 	srv := &http.Server{

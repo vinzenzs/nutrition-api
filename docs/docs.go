@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Runs a server-side Anthropic agent loop scoped to meal planning and streams the result as Server-Sent Events. The request body is the full client-held transcript ({messages:[{role,content}]}); the server holds no conversation state. The response is text/event-stream with four event types — ` + "`" + `text` + "`" + ` (assistant delta), ` + "`" + `tool` + "`" + ` (name+status+summary), ` + "`" + `done` + "`" + ` (final message, stop_reason, usage), and ` + "`" + `error` + "`" + ` (typed code). Tools are dispatched as loopback REST calls under the caller's bearer token. Returns 503 chat_unavailable when ANTHROPIC_API_KEY is unset, and 400 for an empty transcript or a client-supplied system message.",
+                "description": "Runs a server-side Anthropic agent loop scoped to meal planning and streams the result as Server-Sent Events. The request body is ` + "`" + `{session_id, message}` + "`" + ` — an existing chat session and the single new user message; the server loads the session's prior turns, persists the new ones, and holds the conversation as the source of truth. The response is text/event-stream with four event types — ` + "`" + `text` + "`" + ` (assistant delta), ` + "`" + `tool` + "`" + ` (name+status+summary), ` + "`" + `done` + "`" + ` (final message, stop_reason, usage), and ` + "`" + `error` + "`" + ` (typed code). Tools are dispatched as loopback REST calls under the caller's bearer token. Returns 503 chat_unavailable when ANTHROPIC_API_KEY is unset, 404 session_not_found for an unknown session, and 400 for an empty message.",
                 "consumes": [
                     "application/json"
                 ],
@@ -35,7 +35,7 @@ const docTemplate = `{
                 "summary": "Stream a nutrition-planning chat turn",
                 "parameters": [
                     {
-                        "description": "Client-held transcript",
+                        "description": "Session id + new message",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -52,7 +52,16 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "invalid_json | empty_transcript | system_role_not_allowed | invalid_role",
+                        "description": "invalid_json | empty_message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "session_not_found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -62,6 +71,223 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "chat_unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns session headers (no transcript) most-recent-first by last activity.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-sessions"
+                ],
+                "summary": "List chat sessions",
+                "responses": {
+                    "200": {
+                        "description": "{ sessions: [...] }",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Opens a new conversation. ` + "`" + `title` + "`" + ` is optional — an absent or empty title creates an untitled session (the first /chat turn then names it from the opening message). Honors an Idempotency-Key.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-sessions"
+                ],
+                "summary": "Create a chat session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Optional client-supplied idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Optional title",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/chatsessions.titleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/chatsessions.Session"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | title_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/sessions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the session header plus its ordered turns at full fidelity (each turn's role and verbatim content blocks).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-sessions"
+                ],
+                "summary": "Get a chat session with its transcript",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/chatsessions.SessionWithMessages"
+                        }
+                    },
+                    "404": {
+                        "description": "session_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes the session and cascades its turns.",
+                "tags": [
+                    "chat-sessions"
+                ],
+                "summary": "Delete a chat session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "no content"
+                    },
+                    "404": {
+                        "description": "session_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sets the session title. A title of \"\" (or null) clears it to untitled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-sessions"
+                ],
+                "summary": "Rename a chat session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New title (\\",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/chatsessions.titleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/chatsessions.Session"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | title_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "session_not_found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -6051,21 +6277,76 @@ const docTemplate = `{
         "chat.ChatRequest": {
             "type": "object",
             "properties": {
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/chat.InboundMessage"
-                    }
+                "message": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
                 }
             }
         },
-        "chat.InboundMessage": {
+        "chatsessions.Message": {
             "type": "object",
             "properties": {
                 "content": {
-                    "type": "string"
+                    "description": "Content is the verbatim Anthropic content value — a JSON string (plain\nuser text) or a content-block array — so its OpenAPI type is left open.",
+                    "type": "object"
                 },
                 "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "chatsessions.Session": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_message_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "chatsessions.SessionWithMessages": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_message_at": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/chatsessions.Message"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "chatsessions.titleRequest": {
+            "type": "object",
+            "properties": {
+                "title": {
                     "type": "string"
                 }
             }

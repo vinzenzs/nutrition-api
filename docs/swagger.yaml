@@ -90,16 +90,54 @@ definitions:
     type: object
   chat.ChatRequest:
     properties:
-      messages:
-        items:
-          $ref: '#/definitions/chat.InboundMessage'
-        type: array
+      message:
+        type: string
+      session_id:
+        type: string
     type: object
-  chat.InboundMessage:
+  chatsessions.Message:
     properties:
       content:
-        type: string
+        description: |-
+          Content is the verbatim Anthropic content value — a JSON string (plain
+          user text) or a content-block array — so its OpenAPI type is left open.
+        type: object
       role:
+        type: string
+    type: object
+  chatsessions.Session:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      last_message_at:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  chatsessions.SessionWithMessages:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      last_message_at:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/chatsessions.Message'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  chatsessions.titleRequest:
+    properties:
+      title:
         type: string
     type: object
   dailycontext.AdherenceBlock:
@@ -2091,16 +2129,17 @@ paths:
       consumes:
       - application/json
       description: Runs a server-side Anthropic agent loop scoped to meal planning
-        and streams the result as Server-Sent Events. The request body is the full
-        client-held transcript ({messages:[{role,content}]}); the server holds no
-        conversation state. The response is text/event-stream with four event types
-        — `text` (assistant delta), `tool` (name+status+summary), `done` (final message,
-        stop_reason, usage), and `error` (typed code). Tools are dispatched as loopback
-        REST calls under the caller's bearer token. Returns 503 chat_unavailable when
-        ANTHROPIC_API_KEY is unset, and 400 for an empty transcript or a client-supplied
-        system message.
+        and streams the result as Server-Sent Events. The request body is `{session_id,
+        message}` — an existing chat session and the single new user message; the
+        server loads the session's prior turns, persists the new ones, and holds the
+        conversation as the source of truth. The response is text/event-stream with
+        four event types — `text` (assistant delta), `tool` (name+status+summary),
+        `done` (final message, stop_reason, usage), and `error` (typed code). Tools
+        are dispatched as loopback REST calls under the caller's bearer token. Returns
+        503 chat_unavailable when ANTHROPIC_API_KEY is unset, 404 session_not_found
+        for an unknown session, and 400 for an empty message.
       parameters:
-      - description: Client-held transcript
+      - description: Session id + new message
         in: body
         name: body
         required: true
@@ -2114,8 +2153,13 @@ paths:
           schema:
             type: string
         "400":
-          description: invalid_json | empty_transcript | system_role_not_allowed |
-            invalid_role
+          description: invalid_json | empty_message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: session_not_found
           schema:
             additionalProperties:
               type: string
@@ -2131,6 +2175,147 @@ paths:
       summary: Stream a nutrition-planning chat turn
       tags:
       - chat
+  /chat/sessions:
+    get:
+      description: Returns session headers (no transcript) most-recent-first by last
+        activity.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{ sessions: [...] }'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List chat sessions
+      tags:
+      - chat-sessions
+    post:
+      consumes:
+      - application/json
+      description: Opens a new conversation. `title` is optional — an absent or empty
+        title creates an untitled session (the first /chat turn then names it from
+        the opening message). Honors an Idempotency-Key.
+      parameters:
+      - description: Optional client-supplied idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Optional title
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/chatsessions.titleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/chatsessions.Session'
+        "400":
+          description: invalid_json | title_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a chat session
+      tags:
+      - chat-sessions
+  /chat/sessions/{id}:
+    delete:
+      description: Removes the session and cascades its turns.
+      parameters:
+      - description: Session UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: no content
+        "404":
+          description: session_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a chat session
+      tags:
+      - chat-sessions
+    get:
+      description: Returns the session header plus its ordered turns at full fidelity
+        (each turn's role and verbatim content blocks).
+      parameters:
+      - description: Session UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/chatsessions.SessionWithMessages'
+        "404":
+          description: session_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a chat session with its transcript
+      tags:
+      - chat-sessions
+    patch:
+      consumes:
+      - application/json
+      description: Sets the session title. A title of "" (or null) clears it to untitled.
+      parameters:
+      - description: Session UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New title (\
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/chatsessions.titleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/chatsessions.Session'
+        "400":
+          description: invalid_json | title_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: session_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rename a chat session
+      tags:
+      - chat-sessions
   /context/daily:
     get:
       description: One read that returns the day's adherence + nutrition totals +

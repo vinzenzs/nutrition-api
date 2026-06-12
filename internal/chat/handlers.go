@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // Handlers wires the chat service to the POST /chat route. svc may be nil when
@@ -26,13 +27,14 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 
 // chat godoc
 // @Summary      Stream a nutrition-planning chat turn
-// @Description  Runs a server-side Anthropic agent loop scoped to meal planning and streams the result as Server-Sent Events. The request body is the full client-held transcript ({messages:[{role,content}]}); the server holds no conversation state. The response is text/event-stream with four event types — `text` (assistant delta), `tool` (name+status+summary), `done` (final message, stop_reason, usage), and `error` (typed code). Tools are dispatched as loopback REST calls under the caller's bearer token. Returns 503 chat_unavailable when ANTHROPIC_API_KEY is unset, and 400 for an empty transcript or a client-supplied system message.
+// @Description  Runs a server-side Anthropic agent loop scoped to meal planning and streams the result as Server-Sent Events. The request body is `{session_id, message}` — an existing chat session and the single new user message; the server loads the session's prior turns, persists the new ones, and holds the conversation as the source of truth. The response is text/event-stream with four event types — `text` (assistant delta), `tool` (name+status+summary), `done` (final message, stop_reason, usage), and `error` (typed code). Tools are dispatched as loopback REST calls under the caller's bearer token. Returns 503 chat_unavailable when ANTHROPIC_API_KEY is unset, 404 session_not_found for an unknown session, and 400 for an empty message.
 // @Tags         chat
 // @Accept       json
 // @Produce      text/event-stream
-// @Param        body  body  ChatRequest  true  "Client-held transcript"
+// @Param        body  body  ChatRequest  true  "Session id + new message"
 // @Success      200   {string}  string  "SSE stream"
-// @Failure      400   {object}  map[string]string  "invalid_json | empty_transcript | system_role_not_allowed | invalid_role"
+// @Failure      400   {object}  map[string]string  "invalid_json | empty_message"
+// @Failure      404   {object}  map[string]string  "session_not_found"
 // @Failure      503   {object}  map[string]string  "chat_unavailable"
 // @Security     BearerAuth
 // @Router       /chat [post]
@@ -48,8 +50,25 @@ func (h *Handlers) chat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
 		return
 	}
-	if code := validateTranscript(req.Messages); code != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": code})
+	sessionID, err := uuid.Parse(req.SessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found"})
+		return
+	}
+	if strings.TrimSpace(req.Message) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "empty_message"})
+		return
+	}
+
+	// Resolve the session before opening the stream so an unknown id is a clean
+	// 404 rather than an error event.
+	exists, err := h.svc.SessionExists(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "persistence_error"})
+		return
+	}
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session_not_found"})
 		return
 	}
 
@@ -64,27 +83,7 @@ func (h *Handlers) chat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming_unsupported"})
 		return
 	}
-	h.svc.stream(ctx, sse, req.Messages, bearer)
-}
-
-// validateTranscript enforces the request-shape rules: non-empty, roles limited
-// to user/assistant, and no client-supplied system message (the system prompt
-// is server-owned and not overridable).
-func validateTranscript(msgs []InboundMessage) string {
-	if len(msgs) == 0 {
-		return "empty_transcript"
-	}
-	for _, m := range msgs {
-		switch m.Role {
-		case "system":
-			return "system_role_not_allowed"
-		case "user", "assistant":
-			// ok
-		default:
-			return "invalid_role"
-		}
-	}
-	return ""
+	h.svc.stream(ctx, sse, sessionID, req.Message, bearer)
 }
 
 func extractBearer(authHeader string) string {

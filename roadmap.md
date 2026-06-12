@@ -6,6 +6,9 @@ _Generated from OpenSpec changes. Last refreshed: 2026-06-12 by the `roadmap` sk
 
 | Date | Change | Summary | Implementer(s) | Commit |
 |---|---|---|---|---|
+| 2026-06-12 | add-garmin-scheduling | The write-to-watch edge: compile a planned workout's steps into a structured Garmin workout and schedule it on the calendar (push/unschedule/read). | Vinzenz Stadtmueller | [`1066e53`](https://github.com/vinzenzs/nutrition-api/commit/1066e53) |
+| 2026-06-12 | add-training-plan | The 18-week plan as plan→weeks→slots→template with an idempotent `materialize` into planned workouts; retires `Plan.md`. | Vinzenz Stadtmueller | [`d2cc452`](https://github.com/vinzenzs/nutrition-api/commit/d2cc452) |
+| 2026-06-12 | add-workout-templates | The ~40-session workout library (`WORKOUT_DEFS`) as structured steps — intervals/zones/repeats — in JSONB. | Vinzenz Stadtmueller | [`e7225ad`](https://github.com/vinzenzs/nutrition-api/commit/e7225ad) |
 | 2026-06-12 | add-garmin-mcp-login | Re-link Garmin from chat: backend login proxy + MCP `garmin_login`/`garmin_submit_mfa`, since the token expires ~yearly. | Vinzenz Stadtmueller | [`19b7558`](https://github.com/vinzenzs/nutrition-api/commit/19b7558) |
 | 2026-06-12 | add-garmin-bridge | Python garmin-bridge service owning all Garmin auth/fetch, mapping results to the REST API on a schedule. | Vinzenz Stadtmueller | [`26071ec`](https://github.com/vinzenzs/nutrition-api/commit/26071ec) |
 | 2026-06-12 | add-garmin-auth-token | Encrypted single-row Garmin token store + dedicated `garmin` auth identity to unblock the bridge. | Vinzenz Stadtmueller | [`345dc9e`](https://github.com/vinzenzs/nutrition-api/commit/345dc9e) |
@@ -52,10 +55,9 @@ _Generated from OpenSpec changes. Last refreshed: 2026-06-12 by the `roadmap` sk
 
 | Change | Summary | Proposed by | Proposed |
 |---|---|---|---|
-| add-garmin-scheduling | The write-to-watch edge: compile template steps into a structured Garmin workout and schedule it on the calendar (push/unschedule/read). | Vinzenz Stadtmueller | 2026-06-12 |
-| add-training-plan | The 18-week plan as plan→weeks→slots→template with an idempotent `materialize` into planned workouts; retires `Plan.md`. | Vinzenz Stadtmueller | 2026-06-12 |
+| add-chat-sessions | Make `/chat` stateful: the server holds conversation state instead of every client carrying the full transcript. | Vinzenz Stadtmueller | 2026-06-12 |
+| add-plan-slot-targets | Per-slot target overrides so one template progresses across the plan (e.g. a tempo run at 7:30→7:15→7:00); `GET /workouts/{id}/program` exposes resolved steps. | Vinzenz Stadtmueller | 2026-06-12 |
 | add-workout-reconciliation | Merge a completed Garmin import into its matching planned workout (planned→completed in place), with fulfill/unfulfill. | Vinzenz Stadtmueller | 2026-06-12 |
-| add-workout-templates | The ~40-session workout library (`WORKOUT_DEFS`) as structured steps — intervals/zones/repeats — in JSONB. | Vinzenz Stadtmueller | 2026-06-12 |
 
 ---
 _To regenerate: ask Claude "update the roadmap"._

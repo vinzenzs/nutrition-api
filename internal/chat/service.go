@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 // Config carries the chat runtime knobs, sourced from the server config.
@@ -22,11 +25,31 @@ type Config struct {
 	BaseURL string
 }
 
+// StoredTurn is one persisted conversation turn — a role plus the verbatim
+// Anthropic content value (a JSON string for plain user text, or a content-block
+// array for assistant/tool turns).
+type StoredTurn struct {
+	Role    string
+	Content json.RawMessage
+}
+
+// SessionStore is the durable backing the session-backed loop needs: confirm a
+// session exists, load its prior turns, append new ones, and name an untitled
+// session from its opening message. Implemented by an adapter over
+// chatsessions.Repo in production and by a fake in loop tests.
+type SessionStore interface {
+	SessionExists(ctx context.Context, sessionID uuid.UUID) (bool, error)
+	LoadTurns(ctx context.Context, sessionID uuid.UUID, limit int) ([]StoredTurn, error)
+	AppendTurns(ctx context.Context, sessionID uuid.UUID, turns []StoredTurn) error
+	SetTitleIfEmpty(ctx context.Context, sessionID uuid.UUID, title string) error
+}
+
 // Service runs the server-side chat agent loop. It is constructed only when an
 // Anthropic API key is present; the handler returns 503 when it is nil.
 type Service struct {
 	client     *client
 	dispatcher *dispatcher
+	store      SessionStore
 	cfg        Config
 }
 
@@ -58,9 +81,23 @@ func (s *Service) SetLoopbackHandler(h http.Handler) {
 	s.dispatcher = newDispatcher(h)
 }
 
-// stream runs the agent loop for one request, writing SSE events. inbound is the
-// validated client transcript; bearer is the caller's token, forwarded to tools.
-func (s *Service) stream(ctx context.Context, sse *sseWriter, inbound []InboundMessage, bearer string) {
+// SetSessionStore wires the durable session store the loop loads history from
+// and persists turns into. Required before the loop can run.
+func (s *Service) SetSessionStore(store SessionStore) {
+	s.store = store
+}
+
+// SessionExists reports whether the given session exists, so the handler can
+// 404 before starting a stream.
+func (s *Service) SessionExists(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	return s.store.SessionExists(ctx, sessionID)
+}
+
+// stream runs the agent loop for one request, writing SSE events. sessionID is
+// an existing session whose stored turns are loaded as history and into which
+// every new turn is persisted; message is the new user message; bearer is the
+// caller's token, forwarded to tools.
+func (s *Service) stream(ctx context.Context, sse *sseWriter, sessionID uuid.UUID, message, bearer string) {
 	specs := registry()
 	toolDefs := anthropicToolDefs(specs)
 	system := buildSystemPrompt(promptParams{
@@ -68,7 +105,25 @@ func (s *Service) stream(ctx context.Context, sse *sseWriter, inbound []InboundM
 		Timezone:           s.cfg.Timezone,
 	})
 
-	messages := s.initialMessages(inbound)
+	// Load prior turns (truncated to the most recent MaxHistoryMessages) as the
+	// conversation history, dropping any turn left dangling by truncation.
+	prior, err := s.store.LoadTurns(ctx, sessionID, s.cfg.MaxHistoryMessages)
+	if err != nil {
+		sse.error("persistence_error", "could not load the conversation")
+		return
+	}
+	messages := toAnthropicMessages(sanitizeHistory(prior))
+
+	// Persist the new user message before streaming, and name an untitled
+	// session from it. A persist failure here is terminal — nothing has streamed.
+	userContent, _ := json.Marshal(message)
+	if err := s.store.AppendTurns(ctx, sessionID, []StoredTurn{{Role: "user", Content: userContent}}); err != nil {
+		sse.error("persistence_error", "could not save the message")
+		return
+	}
+	_ = s.store.SetTitleIfEmpty(ctx, sessionID, deriveTitle(message))
+	messages = append(messages, anthropicMessage{Role: "user", Content: userContent})
+
 	var full strings.Builder
 	var usage Usage
 	rounds := 0
@@ -101,14 +156,20 @@ func (s *Service) stream(ctx context.Context, sse *sseWriter, inbound []InboundM
 			if !withTools && rounds >= s.cfg.MaxToolRounds {
 				stop = "max_tool_rounds"
 			}
+			// Persist the final assistant turn (best-effort: the answer has
+			// already streamed) before signalling done.
+			_ = s.store.AppendTurns(ctx, sessionID, []StoredTurn{
+				{Role: "assistant", Content: marshalBlocks(turn.AssistantContent)},
+			})
 			sse.done(full.String(), stop, usage)
 			return
 		}
 
 		// Echo the assistant turn (with its tool_use blocks) and dispatch tools.
+		assistantContent := marshalBlocks(turn.AssistantContent)
 		messages = append(messages, anthropicMessage{
 			Role:    "assistant",
-			Content: marshalBlocks(turn.AssistantContent),
+			Content: assistantContent,
 		})
 		resultBlocks := make([]json.RawMessage, 0, len(turn.ClientToolCalls))
 		for _, call := range turn.ClientToolCalls {
@@ -118,27 +179,77 @@ func (s *Service) stream(ctx context.Context, sse *sseWriter, inbound []InboundM
 			name, status, summary := toolEventFields(call.Name, res)
 			sse.tool(name, status, summary)
 		}
+		toolResultContent := marshalBlocks(resultBlocks)
 		messages = append(messages, anthropicMessage{
 			Role:    "user",
-			Content: marshalBlocks(resultBlocks),
+			Content: toolResultContent,
+		})
+		// Persist the assistant turn and its tool_result reply together (one
+		// atomic append) so a stored session never ends on a dangling tool_use.
+		_ = s.store.AppendTurns(ctx, sessionID, []StoredTurn{
+			{Role: "assistant", Content: assistantContent},
+			{Role: "user", Content: toolResultContent},
 		})
 		rounds++
 	}
 }
 
-// initialMessages converts the inbound transcript into Anthropic messages,
-// truncated to the most recent MaxHistoryMessages entries. Each content string
-// is JSON-encoded into the Content raw field.
-func (s *Service) initialMessages(inbound []InboundMessage) []anthropicMessage {
-	if len(inbound) > s.cfg.MaxHistoryMessages {
-		inbound = inbound[len(inbound)-s.cfg.MaxHistoryMessages:]
-	}
-	out := make([]anthropicMessage, 0, len(inbound))
-	for _, m := range inbound {
-		content, _ := json.Marshal(m.Content)
-		out = append(out, anthropicMessage{Role: m.Role, Content: content})
+// toAnthropicMessages maps stored turns to the upstream message shape; each
+// turn's content is already the verbatim Anthropic content value.
+func toAnthropicMessages(turns []StoredTurn) []anthropicMessage {
+	out := make([]anthropicMessage, 0, len(turns))
+	for _, t := range turns {
+		out = append(out, anthropicMessage{Role: t.Role, Content: t.Content})
 	}
 	return out
+}
+
+// sanitizeHistory makes a (possibly truncated) turn window safe to send
+// upstream: it drops leading turns that cannot legally open a request — an
+// assistant turn, or a tool_result user turn orphaned from its tool_use — and a
+// trailing assistant turn left ending on an unanswered tool_use.
+func sanitizeHistory(turns []StoredTurn) []StoredTurn {
+	for len(turns) > 0 && !opensCleanly(turns[0]) {
+		turns = turns[1:]
+	}
+	if n := len(turns); n > 0 && turns[n-1].Role == "assistant" && hasBlockType(turns[n-1].Content, "tool_use") {
+		turns = turns[:n-1]
+	}
+	return turns
+}
+
+// opensCleanly reports whether a turn can be the first message of a request: a
+// user turn that is not a tool_result reply.
+func opensCleanly(t StoredTurn) bool {
+	return t.Role == "user" && !hasBlockType(t.Content, "tool_result")
+}
+
+// hasBlockType reports whether content is a content-block array containing a
+// block of the given type. A plain-string content (user text) has none.
+func hasBlockType(content json.RawMessage, blockType string) bool {
+	var blocks []struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(content, &blocks); err != nil {
+		return false
+	}
+	for _, b := range blocks {
+		if b.Type == blockType {
+			return true
+		}
+	}
+	return false
+}
+
+// deriveTitle builds a short session title from the opening user message.
+func deriveTitle(message string) string {
+	t := strings.TrimSpace(strings.Join(strings.Fields(message), " "))
+	const maxRunes = 60
+	if utf8.RuneCountInString(t) <= maxRunes {
+		return t
+	}
+	r := []rune(t)
+	return strings.TrimSpace(string(r[:maxRunes])) + "…"
 }
 
 func (s *Service) emitStreamError(sse *sseWriter, ctx context.Context, err error) {

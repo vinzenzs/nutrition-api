@@ -57,13 +57,9 @@ type Usage struct {
 
 // ----- public request/response (handler boundary) -----
 
-// InboundMessage is one entry of the client-held transcript.
-type InboundMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatRequest is the POST /chat body.
+// ChatRequest is the POST /chat body: the id of an existing session and the
+// single new user message. History lives server-side, keyed by SessionID.
 type ChatRequest struct {
-	Messages []InboundMessage `json:"messages"`
+	SessionID string `json:"session_id"`
+	Message   string `json:"message"`
 }
