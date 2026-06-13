@@ -21,3 +21,6 @@ data:
   # notation ("1.048576e+07"), which the binary's int64 parser rejects.
   MEAL_FROM_PHOTO_MAX_BYTES: {{ .Values.config.mealFromPhotoMaxBytes | int64 | quote }}
   HTTP_ADDR: ":{{ .Values.service.targetPort }}"
+  {{- if .Values.config.garminBridgeUrl }}
+  GARMIN_BRIDGE_URL: {{ .Values.config.garminBridgeUrl | quote }}
+  {{- end }}

@@ -82,11 +82,17 @@ config:
   claudeVisionModel: claude-sonnet-4-6
   visionTimeoutSeconds: 15
   mealFromPhotoMaxBytes: 10485760
+  # -- In-cluster base URL of the garmin-bridge. When set, the backend's
+  #    /garmin/login, /garmin/calendar, /garmin/backfill, … proxies forward to
+  #    it; empty → those endpoints return 503 garmin_disabled. Typically the
+  #    in-cluster Service of the bridge (e.g. http://<release>-garmin-bridge).
+  garminBridgeUrl: ""
 
 # -- Reference an externally-managed Secret. When set, the chart will NOT
 #    render its own Secret; the Deployment's envFrom uses this name.
 #    The Secret must contain keys: DATABASE_URL, MOBILE_API_TOKEN,
-#    AGENT_API_TOKEN (and optionally ANTHROPIC_API_KEY).
+#    AGENT_API_TOKEN (and optionally ANTHROPIC_API_KEY, plus GARMIN_API_TOKEN +
+#    GARMIN_TOKEN_ENC_KEY when the backend Garmin integration is enabled).
 existingSecret: ""
 
 # -- Secret values populated into a chart-managed Secret.
@@ -95,11 +101,20 @@ existingSecret: ""
 #    OPTIONAL:
 #       anthropicApiKey — empty falls back to 503 vision_unavailable on
 #                          /meals/from_photo (existing handler behaviour).
+#    Garmin integration (opt-in): set garminApiToken to enable the backend's
+#       /garmin/* endpoints under the `garmin` bearer identity (it must equal the
+#       garmin-bridge's GARMIN_API_TOKEN). When garminApiToken is set,
+#       garminTokenEncKey is REQUIRED — a base64-encoded 32-byte AES-256 key used
+#       to encrypt the stored Garmin token at rest. Generate one with:
+#           openssl rand -base64 32
+#       Leave both empty to keep the backend's Garmin integration disabled.
 secrets:
   databaseUrl: ""
   mobileApiToken: ""
   agentApiToken: ""
   anthropicApiKey: ""
+  garminApiToken: ""
+  garminTokenEncKey: ""
 
 # -- Liveness probe — see openspec/specs/deployment-pipeline for tuning rationale.
 livenessProbe:
