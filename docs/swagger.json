@@ -8,6 +8,79 @@
     },
     "basePath": "/",
     "paths": {
+        "/athlete-config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the single athlete-config row (FTP, thresholds, max HR, lactate-threshold HR, HR-zone and optional power-zone boundaries), or null before any config has been set. Capture-only mirror; these values feed no fueling computation.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "athlete-config"
+                ],
+                "summary": "Get the athlete physiology configuration (singleton)",
+                "responses": {
+                    "200": {
+                        "description": "{\\\"athlete_config\\\": AthleteConfig | null}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Full-replace semantics: absent fields are stored as NULL (cleared), matching PUT /goals. Every field is optional and must be \u003e 0 when present. `Idempotency-Key` is NOT accepted on PUT — supplying the header returns `400 idempotency_unsupported_for_put`. Garmin is source-of-truth: the daily sync re-issues this PUT and overwrites manual edits.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "athlete-config"
+                ],
+                "summary": "Set or replace the athlete physiology configuration (singleton)",
+                "parameters": [
+                    {
+                        "description": "Athlete config payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/athleteconfig.AthleteConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\\\"athlete_config\\\": AthleteConfig}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "athlete_config_value_invalid | invalid_json | idempotency_unsupported_for_put",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/chat": {
             "post": {
                 "security": [
@@ -6699,6 +6772,65 @@
         }
     },
     "definitions": {
+        "athleteconfig.AthleteConfig": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "ftp_watts": {
+                    "type": "integer"
+                },
+                "hr_zone_1_max": {
+                    "type": "integer"
+                },
+                "hr_zone_2_max": {
+                    "type": "integer"
+                },
+                "hr_zone_3_max": {
+                    "type": "integer"
+                },
+                "hr_zone_4_max": {
+                    "type": "integer"
+                },
+                "hr_zone_5_max": {
+                    "type": "integer"
+                },
+                "lactate_threshold_hr": {
+                    "type": "integer"
+                },
+                "max_hr": {
+                    "type": "integer"
+                },
+                "power_zone_1_max": {
+                    "type": "integer"
+                },
+                "power_zone_2_max": {
+                    "type": "integer"
+                },
+                "power_zone_3_max": {
+                    "type": "integer"
+                },
+                "power_zone_4_max": {
+                    "type": "integer"
+                },
+                "power_zone_5_max": {
+                    "type": "integer"
+                },
+                "threshold_hr": {
+                    "type": "integer"
+                },
+                "threshold_pace_sec_per_km": {
+                    "type": "number"
+                },
+                "threshold_swim_pace_sec_per_100m": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "bodyweight.Entry": {
             "type": "object",
             "properties": {

@@ -176,6 +176,45 @@ def test_inventory_empty_when_absent():
     assert mapping.map_personal_records({}) == []
 
 
+def test_athlete_config_mapping(raw_day):
+    cfg = mapping.map_athlete_config(raw_day)
+    assert cfg["ftp_watts"] == 265
+    assert cfg["threshold_hr"] == 168
+    assert cfg["lactate_threshold_hr"] == 165
+    assert cfg["max_hr"] == 188
+    # threshold speeds (m/s) → paces
+    assert cfg["threshold_pace_sec_per_km"] == 250.0  # 1000 / 4.0
+    assert cfg["threshold_swim_pace_sec_per_100m"] == 80.0  # 100 / 1.25
+    assert cfg["hr_zone_1_max"] == 120
+    assert cfg["hr_zone_5_max"] == 182
+    assert cfg["power_zone_3_max"] == 240
+    assert cfg["power_zone_5_max"] == 350
+
+
+def test_athlete_config_power_zones_absent():
+    """HR zones present, power zones absent → power_zone_* omitted."""
+    raw = {
+        "userprofile_settings": {
+            "userData": {"ftpAutoDetected": 250},
+            "heartRateZones": [
+                {"zoneNumber": 1, "zoneHigh": 120},
+                {"zoneNumber": 2, "zoneHigh": 140},
+            ],
+        }
+    }
+    cfg = mapping.map_athlete_config(raw)
+    assert cfg["ftp_watts"] == 250
+    assert cfg["hr_zone_1_max"] == 120
+    assert not any(k.startswith("power_zone_") for k in cfg)
+    # threshold paces absent (no speeds supplied) → omitted
+    assert "threshold_pace_sec_per_km" not in cfg
+
+
+def test_athlete_config_empty_yields_none():
+    assert mapping.map_athlete_config({}) is None
+    assert mapping.map_athlete_config({"userprofile_settings": {"userData": {}}}) is None
+
+
 def test_weight_mapping_grams_to_kg(raw_day):
     weights = mapping.map_weights(raw_day)
     assert len(weights) == 1

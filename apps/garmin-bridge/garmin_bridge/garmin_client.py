@@ -143,6 +143,15 @@ def fetch_day(api, date: str) -> dict[str, Any]:
     raw["fitness_age"] = safe("fitness_age", lambda: api.get_fitnessage_data(date))
     raw["hydration"] = safe("hydration", lambda: api.get_hydration_data(date))
     raw["user_summary"] = safe("user_summary", lambda: api.get_user_summary(date))
+    # Athlete physiology config (per add-garmin-athlete-config): FTP, thresholds,
+    # max HR, and HR/power-zone boundaries. Slowly-changing — refreshed in place
+    # via the singleton PUT each sync. Sourced from the user profile + settings
+    # (this garminconnect build exposes no dedicated heart-rate-zones call; the
+    # zones ride in the user-settings payload). Both fetches guarded.
+    raw["user_profile"] = safe("user_profile", lambda: api.get_user_profile())
+    raw["userprofile_settings"] = safe(
+        "userprofile_settings", lambda: api.get_userprofile_settings()
+    )
     raw["weigh_ins"] = safe("weigh_ins", lambda: api.get_weigh_ins(date, date))
     raw["activities"] = safe(
         "activities", lambda: api.get_activities_by_date(date, date)

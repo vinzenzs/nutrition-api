@@ -71,3 +71,7 @@ class Backend:
     def post_json(self, path: str, body: dict) -> httpx.Response:
         """POST a JSON body; returns the response for the caller to inspect."""
         return self._client.post(path, json=body)
+
+    def put_json(self, path: str, body: dict) -> httpx.Response:
+        """PUT a JSON body (full-replace; no Idempotency-Key on PUT endpoints)."""
+        return self._client.put(path, json=body)

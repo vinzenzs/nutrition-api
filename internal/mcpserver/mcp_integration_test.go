@@ -191,6 +191,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"daily_summary_get",
 		"gear_list",
 		"personal_records_list",
+		"athlete_config_get",
 		"workout_fueling_summary",
 		"log_workout_fuel",
 		"list_workout_fuel",

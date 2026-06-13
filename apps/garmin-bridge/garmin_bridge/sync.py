@@ -81,6 +81,25 @@ def sync_day(backend: Backend, raw: dict[str, Any], date: str) -> dict[str, Any]
             logger.warning("workouts bulk post failed: %s", exc)
             summary["errors"]["workouts"] = str(exc)
 
+    # Athlete physiology config: a non-date-keyed singleton, refreshed in place
+    # via PUT each sync (Garmin source-of-truth). Skipped when the mapper found
+    # nothing. No Idempotency-Key — the backend rejects it on PUT.
+    config = mapped.get("athlete_config")
+    if not config:
+        summary["results"]["athlete_config"] = "skipped (no data)"
+    else:
+        try:
+            resp = backend.put_json("/athlete-config", config)
+            if resp.status_code in (200, 201):
+                summary["results"]["athlete_config"] = "updated"
+            else:
+                summary["results"]["athlete_config"] = "failed"
+                summary["errors"]["athlete_config"] = f"PUT -> {resp.status_code}"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("athlete_config put failed: %s", exc)
+            summary["results"]["athlete_config"] = "failed"
+            summary["errors"]["athlete_config"] = str(exc)
+
     # Inventory: gear + personal records, each an idempotent upsert by external
     # id. Mirrors the weight loop's per-item partial-failure accounting; one bad
     # inventory item (or an empty inventory) never aborts the rest of the sync.

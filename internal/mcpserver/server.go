@@ -62,6 +62,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	registerDailySummaryTools(server, client)
 	registerGearTools(server, client)
 	registerPersonalRecordsTools(server, client)
+	registerAthleteConfigTools(server, client)
 	registerEnergyTools(server, client)
 	registerTrainingPhasesTools(server, client)
 	registerDailyContextTools(server, client)

@@ -533,6 +533,69 @@ def _pr_achieved_at(pr: dict[str, Any]) -> str | None:
     return None
 
 
+# --- athlete-config mapper ----------------------------------------------
+
+
+def _speed_to_pace_per_km(speed_mps: float | None) -> float | None:
+    """m/s → seconds per kilometre (Garmin exposes threshold as a speed)."""
+    if speed_mps is None or speed_mps <= 0:
+        return None
+    return 1000.0 / speed_mps
+
+
+def _speed_to_pace_per_100m(speed_mps: float | None) -> float | None:
+    """m/s → seconds per 100 m (the conventional swim pace unit)."""
+    if speed_mps is None or speed_mps <= 0:
+        return None
+    return 100.0 / speed_mps
+
+
+def _zone_maxima(zones: Any, prefix: str) -> dict[str, Any]:
+    """A list of Garmin zone objects → {prefix_1_max .. prefix_5_max} (upper bounds)."""
+    out: dict[str, Any] = {}
+    for z in zones or []:
+        num = _as_int(z.get("zoneNumber"))
+        high = _as_int(
+            z.get("zoneHigh")
+            if z.get("zoneHigh") is not None
+            else z.get("highBpm")
+            if z.get("highBpm") is not None
+            else z.get("max")
+        )
+        if num is not None and 1 <= num <= 5 and high is not None:
+            out[f"{prefix}_{num}_max"] = high
+    return out
+
+
+def map_athlete_config(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Garmin user profile + settings → /athlete-config singleton body.
+
+    Defensive: each field is read from the user-settings ``userData`` (with a
+    user-profile fallback for max HR) and omitted when absent. Threshold paces
+    are derived from Garmin's threshold *speeds* (m/s). HR/power-zone boundaries
+    ride in the settings payload. Returns None when nothing usable was found.
+    """
+    user = _dig(raw, "userprofile_settings", "userData") or {}
+    profile = raw.get("user_profile") or {}
+    cfg = _prune(
+        {
+            "ftp_watts": _as_int(user.get("ftpAutoDetected") or user.get("functionalThresholdPower")),
+            "threshold_hr": _as_int(user.get("functionalThresholdHeartRate")),
+            "lactate_threshold_hr": _as_int(user.get("lactateThresholdHeartRate")),
+            "max_hr": _as_int(user.get("maxHeartRate") or profile.get("maxHeartRate")),
+            "threshold_pace_sec_per_km": _speed_to_pace_per_km(
+                _as_float(user.get("lactateThresholdSpeed"))
+            ),
+            "threshold_swim_pace_sec_per_100m": _speed_to_pace_per_100m(
+                _as_float(user.get("lactateThresholdSwimSpeed"))
+            ),
+        }
+    )
+    cfg.update(_zone_maxima(_dig(raw, "userprofile_settings", "heartRateZones"), "hr_zone"))
+    cfg.update(_zone_maxima(_dig(raw, "userprofile_settings", "powerZones"), "power_zone"))
+    return cfg or None
+
+
 def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
     """Map a full raw Garmin day into the per-capability request bodies."""
     return {
@@ -544,6 +607,7 @@ def map_day(raw: dict[str, Any], date: str) -> dict[str, Any]:
         "workouts": map_workouts(raw),
         "gear": map_gear(raw),
         "personal_records": map_personal_records(raw),
+        "athlete_config": map_athlete_config(raw),
     }
 
 

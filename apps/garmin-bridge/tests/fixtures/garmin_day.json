@@ -54,6 +54,31 @@
     "vigorousIntensityMinutes": 48,
     "totalDistanceMeters": 9320.4789
   },
+  "user_profile": { "maxHeartRate": 188 },
+  "userprofile_settings": {
+    "userData": {
+      "ftpAutoDetected": 265,
+      "functionalThresholdHeartRate": 168,
+      "lactateThresholdHeartRate": 165,
+      "maxHeartRate": 188,
+      "lactateThresholdSpeed": 4.0,
+      "lactateThresholdSwimSpeed": 1.25
+    },
+    "heartRateZones": [
+      { "zoneNumber": 1, "zoneHigh": 120 },
+      { "zoneNumber": 2, "zoneHigh": 140 },
+      { "zoneNumber": 3, "zoneHigh": 155 },
+      { "zoneNumber": 4, "zoneHigh": 168 },
+      { "zoneNumber": 5, "zoneHigh": 182 }
+    ],
+    "powerZones": [
+      { "zoneNumber": 1, "zoneHigh": 150 },
+      { "zoneNumber": 2, "zoneHigh": 200 },
+      { "zoneNumber": 3, "zoneHigh": 240 },
+      { "zoneNumber": 4, "zoneHigh": 280 },
+      { "zoneNumber": 5, "zoneHigh": 350 }
+    ]
+  },
   "gear": [
     {
       "uuid": "gear-shoes-1",

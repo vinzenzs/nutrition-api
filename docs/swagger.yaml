@@ -1,5 +1,44 @@
 basePath: /
 definitions:
+  athleteconfig.AthleteConfig:
+    properties:
+      created_at:
+        type: string
+      ftp_watts:
+        type: integer
+      hr_zone_1_max:
+        type: integer
+      hr_zone_2_max:
+        type: integer
+      hr_zone_3_max:
+        type: integer
+      hr_zone_4_max:
+        type: integer
+      hr_zone_5_max:
+        type: integer
+      lactate_threshold_hr:
+        type: integer
+      max_hr:
+        type: integer
+      power_zone_1_max:
+        type: integer
+      power_zone_2_max:
+        type: integer
+      power_zone_3_max:
+        type: integer
+      power_zone_4_max:
+        type: integer
+      power_zone_5_max:
+        type: integer
+      threshold_hr:
+        type: integer
+      threshold_pace_sec_per_km:
+        type: number
+      threshold_swim_pace_sec_per_100m:
+        type: number
+      updated_at:
+        type: string
+    type: object
   bodyweight.Entry:
     properties:
       bmi:
@@ -2392,6 +2431,59 @@ info:
   title: Nutrition API
   version: 0.1.0
 paths:
+  /athlete-config:
+    get:
+      description: Returns the single athlete-config row (FTP, thresholds, max HR,
+        lactate-threshold HR, HR-zone and optional power-zone boundaries), or null
+        before any config has been set. Capture-only mirror; these values feed no
+        fueling computation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"athlete_config\": AthleteConfig | null}'
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get the athlete physiology configuration (singleton)
+      tags:
+      - athlete-config
+    put:
+      consumes:
+      - application/json
+      description: 'Full-replace semantics: absent fields are stored as NULL (cleared),
+        matching PUT /goals. Every field is optional and must be > 0 when present.
+        `Idempotency-Key` is NOT accepted on PUT — supplying the header returns `400
+        idempotency_unsupported_for_put`. Garmin is source-of-truth: the daily sync
+        re-issues this PUT and overwrites manual edits.'
+      parameters:
+      - description: Athlete config payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/athleteconfig.AthleteConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"athlete_config\": AthleteConfig}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: athlete_config_value_invalid | invalid_json | idempotency_unsupported_for_put
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Set or replace the athlete physiology configuration (singleton)
+      tags:
+      - athlete-config
   /chat:
     post:
       consumes:
