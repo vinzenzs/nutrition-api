@@ -34,28 +34,33 @@ obtains a fresh access token without any interactive step, fetches the day's
 Garmin data, and writes it to the existing nutrition REST API under
 `GARMIN_API_TOKEN`. The mapping SHALL be: sleep/HRV/RHR/stress →
 `/recovery-metrics`; VO2max/training-load → `/fitness-metrics`; sweat loss →
-`/hydration-balance`; weigh-ins → `/weight`; activities → `/workouts`
-(`source = "garmin"`); gear inventory → `/gear` (upsert by Garmin gear id);
-personal records → `/personal-records` (upsert by Garmin PR id). Gear and
-personal records are slowly-changing inventory refreshed via idempotent upsert
-on each sync, not date-keyed snapshots. Sync SHALL require no MFA or human
-interaction.
+`/hydration-balance`; whole-day energy/activity totals → `/daily-summary`;
+weigh-ins → `/weight`; activities → `/workouts` (`source = "garmin"`), where
+each activity additionally carries the scalar performance and HR-zone fields
+plus nested `splits`/`sets` detail when Garmin provides them; gear inventory →
+`/gear` (upsert by Garmin gear id); personal records → `/personal-records`
+(upsert by Garmin PR id). Gear and personal records are slowly-changing
+inventory refreshed via idempotent upsert on each sync, not date-keyed
+snapshots. Sync SHALL require no MFA or human interaction.
 
 #### Scenario: Daily sync writes a day's data
 
 - **WHEN** `POST /sync` runs with a valid stored token
 - **THEN** the bridge refreshes its access token without prompting for MFA
-- **AND** posts the day's recovery, fitness, hydration-balance, weight, and
-  activity data to their respective endpoints under the garmin identity
+- **AND** posts the day's recovery, fitness, hydration-balance, daily-summary,
+  weight, and activity data to their respective endpoints under the garmin
+  identity
+- **AND** each activity item carries the available scalar/zone/split/set detail
 - **AND** upserts the current gear and personal-record inventory to `/gear` and
   `/personal-records`
 
 #### Scenario: Re-running a day is idempotent
 
 - **WHEN** `POST /sync` is run twice for the same date
-- **THEN** the date-keyed metrics are upserted (not duplicated)
+- **THEN** the date-keyed metrics (including `/daily-summary`) are upserted (not duplicated)
 - **AND** activities are deduped by `external_id = "garmin:<activity_id>"` via the
   existing `/workouts` UPSERT (no new field or migration)
+- **AND** each activity's nested splits and sets are replaced (not duplicated) on the second run
 - **AND** gear and personal records are upserted by their Garmin external id
   (re-observing the same item updates it in place, no duplicate)
 
