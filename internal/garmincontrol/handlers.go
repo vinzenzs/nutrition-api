@@ -81,6 +81,9 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 	rg.POST("/garmin/activity/upload", h.uploadActivity)
 	rg.PATCH("/garmin/activity/:activity_id", h.renameActivity)
 	rg.DELETE("/garmin/activity/:activity_id", h.deleteActivity)
+
+	// History backfill (add-garmin-history-backfill).
+	rg.POST("/garmin/backfill", h.backfill)
 }
 
 func (h *Handlers) enabled() bool { return h.bridgeURL != "" }

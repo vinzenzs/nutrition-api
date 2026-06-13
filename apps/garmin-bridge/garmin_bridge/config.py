@@ -39,6 +39,13 @@ class Config:
     garmin_api_token: str
     sync_tz: str
 
+    # History-backfill pacing (per add-garmin-history-backfill). The backfill
+    # sleeps `backfill_day_delay_seconds` between days to stay friendly to
+    # Garmin's rate limits, and refuses a range wider than `backfill_max_days`
+    # so a typo can't launch a year-long crawl.
+    backfill_day_delay_seconds: int = 3
+    backfill_max_days: int = 120
+
     @property
     def sensitive_values(self) -> tuple[str, ...]:
         """Substrings that must never appear in logs or responses."""
@@ -76,4 +83,19 @@ def load(env: dict[str, str] | None = None) -> Config:
         nutrition_api_url=url,
         garmin_api_token=src["GARMIN_API_TOKEN"].strip(),
         sync_tz=src.get("SYNC_TZ", "UTC").strip() or "UTC",
+        backfill_day_delay_seconds=_int_env(src, "BACKFILL_DAY_DELAY_SECONDS", 3, minimum=0),
+        backfill_max_days=_int_env(src, "BACKFILL_MAX_DAYS", 120, minimum=1),
     )
+
+
+def _int_env(src: dict[str, str], key: str, default: int, *, minimum: int) -> int:
+    """Read a non-negative int env var, falling back to default when unset/blank
+    or invalid, and clamping below `minimum`."""
+    raw = src.get(key, "").strip()
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+    except ValueError:
+        return default
+    return val if val >= minimum else minimum

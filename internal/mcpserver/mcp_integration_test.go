@@ -229,6 +229,7 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 		"garmin_upload_activity",
 		"garmin_rename_activity",
 		"garmin_delete_activity",
+		"garmin_backfill",
 	} {
 		assert.True(t, names[want], "tool %q should be announced", want)
 	}

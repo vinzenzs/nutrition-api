@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import base64
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import garmin_client, logging_setup, sync, workout_builder
 from .backend import Backend, BackendError, TokenNotFound
@@ -35,6 +35,11 @@ class MFARequest(BaseModel):
 
 class SyncRequest(BaseModel):
     date: str | None = None
+
+
+class BackfillRequest(BaseModel):
+    from_: str = Field(alias="from")
+    to: str
 
 
 class CreateWorkoutRequest(BaseModel):
@@ -154,6 +159,40 @@ def create_app(
 
         status = 200 if summary.get("ok") else 207
         return JSONResponse(status_code=status, content=summary)
+
+    @app.post("/sync/backfill")
+    def do_backfill(req: BackfillRequest) -> JSONResponse:
+        """Replay the per-day sync over [from, to] — bounded, paced, per-day
+        tolerant, idempotent. Reuses the exact sync_day path, so it picks up
+        whatever enrichment the rest of the arc added with no per-field work."""
+        try:
+            start = date.fromisoformat(req.from_)
+            end = date.fromisoformat(req.to)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "date_invalid"})
+        if end < start:
+            return JSONResponse(status_code=400, content={"error": "range_invalid"})
+        span_days = (end - start).days + 1
+        if span_days > config.backfill_max_days:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "range_too_large", "max_days": config.backfill_max_days},
+            )
+
+        pair, errResp = _with_api()
+        if errResp is not None:
+            return errResp
+        backend, api = pair
+        try:
+            result = sync.run_backfill(
+                backend, gc, api, start, end,
+                day_delay_seconds=config.backfill_day_delay_seconds,
+            )
+        finally:
+            backend.close()
+        result = {"from": req.from_, "to": req.to, **result}
+        status = 200 if result["days_failed"] == 0 else 207
+        return JSONResponse(status_code=status, content=result)
 
     # --- structured-workout write/read plane (add-garmin-scheduling) ----
     #

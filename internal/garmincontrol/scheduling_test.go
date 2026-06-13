@@ -144,6 +144,14 @@ func newBridgeStub(t *testing.T) *bridgeStub {
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/activity/"):
 			b.deleteActivities = append(b.deleteActivities, strings.TrimPrefix(r.URL.Path, "/activity/"))
 			_, _ = io.WriteString(w, `{"deleted":true}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/sync/backfill":
+			body, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(body), `"to":"fail"`) {
+				w.WriteHeader(http.StatusMultiStatus)
+				_, _ = io.WriteString(w, `{"days_total":2,"days_ok":1,"days_failed":1}`)
+			} else {
+				_, _ = io.WriteString(w, `{"days_total":3,"days_ok":3,"days_failed":0}`)
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -444,6 +452,31 @@ func TestDeleteActivity_Forwards(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"deleted":true`)
 	assert.Equal(t, []string{"act-1"}, bridge.deleteActivities)
+}
+
+// ----- history backfill (add-garmin-history-backfill) -----
+
+func TestBackfill_ForwardsVerbatim(t *testing.T) {
+	bridge := newBridgeStub(t)
+	r := newEngine(bridge.server.URL, newFakeWorkouts(), &fakeTemplates{}, &fakePlan{})
+	rec := req(t, r, http.MethodPost, "/garmin/backfill", `{"from":"2026-03-01","to":"2026-03-03"}`)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), `"days_total":3`)
+}
+
+func TestBackfill_207PassThrough(t *testing.T) {
+	bridge := newBridgeStub(t)
+	r := newEngine(bridge.server.URL, newFakeWorkouts(), &fakeTemplates{}, &fakePlan{})
+	rec := req(t, r, http.MethodPost, "/garmin/backfill", `{"from":"2026-03-01","to":"fail"}`)
+	require.Equal(t, http.StatusMultiStatus, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), `"days_failed":1`)
+}
+
+func TestBackfill_DisabledWhenBridgeUnset(t *testing.T) {
+	r := newEngine("", newFakeWorkouts(), &fakeTemplates{}, &fakePlan{})
+	rec := req(t, r, http.MethodPost, "/garmin/backfill", `{"from":"2026-03-01","to":"2026-03-03"}`)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Contains(t, rec.Body.String(), "garmin_disabled")
 }
 
 func TestActivityOps_DisabledWhenBridgeUnset(t *testing.T) {

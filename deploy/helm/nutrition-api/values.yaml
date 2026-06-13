@@ -175,6 +175,14 @@ garminBridge:
       cpu: 250m
       memory: 256Mi
 
+  # -- History backfill pacing (POST /sync/backfill — an explicit, agent/operator
+  #    triggered range replay, NOT scheduled). dayDelaySeconds paces Garmin calls
+  #    between days; maxDays caps the range so a typo can't launch a year-long
+  #    crawl. The steady-state rolling-window CronJob below is unaffected.
+  backfill:
+    dayDelaySeconds: 3
+    maxDays: 120
+
   # -- Daily sync CronJob that POSTs /sync on the bridge Service.
   cron:
     enabled: true

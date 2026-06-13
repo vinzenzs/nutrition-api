@@ -11,7 +11,9 @@ writes and accounting for them.
 from __future__ import annotations
 
 import logging
-from typing import Any
+import time
+from datetime import date, timedelta
+from typing import Any, Callable
 
 from . import mapping
 from .backend import Backend
@@ -140,6 +142,50 @@ def _upsert_each(
             logger.warning("%s post failed: %s", key, exc)
             summary["errors"].setdefault(key, []).append(str(exc))
     summary["results"][key] = f"{ok}/{len(items)} upserted"
+
+
+def run_backfill(
+    backend: Backend,
+    gc: Any,
+    api: Any,
+    start: date,
+    end: date,
+    *,
+    day_delay_seconds: int = 0,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    """Replay the per-day sync over [start, end] inclusive, oldest-first.
+
+    Each day runs the same ``gc.fetch_day`` + ``sync_day`` path as ``POST /sync``,
+    so any enrichment elsewhere is picked up with no backfill-specific work. A
+    failing day is recorded ``{date, ok:false, error}`` and the range continues.
+    ``sleeper`` is injectable so tests need not actually wait.
+    """
+    days: list[dict[str, Any]] = []
+    ok = 0
+    first = True
+    cur = start
+    while cur <= end:
+        if not first and day_delay_seconds > 0:
+            sleeper(day_delay_seconds)
+        first = False
+        dstr = cur.isoformat()
+        try:
+            raw = gc.fetch_day(api, dstr)
+            summary = sync_day(backend, raw, dstr)
+            if summary.get("ok"):
+                ok += 1
+            days.append(summary)
+        except Exception as exc:  # noqa: BLE001 — one bad day must not abort the range
+            logger.warning("backfill day %s failed: %s", dstr, exc)
+            days.append({"date": dstr, "ok": False, "error": str(exc)})
+        cur += timedelta(days=1)
+    return {
+        "days": days,
+        "days_total": len(days),
+        "days_ok": ok,
+        "days_failed": len(days) - ok,
+    }
 
 
 def _attempt(

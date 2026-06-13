@@ -66,6 +66,10 @@ spec:
               value: {{ include "garmin-bridge.nutritionApiUrl" . | quote }}
             - name: SYNC_TZ
               value: {{ .Values.garminBridge.syncTz | quote }}
+            - name: BACKFILL_DAY_DELAY_SECONDS
+              value: {{ .Values.garminBridge.backfill.dayDelaySeconds | int | quote }}
+            - name: BACKFILL_MAX_DAYS
+              value: {{ .Values.garminBridge.backfill.maxDays | int | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "garmin-bridge.secretName" . }}

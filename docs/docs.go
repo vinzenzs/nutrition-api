@@ -1370,6 +1370,79 @@ const docTemplate = `{
                 }
             }
         },
+        "/garmin/backfill": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Forwards ` + "`" + `{from, to}` + "`" + ` to the bridge's bounded, paced, idempotent ` + "`" + `POST /sync/backfill` + "`" + `, returning its per-day summary + roll-up verbatim. Re-runs are safe (date-keyed upserts + external_id dedup). 207 when some days failed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Backfill the Garmin sync over a historical date range",
+                "parameters": [
+                    {
+                        "description": "{ from, to } (YYYY-MM-DD, inclusive)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the bridge backfill summary verbatim",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "207": {
+                        "description": "completed with one or more failed days",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "range_too_large | date_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "502": {
+                        "description": "garmin_bridge_unreachable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/garmin/calendar": {
             "get": {
                 "security": [

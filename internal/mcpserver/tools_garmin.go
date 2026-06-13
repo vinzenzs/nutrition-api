@@ -199,6 +199,25 @@ type GarminDeleteActivityArgs struct {
 	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; derived when omitted"`
 }
 
+type GarminBackfillArgs struct {
+	From           string `json:"from" jsonschema:"inclusive start date YYYY-MM-DD (oldest day to re-sync)"`
+	To             string `json:"to" jsonschema:"inclusive end date YYYY-MM-DD"`
+	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; derived when omitted"`
+}
+
+func handleGarminBackfill(ctx context.Context, c *apiClient, args GarminBackfillArgs) *mcp.CallToolResult {
+	body, err := json.Marshal(struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}{args.From, args.To})
+	if err != nil {
+		return toToolResult(0, nil, &transportError{inner: err})
+	}
+	key := effectiveIdempotencyKey(args.IdempotencyKey, "garmin_backfill", args)
+	status, resp, err := c.Post(ctx, "/garmin/backfill", nil, body, key)
+	return toToolResult(status, resp, err)
+}
+
 func handleGarminGetActivityGear(ctx context.Context, c *apiClient, args GarminGetActivityGearArgs) *mcp.CallToolResult {
 	status, resp, err := c.Get(ctx, "/garmin/activity/"+url.PathEscape(args.ActivityID)+"/gear", nil)
 	return toToolResult(status, resp, err)
@@ -380,5 +399,15 @@ func registerGarminTools(server *mcp.Server, c *apiClient) {
 			"destructive write; invoke only on explicit request.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args GarminDeleteActivityArgs) (*mcp.CallToolResult, any, error) {
 		return handleGarminDeleteActivity(ctx, c, args), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "garmin_backfill",
+		Description: "Backfill the Garmin sync over a historical date range [from, to] (YYYY-MM-DD), re-syncing each " +
+			"day so older activities gain the detail the rolling daily window missed. Bounded (a max-days cap), " +
+			"paced (a delay between days), oldest-first and resumable, and idempotent — re-running a range is safe. " +
+			"Returns a per-day summary plus a roll-up (days_total/days_ok/days_failed); 207 if some days failed.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args GarminBackfillArgs) (*mcp.CallToolResult, any, error) {
+		return handleGarminBackfill(ctx, c, args), nil, nil
 	})
 }
