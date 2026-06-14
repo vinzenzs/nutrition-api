@@ -3,7 +3,6 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"testing"
 
@@ -11,77 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLogRecoveryMetrics_ForwardsBodyAndDerivesKey(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 201, `{"date":"2026-06-09"}`)
-	_ = handleLogRecoveryMetrics(context.Background(), c, LogRecoveryMetricsArgs{
-		Date: "2026-06-09", SleepSeconds: ptrInt(27000), RestingHR: ptrInt(48), HRVMs: ptrFloat(61),
-	})
-	require.Len(t, *recs, 1)
-	rec := (*recs)[0]
-	assert.Equal(t, http.MethodPost, rec.method)
-	assert.Equal(t, "/recovery-metrics", rec.path)
-	assert.NotEmpty(t, rec.idemKey, "write tool derives an idempotency key")
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(rec.body, &body))
-	assert.Equal(t, "2026-06-09", body["date"])
-	assert.EqualValues(t, 27000, body["sleep_seconds"])
-	assert.EqualValues(t, 48, body["resting_hr"])
-	// Omitted metrics are absent (not null).
-	_, hasStress := body["stress_avg"]
-	assert.False(t, hasStress)
-}
-
-func TestListRecoveryMetrics_BuildsWindowNoKey(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 200, `{"recovery_metrics":[]}`)
-	_ = handleListRecoveryMetrics(context.Background(), c, ListRecoveryMetricsArgs{From: "2026-06-01", To: "2026-06-30"})
-	require.Len(t, *recs, 1)
-	rec := (*recs)[0]
-	assert.Equal(t, "/recovery-metrics", rec.path)
-	values, err := url.ParseQuery(rec.rawQuery)
-	require.NoError(t, err)
-	assert.Equal(t, "2026-06-01", values.Get("from"))
-	assert.Equal(t, "2026-06-30", values.Get("to"))
-	assert.Empty(t, rec.idemKey)
-}
-
-func TestGetAndDeleteRecoveryMetrics_AddressByDate(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 200, `{"date":"2026-06-09"}`)
-	_ = handleGetRecoveryMetrics(context.Background(), c, GetRecoveryMetricsArgs{Date: "2026-06-09"})
-	require.Len(t, *recs, 1)
-	assert.Equal(t, "/recovery-metrics/2026-06-09", (*recs)[0].path)
-
-	c2, recs2 := newWorkoutRecorder(t, 204, ``)
-	r := handleDeleteRecoveryMetrics(context.Background(), c2, DeleteRecoveryMetricsArgs{Date: "2026-06-09"})
-	require.Len(t, *recs2, 1)
-	assert.Equal(t, http.MethodDelete, (*recs2)[0].method)
-	assert.Equal(t, "/recovery-metrics/2026-06-09", (*recs2)[0].path)
-	assert.False(t, r.IsError)
-}
-
-func TestLogFitnessMetrics_ForwardsBody(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 201, `{"date":"2026-06-09"}`)
-	_ = handleLogFitnessMetrics(context.Background(), c, LogFitnessMetricsArgs{
-		Date: "2026-06-09", VO2MaxRunning: ptrFloat(54), RacePredictor5kSeconds: ptrInt(1230),
-	})
-	require.Len(t, *recs, 1)
-	rec := (*recs)[0]
-	assert.Equal(t, "/fitness-metrics", rec.path)
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(rec.body, &body))
-	assert.InDelta(t, 54.0, body["vo2max_running"], 0.001)
-	assert.EqualValues(t, 1230, body["race_predictor_5k_seconds"])
-	_, hasCycling := body["vo2max_cycling"]
-	assert.False(t, hasCycling)
-}
-
-func TestListFitnessMetrics_BuildsWindow(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 200, `{"fitness_metrics":[]}`)
-	_ = handleListFitnessMetrics(context.Background(), c, ListFitnessMetricsArgs{From: "2026-06-01", To: "2026-06-30"})
-	require.Len(t, *recs, 1)
-	values, err := url.ParseQuery((*recs)[0].rawQuery)
-	require.NoError(t, err)
-	assert.Equal(t, "2026-06-01", values.Get("from"))
-}
+// Recovery-metrics, fitness-metrics, and hydration-balance tools were ported
+// onto the shared agenttools registry (unify-mcp-tool-registry); their Build
+// shapes are now asserted in internal/agenttools/registry_*_test.go and the
+// idempotency-key attachment generically in registry_dispatch_test.go. The
+// weight and workouts handlers below stay until those domains are ported.
 
 func TestLogWeight_ForwardsBiometrics(t *testing.T) {
 	c, recs := newWorkoutRecorder(t, 201, `{"id":"w1"}`)
@@ -134,59 +67,3 @@ func TestPatchWorkout_ForwardsStatus(t *testing.T) {
 
 func ptrInt(v int) *int           { return &v }
 func ptrFloat(v float64) *float64 { return &v }
-
-// ----- hydration-balance tools -----
-
-func TestLogHydrationBalance_ForwardsBodyAndDerivesKey(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 201, `{"date":"2026-06-09"}`)
-	_ = handleLogHydrationBalance(context.Background(), c, LogHydrationBalanceArgs{
-		Date: "2026-06-09", SweatLossML: ptrFloat(2400), ActivityIntakeML: ptrFloat(0), GoalML: ptrFloat(3000),
-	})
-	require.Len(t, *recs, 1)
-	rec := (*recs)[0]
-	assert.Equal(t, http.MethodPost, rec.method)
-	assert.Equal(t, "/hydration-balance", rec.path)
-	assert.NotEmpty(t, rec.idemKey)
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(rec.body, &body))
-	assert.InDelta(t, 2400.0, body["sweat_loss_ml"], 0.001)
-	assert.EqualValues(t, 0, body["activity_intake_ml"], "a real zero is forwarded, not dropped")
-	assert.InDelta(t, 3000.0, body["goal_ml"], 0.001)
-}
-
-func TestLogHydrationBalance_OmitsUnsetMetrics(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 201, `{"date":"2026-06-09"}`)
-	_ = handleLogHydrationBalance(context.Background(), c, LogHydrationBalanceArgs{
-		Date: "2026-06-09", SweatLossML: ptrFloat(2400),
-	})
-	require.Len(t, *recs, 1)
-	body := string((*recs)[0].body)
-	assert.NotContains(t, body, `"activity_intake_ml"`)
-	assert.NotContains(t, body, `"goal_ml"`)
-}
-
-func TestListHydrationBalance_BuildsWindowNoKey(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 200, `{"hydration_balance":[]}`)
-	_ = handleListHydrationBalance(context.Background(), c, ListHydrationBalanceArgs{From: "2026-06-01", To: "2026-06-30"})
-	require.Len(t, *recs, 1)
-	rec := (*recs)[0]
-	assert.Equal(t, "/hydration-balance", rec.path)
-	values, err := url.ParseQuery(rec.rawQuery)
-	require.NoError(t, err)
-	assert.Equal(t, "2026-06-01", values.Get("from"))
-	assert.Empty(t, rec.idemKey)
-}
-
-func TestGetAndDeleteHydrationBalance_AddressByDate(t *testing.T) {
-	c, recs := newWorkoutRecorder(t, 200, `{"date":"2026-06-09"}`)
-	_ = handleGetHydrationBalance(context.Background(), c, GetHydrationBalanceArgs{Date: "2026-06-09"})
-	require.Len(t, *recs, 1)
-	assert.Equal(t, "/hydration-balance/2026-06-09", (*recs)[0].path)
-
-	c2, recs2 := newWorkoutRecorder(t, 204, ``)
-	r := handleDeleteHydrationBalance(context.Background(), c2, DeleteHydrationBalanceArgs{Date: "2026-06-09"})
-	require.Len(t, *recs2, 1)
-	assert.Equal(t, http.MethodDelete, (*recs2)[0].method)
-	assert.Equal(t, "/hydration-balance/2026-06-09", (*recs2)[0].path)
-	assert.False(t, r.IsError)
-}

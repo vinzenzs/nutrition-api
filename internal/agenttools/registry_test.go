@@ -38,12 +38,12 @@ func TestRegistry_ExactSurface(t *testing.T) {
 // code-composed (D6) rather than falling back to the generic verb/resource line.
 func TestRegistry_SchemasValidAndTiers(t *testing.T) {
 	wantTier := map[string]Tier{
-		"get_daily_context":   TierRead,
-		"get_race_fueling":    TierRead,
-		"list_planned_meals":  TierRead,
-		"list_shopping_items": TierRead,
-		"search_products":     TierRead,
-		"get_product":         TierRead,
+		"get_daily_context":    TierRead,
+		"get_race_fueling":     TierRead,
+		"list_planned_meals":   TierRead,
+		"list_shopping_items":  TierRead,
+		"search_products":      TierRead,
+		"get_product":          TierRead,
 		"get_training_context": TierRead,
 		"get_recovery_context": TierRead,
 
