@@ -48,6 +48,11 @@ type Spec struct {
 	Schema      string // JSON Schema (object) for the tool input
 	Tier        Tier
 	Build       func(input json.RawMessage) (HTTPCall, error)
+	// Format, when set, composes the human-readable confirmation preview for a
+	// write-confirm tool from its input (D6) — a deterministic, code-composed
+	// render of the actual bytes about to be sent, NOT the model's narration.
+	// When nil, a generic "<verb> <resource>" line is derived from the name.
+	Format func(input json.RawMessage) string
 }
 
 // DecodeInto unmarshals a tool's input JSON into dst, returning a friendly

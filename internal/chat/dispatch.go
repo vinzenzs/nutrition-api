@@ -3,8 +3,6 @@ package chat
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -70,7 +68,7 @@ func (d *dispatcher) execute(ctx context.Context, toolName string, input json.Ra
 	req.Header.Set("Authorization", "Bearer "+bearer)
 	req.Header.Set("Content-Type", "application/json")
 	if spec.Tier.IsWrite() {
-		req.Header.Set("Idempotency-Key", deriveIdempotencyKey(toolName, input))
+		req.Header.Set("Idempotency-Key", agenttools.DeriveIdempotencyKey(toolName, input))
 	}
 
 	rec := httptest.NewRecorder()
@@ -82,34 +80,6 @@ func (d *dispatcher) execute(ctx context.Context, toolName string, input json.Ra
 		body:   body,
 		ok:     rec.Code >= 200 && rec.Code < 300,
 	}
-}
-
-// deriveIdempotencyKey returns a stable key for a write tool call: sha256 over
-// the tool name and the canonical (sorted-key) JSON of the input. Identical
-// calls in a replayed turn hash identically and hit the idempotency replay
-// path; distinct calls get distinct keys.
-func deriveIdempotencyKey(toolName string, input json.RawMessage) string {
-	canon := canonicalize(input)
-	h := sha256.Sum256(append([]byte(toolName+"|"), canon...))
-	return hex.EncodeToString(h[:])
-}
-
-// canonicalize re-marshals the input with sorted object keys (Go's json.Marshal
-// sorts map keys recursively), giving a stable byte form across reorderings and
-// whitespace differences. Falls back to the raw bytes on decode failure.
-func canonicalize(input json.RawMessage) []byte {
-	if len(input) == 0 {
-		return []byte("{}")
-	}
-	var generic any
-	if err := json.Unmarshal(input, &generic); err != nil {
-		return input
-	}
-	out, err := json.Marshal(generic)
-	if err != nil {
-		return input
-	}
-	return out
 }
 
 type unknownToolError struct{ name string }

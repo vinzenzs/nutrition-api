@@ -53,6 +53,31 @@ func (r *Repo) ListSessions(ctx context.Context) ([]*Session, error) {
 	return out, rows.Err()
 }
 
+// LastTurns returns the most recent turn of every session, keyed by session id,
+// in a single query. Used to derive the awaiting-confirmation flag for the
+// session list without an N+1 fan-out (D9).
+func (r *Repo) LastTurns(ctx context.Context) (map[uuid.UUID]Message, error) {
+	rows, err := r.q.Query(ctx,
+		`SELECT DISTINCT ON (session_id) session_id, role, content
+		 FROM chat_messages ORDER BY session_id, seq DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("last chat turns: %w", err)
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]Message{}
+	for rows.Next() {
+		var id uuid.UUID
+		var m Message
+		var raw []byte
+		if err := rows.Scan(&id, &m.Role, &raw); err != nil {
+			return nil, fmt.Errorf("scan last chat turn: %w", err)
+		}
+		m.Content = json.RawMessage(raw)
+		out[id] = m
+	}
+	return out, rows.Err()
+}
+
 // GetSession returns one session header. ErrNotFound if absent.
 func (r *Repo) GetSession(ctx context.Context, id uuid.UUID) (*Session, error) {
 	return scanSession(r.q.QueryRow(ctx, `SELECT `+sessionCols+` FROM chat_sessions WHERE id = $1`, id))

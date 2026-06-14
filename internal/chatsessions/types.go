@@ -11,15 +11,30 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 )
 
 // Session mirrors a chat_sessions row. Title is NULL/omitted when untitled.
+// AwaitingConfirmation is a derived flag (not a column): true when the session's
+// most recent turn is paused awaiting a write confirmation, so the history view
+// can badge it (D9). Omitted when false.
 type Session struct {
-	ID            uuid.UUID `json:"id"`
-	Title         *string   `json:"title,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	LastMessageAt time.Time `json:"last_message_at"`
+	ID                   uuid.UUID `json:"id"`
+	Title                *string   `json:"title,omitempty"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	LastMessageAt        time.Time `json:"last_message_at"`
+	AwaitingConfirmation bool      `json:"awaiting_confirmation,omitempty"`
+}
+
+// PendingConfirmation mirrors the chat `proposal` SSE event for cold-open: the
+// pending write-confirm calls of a session's paused trailing turn, with
+// server-composed previews, so the client renders the same approve/reject card
+// whether it arrived live or on reopening the session (D9).
+type PendingConfirmation struct {
+	TurnID string                    `json:"turn_id"`
+	Calls  []agenttools.ProposalCall `json:"calls"`
 }
 
 // Message is one persisted turn. Content is the verbatim Anthropic content
@@ -33,10 +48,12 @@ type Message struct {
 }
 
 // SessionWithMessages is the GET /chat/sessions/{id} body: the header plus its
-// ordered turns at full fidelity.
+// ordered turns at full fidelity. PendingConfirmation is non-null only when the
+// session is paused awaiting a write confirmation (D9).
 type SessionWithMessages struct {
 	Session
-	Messages []Message `json:"messages"`
+	Messages            []Message            `json:"messages"`
+	PendingConfirmation *PendingConfirmation `json:"pending_confirmation"`
 }
 
 const maxTitleLen = 200

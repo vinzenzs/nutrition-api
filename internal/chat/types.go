@@ -63,3 +63,16 @@ type ChatRequest struct {
 	SessionID string `json:"session_id"`
 	Message   string `json:"message"`
 }
+
+// ConfirmDecision is one user verdict on a pending write-confirm call.
+type ConfirmDecision struct {
+	ToolID  string `json:"tool_id"`
+	Approve bool   `json:"approve"`
+}
+
+// ConfirmRequest is the POST /chat/sessions/{id}/confirm body: a verdict for
+// each pending write-confirm call of the session's paused turn. The decisions
+// must cover exactly those calls.
+type ConfirmRequest struct {
+	Decisions []ConfirmDecision `json:"decisions"`
+}

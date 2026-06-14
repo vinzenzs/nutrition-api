@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 )
 
 // sseWriter emits the four chat event types over an HTTP response as Server-Sent
@@ -48,6 +50,14 @@ func (s *sseWriter) text(delta string) {
 // response bodies.
 func (s *sseWriter) tool(id, name, status, summary string) {
 	s.emit("tool", map[string]string{"id": id, "name": name, "status": status, "summary": summary})
+}
+
+// proposalEvent surfaces the pending write-confirm calls of a paused turn so the
+// client can render an approve/reject card. turnID labels the paused turn;
+// calls each carry a server-composed human preview (never a raw body). It is
+// followed by a done event with stop_reason "awaiting_confirmation".
+func (s *sseWriter) proposal(turnID string, calls []agenttools.ProposalCall) {
+	s.emit("proposal", map[string]any{"turn_id": turnID, "calls": calls})
 }
 
 // doneEvent terminates a successful stream with the full final message.

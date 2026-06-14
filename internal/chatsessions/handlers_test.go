@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 	"github.com/vinzenzs/nutrition-api/internal/chatsessions"
 	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
 )
@@ -24,15 +25,17 @@ type fixture struct {
 	r    *gin.Engine
 	pool *pgxpool.Pool
 	repo *chatsessions.Repo
+	svc  *chatsessions.Service
 }
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
 	pool := storetest.NewPool(t)
 	repo := chatsessions.NewRepo(pool)
+	svc := chatsessions.NewService(repo)
 	r := gin.New()
-	chatsessions.NewHandlers(chatsessions.NewService(repo)).Register(r.Group("/"))
-	return &fixture{r: r, pool: pool, repo: repo}
+	chatsessions.NewHandlers(svc).Register(r.Group("/"))
+	return &fixture{r: r, pool: pool, repo: repo, svc: svc}
 }
 
 func do(t *testing.T, r *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
@@ -209,6 +212,72 @@ func TestLoadTurns_MostRecentInOrder(t *testing.T) {
 	require.Len(t, turns, 2)
 	assert.Contains(t, string(turns[0].Content), "two")
 	assert.Contains(t, string(turns[1].Content), "three")
+}
+
+// A session paused on a write-confirm tool_use turn surfaces pending_confirmation
+// on detail (with server-composed previews) and is flagged awaiting_confirmation
+// in the list (D9).
+func TestGet_And_List_SurfacePendingConfirmation(t *testing.T) {
+	f := setup(t)
+	f.svc.SetToolSpecs([]agenttools.Spec{{
+		Name: "schedule_workout",
+		Tier: agenttools.TierWriteConfirm,
+		Format: func(in json.RawMessage) string {
+			var a struct {
+				Date string `json:"date"`
+			}
+			_ = json.Unmarshal(in, &a)
+			return "Schedule a ride on " + a.Date
+		},
+	}})
+	ctx := context.Background()
+
+	paused, err := f.repo.CreateSession(ctx, ptr("Paused"))
+	require.NoError(t, err)
+	require.NoError(t, f.repo.AppendMessages(ctx, paused.ID, []chatsessions.Message{
+		{Role: "user", Content: json.RawMessage(`"schedule it"`)},
+		{Role: "assistant", Content: json.RawMessage(
+			`[{"type":"tool_use","id":"c1","name":"schedule_workout","input":{"date":"2026-06-20"}}]`)},
+	}))
+
+	// A normal (non-paused) session for contrast.
+	normal, err := f.repo.CreateSession(ctx, ptr("Normal"))
+	require.NoError(t, err)
+	require.NoError(t, f.repo.AppendMessages(ctx, normal.ID, []chatsessions.Message{
+		{Role: "user", Content: json.RawMessage(`"hi"`)},
+		{Role: "assistant", Content: json.RawMessage(`[{"type":"text","text":"hello"}]`)},
+	}))
+
+	// Detail: pending_confirmation populated for the paused session.
+	w := do(t, f.r, http.MethodGet, "/chat/sessions/"+paused.ID.String(), "")
+	require.Equal(t, http.StatusOK, w.Code)
+	var detail chatsessions.SessionWithMessages
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &detail))
+	require.NotNil(t, detail.PendingConfirmation)
+	assert.True(t, detail.AwaitingConfirmation)
+	require.Len(t, detail.PendingConfirmation.Calls, 1)
+	assert.Equal(t, "c1", detail.PendingConfirmation.Calls[0].ToolID)
+	assert.Equal(t, "Schedule a ride on 2026-06-20", detail.PendingConfirmation.Calls[0].Preview)
+
+	// Detail: null for the normal session.
+	w2 := do(t, f.r, http.MethodGet, "/chat/sessions/"+normal.ID.String(), "")
+	var detail2 chatsessions.SessionWithMessages
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &detail2))
+	assert.Nil(t, detail2.PendingConfirmation)
+	assert.False(t, detail2.AwaitingConfirmation)
+
+	// List: only the paused session is flagged.
+	wl := do(t, f.r, http.MethodGet, "/chat/sessions", "")
+	var resp struct {
+		Sessions []chatsessions.Session `json:"sessions"`
+	}
+	require.NoError(t, json.Unmarshal(wl.Body.Bytes(), &resp))
+	flags := map[uuid.UUID]bool{}
+	for _, s := range resp.Sessions {
+		flags[s.ID] = s.AwaitingConfirmation
+	}
+	assert.True(t, flags[paused.ID], "paused session flagged")
+	assert.False(t, flags[normal.ID], "normal session not flagged")
 }
 
 func ptr(s string) *string { return &s }

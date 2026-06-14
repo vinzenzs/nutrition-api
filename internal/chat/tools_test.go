@@ -1,8 +1,6 @@
 package chat
 
 import (
-	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,25 +49,4 @@ func TestChatToolDefs_SurfaceAndWebSearch(t *testing.T) {
 	assert.Contains(t, last, "web_search")
 	assert.Contains(t, last, "cookidoo.de")
 	assert.Contains(t, last, "allowed_domains")
-}
-
-// Idempotency keys are deterministic across key reordering / whitespace and
-// differ for different inputs — the property the retry-safety guarantee rests on.
-func TestDeriveIdempotencyKey_Deterministic(t *testing.T) {
-	a := deriveIdempotencyKey("add_shopping_items", json.RawMessage(`{"items":[{"name":"onion"}]}`))
-	b := deriveIdempotencyKey("add_shopping_items", json.RawMessage(`{"items":[{"name":"onion"}]}`))
-	assert.Equal(t, a, b, "identical calls must hash identically")
-
-	// Reordered keys / whitespace must not change the key.
-	c := deriveIdempotencyKey("create_planned_meal", json.RawMessage(`{"slot":"dinner","plan_date":"2026-06-12"}`))
-	d := deriveIdempotencyKey("create_planned_meal", json.RawMessage("{ \"plan_date\":\"2026-06-12\" , \"slot\":\"dinner\" }"))
-	assert.Equal(t, c, d, "key/whitespace reordering must be invariant")
-
-	// Different input → different key.
-	e := deriveIdempotencyKey("add_shopping_items", json.RawMessage(`{"items":[{"name":"garlic"}]}`))
-	assert.NotEqual(t, a, e)
-
-	// Hex-encoded sha256.
-	assert.Len(t, a, 64)
-	assert.Empty(t, strings.Trim(a, "0123456789abcdef"))
 }

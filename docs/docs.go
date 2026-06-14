@@ -462,6 +462,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/sessions/{id}/confirm": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves a session whose trailing turn proposed one or more ` + "`" + `write-confirm` + "`" + ` actions (the ` + "`" + `/chat` + "`" + ` stream ended with ` + "`" + `done.stop_reason = \"awaiting_confirmation\"` + "`" + ` after a ` + "`" + `proposal` + "`" + ` event). The body is ` + "`" + `{decisions: [{tool_id, approve}]}` + "`" + ` and MUST cover exactly the pending write-confirm calls. Approved calls (plus any read/write-auto calls in the same turn) are dispatched in order; rejected calls get a synthetic declined ` + "`" + `tool_result` + "`" + `; then the agent loop resumes and streams the continuation as Server-Sent Events using the same event contract as ` + "`" + `/chat` + "`" + `. Idempotency keys are content-derived, so re-sending the same confirmation replays rather than double-writes; if a prior resume's stream died after the writes committed (trailing turn is a ` + "`" + `tool_result` + "`" + `), re-posting simply continues the loop. Returns 404 session_not_found, 409 nothing_to_confirm (the session is not paused), or 400 invalid_confirmation (decisions do not match the pending calls) — all before any stream is started.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Resume a chat session paused awaiting a write confirmation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Per-call approve/reject decisions",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/chat.ConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | invalid_confirmation",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "session_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "nothing_to_confirm",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "chat_unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/context/daily": {
             "get": {
                 "security": [
@@ -7860,6 +7942,36 @@ const docTemplate = `{
                 }
             }
         },
+        "agenttools.ProposalCall": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "tier": {
+                    "$ref": "#/definitions/agenttools.Tier"
+                },
+                "tool_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenttools.Tier": {
+            "type": "string",
+            "enum": [
+                "read",
+                "write-auto",
+                "write-confirm"
+            ],
+            "x-enum-varnames": [
+                "TierRead",
+                "TierWriteAuto",
+                "TierWriteConfirm"
+            ]
+        },
         "athleteconfig.AthleteConfig": {
             "type": "object",
             "properties": {
@@ -8064,6 +8176,28 @@ const docTemplate = `{
                 }
             }
         },
+        "chat.ConfirmDecision": {
+            "type": "object",
+            "properties": {
+                "approve": {
+                    "type": "boolean"
+                },
+                "tool_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "chat.ConfirmRequest": {
+            "type": "object",
+            "properties": {
+                "decisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/chat.ConfirmDecision"
+                    }
+                }
+            }
+        },
         "chatsessions.Message": {
             "type": "object",
             "properties": {
@@ -8076,9 +8210,26 @@ const docTemplate = `{
                 }
             }
         },
+        "chatsessions.PendingConfirmation": {
+            "type": "object",
+            "properties": {
+                "calls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agenttools.ProposalCall"
+                    }
+                },
+                "turn_id": {
+                    "type": "string"
+                }
+            }
+        },
         "chatsessions.Session": {
             "type": "object",
             "properties": {
+                "awaiting_confirmation": {
+                    "type": "boolean"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -8099,6 +8250,9 @@ const docTemplate = `{
         "chatsessions.SessionWithMessages": {
             "type": "object",
             "properties": {
+                "awaiting_confirmation": {
+                    "type": "boolean"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -8113,6 +8267,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/chatsessions.Message"
                     }
+                },
+                "pending_confirmation": {
+                    "$ref": "#/definitions/chatsessions.PendingConfirmation"
                 },
                 "title": {
                     "type": "string"
