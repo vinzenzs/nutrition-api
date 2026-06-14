@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "nutrition-api.name" -}}
+{{- define "kazper.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name (release name + chart name).
 */}}
-{{- define "nutrition-api.fullname" -}}
+{{- define "kazper.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name (release name + chart name).
 {{/*
 Create the chart name + version label string.
 */}}
-{{- define "nutrition-api.chart" -}}
+{{- define "kazper.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels applied to every object.
 */}}
-{{- define "nutrition-api.labels" -}}
-helm.sh/chart: {{ include "nutrition-api.chart" . }}
-{{ include "nutrition-api.selectorLabels" . }}
+{{- define "kazper.labels" -}}
+helm.sh/chart: {{ include "kazper.chart" . }}
+{{ include "kazper.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -44,17 +44,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels — must be stable across upgrades since they're used by the
 Deployment.spec.selector (which is immutable).
 */}}
-{{- define "nutrition-api.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "nutrition-api.name" . }}
+{{- define "kazper.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kazper.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 ServiceAccount name to use.
 */}}
-{{- define "nutrition-api.serviceAccountName" -}}
+{{- define "kazper.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "nutrition-api.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "kazper.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -64,25 +64,25 @@ ServiceAccount name to use.
 Secret name the Deployment binds to — either the externally-managed one
 the user supplied via existingSecret, or the chart-rendered one.
 */}}
-{{- define "nutrition-api.secretName" -}}
+{{- define "kazper.secretName" -}}
 {{- if .Values.existingSecret }}
 {{- .Values.existingSecret }}
 {{- else }}
-{{- include "nutrition-api.fullname" . }}
+{{- include "kazper.fullname" . }}
 {{- end }}
 {{- end }}
 
 {{/*
 ConfigMap name (always chart-rendered).
 */}}
-{{- define "nutrition-api.configMapName" -}}
-{{- include "nutrition-api.fullname" . }}
+{{- define "kazper.configMapName" -}}
+{{- include "kazper.fullname" . }}
 {{- end }}
 
 {{/*
 Image reference. Falls back to .Chart.AppVersion when .Values.image.tag is empty.
 */}}
-{{- define "nutrition-api.image" -}}
+{{- define "kazper.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.image.tag }}
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
@@ -93,16 +93,16 @@ naming/labelling but carry a "-garmin-bridge" suffix and their own selector so
 they never collide with the backend's.
 */}}
 {{- define "garmin-bridge.fullname" -}}
-{{- printf "%s-garmin-bridge" (include "nutrition-api.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-garmin-bridge" (include "kazper.fullname" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{- define "garmin-bridge.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "nutrition-api.name" . }}-garmin-bridge
+app.kubernetes.io/name: {{ include "kazper.name" . }}-garmin-bridge
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "garmin-bridge.labels" -}}
-helm.sh/chart: {{ include "nutrition-api.chart" . }}
+helm.sh/chart: {{ include "kazper.chart" . }}
 {{ include "garmin-bridge.selectorLabels" . }}
 app.kubernetes.io/component: garmin-bridge
 app.kubernetes.io/managed-by: {{ .Release.Service }}
@@ -136,6 +136,6 @@ DNS when garminBridge.nutritionApiUrl is left empty.
 {{- if .Values.garminBridge.nutritionApiUrl }}
 {{- .Values.garminBridge.nutritionApiUrl }}
 {{- else }}
-{{- printf "http://%s:%v" (include "nutrition-api.fullname" .) .Values.service.port }}
+{{- printf "http://%s:%v" (include "kazper.fullname" .) .Values.service.port }}
 {{- end }}
 {{- end }}

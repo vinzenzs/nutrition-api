@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/products"
+	"github.com/vinzenzs/kazper/internal/products"
 )
 
 // Batch-level errors map 1:1 to API error codes.

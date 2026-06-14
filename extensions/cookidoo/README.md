@@ -1,6 +1,6 @@
-# nutrition-api: Cookidoo importer (Chrome extension)
+# kazper: Cookidoo importer (Chrome extension)
 
-Saves Cookidoo recipes to nutrition-api as `source=recipe` products you can
+Saves Cookidoo recipes to kazper as `source=recipe` products you can
 log meals against from the mobile app or the LLM agent.
 
 > **Status:** v0.1 — the extension exists but depends on a backend that
@@ -36,7 +36,7 @@ Open the options page (right-click the toolbar icon → **Options**, or via
 
 | Field        | Value                                                              |
 |--------------|--------------------------------------------------------------------|
-| API base URL | The URL of your running nutrition-api. Default: `http://localhost:8080`. |
+| API base URL | The URL of your running kazper. Default: `http://localhost:8080`. |
 | Token        | Either `MOBILE_API_TOKEN` or `AGENT_API_TOKEN` from your `.env.local`. |
 | Token type   | Pick whichever token you pasted. Affects `client_id` in API logs only. |
 
@@ -47,7 +47,7 @@ Chrome profile across machines.
 
 1. With `task dev` running (`http://localhost:8080/healthz` returns OK),
    open a Cookidoo recipe page in Chrome.
-2. Click the **nutrition-api: Cookidoo importer** toolbar button.
+2. Click the **kazper: Cookidoo importer** toolbar button.
 3. The popup pre-fills the recipe name, servings, serving size (when
    Cookidoo's JSON-LD gives grams), and per-100g macros. Edit anything
    that looks wrong.

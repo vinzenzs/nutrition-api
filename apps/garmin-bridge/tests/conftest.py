@@ -23,7 +23,7 @@ def config() -> Config:
     return Config(
         garmin_email="athlete@example.com",
         garmin_password="hunter2-very-secret",
-        nutrition_api_url="http://nutrition-api",
+        nutrition_api_url="http://kazper",
         garmin_api_token="garmin-token-abcdef-0123456789",
         sync_tz="UTC",
     )

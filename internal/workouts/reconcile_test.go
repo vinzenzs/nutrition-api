@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // A fixed past day so completed activities clear the 24h-future guard.

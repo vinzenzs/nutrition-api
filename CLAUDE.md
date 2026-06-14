@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A personal nutrition + endurance-training-fueling backend (Go + Gin + Postgres). Single user, two clients: a mobile app and an LLM coaching agent over MCP. The MCP surface is a thin wrapper over the REST API — every MCP tool issues exactly one HTTP call. See `README.md` and `RUN_LOCAL.md` for end-user docs.
+Kazper — a personal nutrition + endurance-training-fueling backend (Go + Gin + Postgres) with an in-app AI coach (also named Kazper). Single user, two clients: a mobile app and an LLM coaching agent over MCP. The MCP surface is a thin wrapper over the REST API — every MCP tool issues exactly one HTTP call. See `README.md` and `RUN_LOCAL.md` for end-user docs.
 
 ## Common commands
 
@@ -15,8 +15,8 @@ task dev               # one-command local: Postgres up + .env.local + serve
 task test              # full test suite (boots Postgres via testcontainers per package)
 task vet               # go vet
 task swag              # regenerate docs/ from swag annotations — RUN AFTER ANY HANDLER CHANGE
-task build             # compile bin/nutrition-api
-task install           # build + copy to ~/.local/bin/nutrition-api (re-signs for macOS)
+task build             # compile bin/kazper
+task install           # build + copy to ~/.local/bin/kazper (re-signs for macOS)
 task db:up / db:down   # Postgres container only
 task migrate:new NAME=add_widget   # scaffold a new migration pair
 ```
@@ -25,7 +25,7 @@ Single-package test runs: `go test -count=1 ./internal/<pkg>/...`. If you see `p
 
 ## Architecture — the big picture
 
-**One Cobra binary, three subcommands.** `cmd/nutrition-api/{serve,mcp,migrate,version}.go` — `serve` runs the Gin REST API, `mcp` runs an MCP server over stdio that hits the REST API as a client, `migrate` runs migrations standalone. Config loads via Viper (env + flags) in `internal/config`.
+**One Cobra binary, three subcommands.** `cmd/kazper/{serve,mcp,migrate,version}.go` — `serve` runs the Gin REST API, `mcp` runs an MCP server over stdio that hits the REST API as a client, `migrate` runs migrations standalone. Config loads via Viper (env + flags) in `internal/config`.
 
 **One package per capability.** Each event/domain shape lives in its own `internal/<name>/` package with the same shape:
 

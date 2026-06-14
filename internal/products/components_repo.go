@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 // ComponentsRepo persists product_components rows. Independent from Repo so it

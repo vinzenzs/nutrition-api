@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // Validation errors map 1:1 to API error codes.

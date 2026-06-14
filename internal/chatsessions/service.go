@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // ErrTitleTooLong maps 1:1 to the title_invalid API error code.

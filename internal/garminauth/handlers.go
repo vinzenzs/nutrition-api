@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
+	"github.com/vinzenzs/kazper/internal/auth"
 )
 
 // contentType is the media type used for the opaque blob on the wire. The blob

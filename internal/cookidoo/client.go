@@ -47,7 +47,7 @@ func New(cfg Config) *Client {
 		}
 	}
 	return &Client{
-		userAgent:  fmt.Sprintf("nutrition-cookidoo/%s (+https://github.com/vinzenzs/nutrition-api)", Version),
+		userAgent:  fmt.Sprintf("nutrition-cookidoo/%s (+https://github.com/vinzenzs/kazper)", Version),
 		httpClient: hc,
 	}
 }

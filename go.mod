@@ -1,4 +1,4 @@
-module github.com/vinzenzs/nutrition-api
+module github.com/vinzenzs/kazper
 
 go 1.26.3
 

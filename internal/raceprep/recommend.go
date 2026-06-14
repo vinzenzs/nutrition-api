@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // RecommendInputs echoes the resolved inputs back so the agent can see what

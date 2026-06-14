@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/numfmt"
 )
 
 // SummaryHandlers wires the daily hydration summary endpoint.

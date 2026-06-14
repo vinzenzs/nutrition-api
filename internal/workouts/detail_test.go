@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // A run body carrying scalar + zone columns and two nested splits. external_id

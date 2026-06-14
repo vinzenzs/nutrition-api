@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
-	"github.com/vinzenzs/nutrition-api/internal/chatsessions"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/chatsessions"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
 )
 
 func init() { gin.SetMode(gin.TestMode) }

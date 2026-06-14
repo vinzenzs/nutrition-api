@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
-	"github.com/vinzenzs/nutrition-api/internal/idempotency"
+	"github.com/vinzenzs/kazper/internal/auth"
+	"github.com/vinzenzs/kazper/internal/idempotency"
 )
 
 // requestLogger logs one JSON line per request with client_id, status,

@@ -15,7 +15,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 var configOnce sync.Once

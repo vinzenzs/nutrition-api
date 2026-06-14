@@ -43,8 +43,8 @@ jobs:
             VERSION=${{ steps.ver.outputs.tag }}
             COMMIT=${{ github.sha }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/nutrition-api:${{ steps.ver.outputs.tag }}
-            ghcr.io/${{ github.repository_owner }}/nutrition-api:latest
+            ghcr.io/${{ github.repository_owner }}/kazper:${{ steps.ver.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/kazper:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -70,7 +70,7 @@ jobs:
       - name: Package Helm chart
         run: |
           mkdir -p dist
-          helm package deploy/helm/nutrition-api/ \
+          helm package deploy/helm/kazper/ \
             --version "${{ steps.ver.outputs.chart }}" \
             --app-version "${{ steps.ver.outputs.tag }}" \
             --destination dist/
@@ -82,5 +82,5 @@ jobs:
 
       - name: Push chart to GHCR OCI registry
         run: |
-          helm push dist/nutrition-api-${{ steps.ver.outputs.chart }}.tgz \
+          helm push dist/kazper-${{ steps.ver.outputs.chart }}.tgz \
             oci://ghcr.io/${{ github.repository_owner }}/charts

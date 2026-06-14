@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vinzenzs/nutrition-api/internal/products"
-	"github.com/vinzenzs/nutrition-api/internal/store"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/products"
+	"github.com/vinzenzs/kazper/internal/store"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // Validation errors map 1:1 to API error codes.

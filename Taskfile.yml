@@ -1,6 +1,6 @@
 version: '3'
 
-# nutrition-api Taskfile.
+# kazper Taskfile.
 #
 # Run `task --list` to see available targets, or `task dev` to bring up the
 # local environment with one command.
@@ -11,9 +11,9 @@ vars:
   POSTGRES_CONTAINER: nutrition-pg          # container name; matches compose.yml
   POSTGRES_VOLUME: nutrition-pg-data        # named volume from compose.yml
   COMPOSE_FILE: compose.yml
-  BIN: bin/nutrition-api
+  BIN: bin/kazper
   INSTALL_PATH:
-    sh: echo "$HOME/.local/bin/nutrition-api"
+    sh: echo "$HOME/.local/bin/kazper"
   MIGRATIONS_DIR: internal/store/migrations
   DATABASE_URL: postgres://nutrition:nutrition@localhost:5432/nutrition?sslmode=disable
   GARMIN_BRIDGE_DIR: apps/garmin-bridge
@@ -28,12 +28,12 @@ tasks:
   build:
     desc: Compile the binary to {{.BIN}}
     cmds:
-      - go build -o {{.BIN}} ./cmd/nutrition-api
+      - go build -o {{.BIN}} ./cmd/kazper
 
   run:
     desc: Run the REST API from source (uses current env)
     cmds:
-      - go run ./cmd/nutrition-api serve
+      - go run ./cmd/kazper serve
 
   test:
     desc: Run the full test suite
@@ -48,10 +48,10 @@ tasks:
   swag:
     desc: Regenerate the OpenAPI docs into docs/
     cmds:
-      - swag init -g cmd/nutrition-api/main.go -o docs
+      - swag init -g cmd/kazper/main.go -o docs
 
   install:
-    desc: Build and copy the binary to ~/.local/bin/nutrition-api
+    desc: Build and copy the binary to ~/.local/bin/kazper
     deps: [build]
     cmds:
       - mkdir -p "$(dirname {{.INSTALL_PATH}})"
@@ -65,7 +65,7 @@ tasks:
       - echo "installed {{.INSTALL_PATH}}"
 
   mcp:install:
-    desc: Alias for `install` — the same binary serves REST and MCP via `nutrition-api mcp`
+    desc: Alias for `install` — the same binary serves REST and MCP via `kazper mcp`
     cmds:
       - task: install
 
@@ -217,7 +217,7 @@ tasks:
       - |
         echo ""
         echo "──────────────────────────────────────────────────────────────"
-        echo " nutrition-api dev"
+        echo " kazper dev"
         echo "──────────────────────────────────────────────────────────────"
         echo " API:     http://localhost:8080"
         echo " Health:  http://localhost:8080/healthz"
@@ -230,7 +230,7 @@ tasks:
         echo " Try:     curl http://localhost:8080/healthz"
         echo "──────────────────────────────────────────────────────────────"
         echo ""
-      - set -a && . ./.env.local && set +a && go run ./cmd/nutrition-api serve
+      - set -a && . ./.env.local && set +a && go run ./cmd/kazper serve
 
   dev:reset:
     desc: Tear down container + data volume, remove .env.local, then re-run `task dev`

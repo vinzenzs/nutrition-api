@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/products"
-	"github.com/vinzenzs/nutrition-api/internal/store"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/products"
+	"github.com/vinzenzs/kazper/internal/store"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
 )
 
 func init() {

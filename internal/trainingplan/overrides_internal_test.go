@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	wt "github.com/vinzenzs/nutrition-api/internal/workouttemplates"
+	wt "github.com/vinzenzs/kazper/internal/workouttemplates"
 )
 
 func intp(i int) *int { return &i }

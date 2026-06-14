@@ -13,10 +13,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/workouts"
 
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/numfmt"
 )
 
 // Sentinel validation errors mapped 1:1 to API error codes by the handler.

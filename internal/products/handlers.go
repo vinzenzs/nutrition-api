@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/off"
+	"github.com/vinzenzs/kazper/internal/off"
 )
 
 // Handlers wires the products service to Gin routes.

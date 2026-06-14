@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // TestMCPSchemas_MatchGolden is the safety gate for the bespoke→registry port

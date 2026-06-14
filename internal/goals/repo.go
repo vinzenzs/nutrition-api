@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 // singletonID is the fixed primary key of the one allowed nutrition_goals row.

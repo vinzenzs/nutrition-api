@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
+	"github.com/vinzenzs/kazper/internal/cookidoo"
 )
 
 // ----- POST /products/recipes -----

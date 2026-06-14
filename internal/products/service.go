@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
-	"github.com/vinzenzs/nutrition-api/internal/off"
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/cookidoo"
+	"github.com/vinzenzs/kazper/internal/off"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 // OFFClient is the subset of off.Client behaviour the service depends on,

@@ -1,4 +1,4 @@
-# Running nutrition-api locally
+# Running kazper locally
 
 The fast path is two commands. The detailed path is below for when you want to
 understand or override what's happening.
@@ -126,7 +126,7 @@ If you want to know what's happening under the hood:
 
 3. **A banner prints** with the URL, both tokens, and an example curl.
 
-4. **`go run ./cmd/nutrition-api serve`** starts with `.env.local` loaded.
+4. **`go run ./cmd/kazper serve`** starts with `.env.local` loaded.
    The binary applies pending migrations automatically (the
    `MIGRATE_ON_START=true` default), then begins listening.
 
@@ -136,8 +136,8 @@ If you want to know what's happening under the hood:
 
 ```bash
 task --list           # show all available tasks
-task build            # compile bin/nutrition-api
-task install          # build + copy to ~/.local/bin/nutrition-api
+task build            # compile bin/kazper
+task install          # build + copy to ~/.local/bin/kazper
 task test             # full test suite (boots Postgres via testcontainers)
 task vet              # go vet ./...
 task swag             # regenerate docs/ from handler annotations
@@ -674,12 +674,12 @@ again.
 
 ## Wire up the MCP server (Claude Code / Claude Desktop)
 
-The MCP server is a subcommand of the same binary (`nutrition-api mcp`). It
+The MCP server is a subcommand of the same binary (`kazper mcp`). It
 talks to the REST API over HTTP using `AGENT_API_TOKEN`, so the REST API
 (`task dev`) must be running.
 
 ```bash
-task install          # builds and installs to ~/.local/bin/nutrition-api
+task install          # builds and installs to ~/.local/bin/kazper
 ```
 
 Then in `~/.claude/mcp.json` (Claude Code) or
@@ -690,7 +690,7 @@ Then in `~/.claude/mcp.json` (Claude Code) or
 {
   "mcpServers": {
     "nutrition": {
-      "command": "/Users/<you>/.local/bin/nutrition-api",
+      "command": "/Users/<you>/.local/bin/kazper",
       "args": ["mcp"],
       "env": {
         "NUTRITION_API_URL": "http://localhost:8080",

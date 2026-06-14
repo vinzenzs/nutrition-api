@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/numfmt"
 )
 
 // TemplatesHandlers wires PUT/GET/DELETE for /goal-templates.

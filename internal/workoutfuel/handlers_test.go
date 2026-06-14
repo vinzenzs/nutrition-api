@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
-	"github.com/vinzenzs/nutrition-api/internal/idempotency"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
-	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/auth"
+	"github.com/vinzenzs/kazper/internal/idempotency"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/workoutfuel"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 func init() {

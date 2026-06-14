@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
-	"github.com/vinzenzs/nutrition-api/internal/garmincontrol"
+	"github.com/vinzenzs/kazper/internal/auth"
+	"github.com/vinzenzs/kazper/internal/garmincontrol"
 )
 
 func init() { gin.SetMode(gin.TestMode) }

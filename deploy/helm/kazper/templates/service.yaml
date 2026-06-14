@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "nutrition-api.fullname" . }}
+  name: {{ include "kazper.fullname" . }}
   labels:
-    {{- include "nutrition-api.labels" . | nindent 4 }}
+    {{- include "kazper.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "nutrition-api.selectorLabels" . | nindent 4 }}
+    {{- include "kazper.selectorLabels" . | nindent 4 }}

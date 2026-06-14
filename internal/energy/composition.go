@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
 )
 
 const rollingWindowDays = 7

@@ -13,9 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/trainingplan"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
-	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
+	"github.com/vinzenzs/kazper/internal/trainingplan"
+	"github.com/vinzenzs/kazper/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/workouttemplates"
 )
 
 // Dependency interfaces — narrow views of the repos/service the scheduling

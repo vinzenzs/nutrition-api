@@ -15,7 +15,7 @@ The system SHALL provide a `task dev` Taskfile target that starts a fully functi
 - **WHEN** the user runs `task dev` for the first time in a fresh clone (with Task and Docker-or-Podman installed)
 - **THEN** the system starts a Postgres container named `nutrition-pg` on `localhost:5432` if it is not already running
 - **AND** writes `.env.local` containing `DATABASE_URL`, deterministic dev tokens, and other defaults if the file does not already exist
-- **AND** starts `nutrition-api serve` with `.env.local` sourced
+- **AND** starts `kazper serve` with `.env.local` sourced
 - **AND** the binary applies pending schema migrations at startup (via the existing `MIGRATE_ON_START=true` default)
 - **AND** prints a banner identifying the URL, the two dev tokens, and an example curl
 
@@ -96,7 +96,7 @@ The system SHALL provide a `Taskfile.yml` exposing every operation the prior `Ma
 #### Scenario: task run starts the REST API
 
 - **WHEN** the user runs `task run` with a valid environment loaded
-- **THEN** the system runs `go run ./cmd/nutrition-api serve` (equivalent to the prior `make run`)
+- **THEN** the system runs `go run ./cmd/kazper serve` (equivalent to the prior `make run`)
 
 #### Scenario: task migrate applies pending migrations
 

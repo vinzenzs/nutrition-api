@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // Config carries the chat runtime knobs, sourced from the server config.

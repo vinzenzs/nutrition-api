@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vinzenzs/nutrition-api/internal/raceprep"
+	"github.com/vinzenzs/kazper/internal/raceprep"
 )
 
 // TestIntensityFromTSS covers the closed-low / open-high band boundaries

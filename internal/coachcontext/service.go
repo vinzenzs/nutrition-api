@@ -8,11 +8,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
-	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
+	"github.com/vinzenzs/kazper/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/recoverymetrics"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // Window defaults and clamps for the aggregate reads.

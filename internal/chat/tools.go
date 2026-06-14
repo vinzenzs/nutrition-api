@@ -3,7 +3,7 @@ package chat
 import (
 	"encoding/json"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // cookidooSearchDomains restricts the web_search server tool to Cookidoo hosts

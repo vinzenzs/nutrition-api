@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the contract for shipping the nutrition-api from a git commit to a running pod: the container image's shape (multi-stage distroless, embedded migrations, ldflags-stamped version), the Helm chart's required objects and value surface (single-replica Deployment, optional Ingress with cert-manager, externally provisioned Postgres), and the GitHub Actions workflows that turn commits/tags into artifacts (PR validation, `:main`/`:sha-<short>` on push, semver image + OCI Helm chart on `v*` tag).
+Define the contract for shipping the kazper from a git commit to a running pod: the container image's shape (multi-stage distroless, embedded migrations, ldflags-stamped version), the Helm chart's required objects and value surface (single-replica Deployment, optional Ingress with cert-manager, externally provisioned Postgres), and the GitHub Actions workflows that turn commits/tags into artifacts (PR validation, `:main`/`:sha-<short>` on push, semver image + OCI Helm chart on `v*` tag).
 
 ## Requirements
 
@@ -14,7 +14,7 @@ The system SHALL ship as a single container image built from a Dockerfile at the
 
 - **WHEN** the image is inspected via `docker inspect <image>`
 - **THEN** the configured user is `nonroot` (UID 65532)
-- **AND** the entrypoint is the embedded `nutrition-api` binary
+- **AND** the entrypoint is the embedded `kazper` binary
 - **AND** the working directory is `/app`
 
 #### Scenario: Image is statically linked and shell-free
@@ -26,7 +26,7 @@ The system SHALL ship as a single container image built from a Dockerfile at the
 
 - **WHEN** the container starts with `MIGRATE_ON_START=true` and a fresh database
 - **THEN** the binary applies all embedded migrations from `internal/store/migrations/` without needing any volume mount
-- **AND** the `nutrition-api migrate` subcommand applies migrations against an arbitrary `DATABASE_URL` using the same embedded files
+- **AND** the `kazper migrate` subcommand applies migrations against an arbitrary `DATABASE_URL` using the same embedded files
 
 #### Scenario: Image size stays under 30 MB compressed
 
@@ -35,12 +35,12 @@ The system SHALL ship as a single container image built from a Dockerfile at the
 
 ### Requirement: The binary reports its release identity via build-time ldflags
 
-The system SHALL accept `VERSION` and `COMMIT` as Docker build args and inject them into the binary as `main.version` and `main.commit` via `-ldflags`. The existing `nutrition-api version` subcommand SHALL print these values.
+The system SHALL accept `VERSION` and `COMMIT` as Docker build args and inject them into the binary as `main.version` and `main.commit` via `-ldflags`. The existing `kazper version` subcommand SHALL print these values.
 
 #### Scenario: Version subcommand reflects build args
 
 - **WHEN** the image is built with `--build-arg VERSION=v1.2.3 --build-arg COMMIT=abcdef0`
-- **AND** the container is run with `nutrition-api version`
+- **AND** the container is run with `kazper version`
 - **THEN** the output contains `version=v1.2.3` and `commit=abcdef0`
 
 #### Scenario: Default values for unstamped builds
@@ -50,12 +50,12 @@ The system SHALL accept `VERSION` and `COMMIT` as Docker build args and inject t
 
 ### Requirement: Helm chart packages the API as a single-replica Deployment with no Postgres
 
-The system SHALL ship a Helm chart at `deploy/helm/nutrition-api/` that, on `helm install`, creates a Kubernetes `Deployment` with `replicas: 1` and `strategy.type: Recreate`, a `ClusterIP` `Service`, an optional `Ingress`, an optional `Secret`, and a `ConfigMap` carrying non-secret configuration. The chart SHALL NOT include a Postgres subchart, a Postgres operator dependency, or any in-chart database resource. The chart SHALL expose `DATABASE_URL` exclusively via the Secret (whether chart-managed or externally provided).
+The system SHALL ship a Helm chart at `deploy/helm/kazper/` that, on `helm install`, creates a Kubernetes `Deployment` with `replicas: 1` and `strategy.type: Recreate`, a `ClusterIP` `Service`, an optional `Ingress`, an optional `Secret`, and a `ConfigMap` carrying non-secret configuration. The chart SHALL NOT include a Postgres subchart, a Postgres operator dependency, or any in-chart database resource. The chart SHALL expose `DATABASE_URL` exclusively via the Secret (whether chart-managed or externally provided).
 
 #### Scenario: Fresh install yields the expected object set
 
-- **WHEN** the user runs `helm install nutrition-api deploy/helm/nutrition-api/ --set-string secrets.databaseUrl=... --set-string secrets.mobileApiToken=... --set-string secrets.agentApiToken=...`
-- **THEN** Kubernetes objects created are exactly: `Deployment/nutrition-api`, `Service/nutrition-api`, `ConfigMap/nutrition-api`, `Secret/nutrition-api`, `ServiceAccount/nutrition-api`
+- **WHEN** the user runs `helm install kazper deploy/helm/kazper/ --set-string secrets.databaseUrl=... --set-string secrets.mobileApiToken=... --set-string secrets.agentApiToken=...`
+- **THEN** Kubernetes objects created are exactly: `Deployment/kazper`, `Service/kazper`, `ConfigMap/kazper`, `Secret/kazper`, `ServiceAccount/kazper`
 - **AND** no Postgres-related objects are created
 
 #### Scenario: Externally managed Secret bypasses the chart's Secret template
@@ -105,11 +105,11 @@ The chart SHALL render an `Ingress` only when `ingress.enabled: true`. When rend
 - **WHEN** the chart is installed with `ingress.enabled=true`, `ingress.host=nutrition.example`, `ingress.tls.enabled=true`, `ingress.tls.issuer=letsencrypt-prod`
 - **THEN** the rendered Ingress has `cert-manager.io/cluster-issuer: letsencrypt-prod`
 - **AND** has `nginx.ingress.kubernetes.io/proxy-body-size: 10m`
-- **AND** has a `tls` section listing `nutrition.example` with `secretName: nutrition-api-tls`
+- **AND** has a `tls` section listing `nutrition.example` with `secretName: kazper-tls`
 
 ### Requirement: Migrations run in-process at startup, not as a Helm hook
 
-The chart SHALL leave `MIGRATE_ON_START` set to `true` (the binary's default) so the serve container runs `store.Migrate(databaseUrl)` before listening. The chart SHALL NOT include a `pre-install` or `pre-upgrade` Helm hook that runs `nutrition-api migrate` as a separate Job.
+The chart SHALL leave `MIGRATE_ON_START` set to `true` (the binary's default) so the serve container runs `store.Migrate(databaseUrl)` before listening. The chart SHALL NOT include a `pre-install` or `pre-upgrade` Helm hook that runs `kazper migrate` as a separate Job.
 
 #### Scenario: No migration hook resources
 
@@ -143,18 +143,18 @@ The system SHALL include `.github/workflows/pr.yml` that runs on `pull_request` 
 #### Scenario: PR also smoke-tests the Helm chart
 
 - **WHEN** the workflow runs
-- **THEN** `helm template deploy/helm/nutrition-api/ --debug` is executed
+- **THEN** `helm template deploy/helm/kazper/ --debug` is executed
 - **AND** the workflow fails if templating produces an error
 
 ### Requirement: Main-branch workflow publishes :main and :sha-<short> images to GHCR
 
-The system SHALL include `.github/workflows/main.yml` that runs on `push` to the `main` branch. The workflow SHALL build the Docker image and push it to `ghcr.io/<repo-owner>/nutrition-api` with tags `:main` and `:sha-<short>` where `<short>` is the first 7 characters of the commit SHA. Authentication SHALL use the workflow's default `GITHUB_TOKEN` with `packages: write` permission.
+The system SHALL include `.github/workflows/main.yml` that runs on `push` to the `main` branch. The workflow SHALL build the Docker image and push it to `ghcr.io/<repo-owner>/kazper` with tags `:main` and `:sha-<short>` where `<short>` is the first 7 characters of the commit SHA. Authentication SHALL use the workflow's default `GITHUB_TOKEN` with `packages: write` permission.
 
 #### Scenario: Successful push to main publishes both tags
 
 - **WHEN** a commit lands on `main` and the workflow runs to completion
-- **THEN** `ghcr.io/<owner>/nutrition-api:main` is updated to the new image
-- **AND** `ghcr.io/<owner>/nutrition-api:sha-<short>` exists with the same digest
+- **THEN** `ghcr.io/<owner>/kazper:main` is updated to the new image
+- **AND** `ghcr.io/<owner>/kazper:sha-<short>` exists with the same digest
 
 #### Scenario: Failed test blocks image push
 
@@ -169,9 +169,9 @@ The system SHALL include `.github/workflows/release.yml` that runs on `push` of 
 #### Scenario: A v1.2.3 tag produces an image and a chart
 
 - **WHEN** the user pushes tag `v1.2.3`
-- **THEN** `ghcr.io/<owner>/nutrition-api:v1.2.3` and `:latest` exist
-- **AND** `oci://ghcr.io/<owner>/charts/nutrition-api:v1.2.3` is installable via `helm install ... oci://ghcr.io/<owner>/charts/nutrition-api --version v1.2.3`
-- **AND** `nutrition-api version` inside the image reports `version=v1.2.3`
+- **THEN** `ghcr.io/<owner>/kazper:v1.2.3` and `:latest` exist
+- **AND** `oci://ghcr.io/<owner>/charts/kazper:v1.2.3` is installable via `helm install ... oci://ghcr.io/<owner>/charts/kazper --version v1.2.3`
+- **AND** `kazper version` inside the image reports `version=v1.2.3`
 
 #### Scenario: Failed test blocks release
 
@@ -181,7 +181,7 @@ The system SHALL include `.github/workflows/release.yml` that runs on `push` of 
 
 ### Requirement: Chart README documents the install / upgrade path
 
-The chart SHALL ship a `README.md` at `deploy/helm/nutrition-api/README.md` that documents (at minimum) the required values, the OCI install command for a tagged release, the `helm upgrade --install` idiom for updates, and the rollback command. The repo-root `README.md` SHALL link to the chart README from a "Deploying" subsection.
+The chart SHALL ship a `README.md` at `deploy/helm/kazper/README.md` that documents (at minimum) the required values, the OCI install command for a tagged release, the `helm upgrade --install` idiom for updates, and the rollback command. The repo-root `README.md` SHALL link to the chart README from a "Deploying" subsection.
 
 #### Scenario: Chart README lists the three required tokens
 
@@ -192,5 +192,5 @@ The chart SHALL ship a `README.md` at `deploy/helm/nutrition-api/README.md` that
 #### Scenario: Repo README points at the chart
 
 - **WHEN** the repo-root `README.md` is read
-- **THEN** a "Deploying" section links to `deploy/helm/nutrition-api/README.md`
-- **AND** mentions the GHCR image URL `ghcr.io/<owner>/nutrition-api`
+- **THEN** a "Deploying" section links to `deploy/helm/kazper/README.md`
+- **AND** mentions the GHCR image URL `ghcr.io/<owner>/kazper`

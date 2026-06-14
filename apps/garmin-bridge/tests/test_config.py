@@ -11,14 +11,14 @@ def _full_env() -> dict[str, str]:
     return {
         "GARMIN_EMAIL": "a@b.com",
         "GARMIN_PASSWORD": "pw",
-        "NUTRITION_API_URL": "http://nutrition-api/",
+        "NUTRITION_API_URL": "http://kazper/",
         "GARMIN_API_TOKEN": "tok",
     }
 
 
 def test_load_ok_strips_trailing_slash():
     cfg = config.load(_full_env())
-    assert cfg.nutrition_api_url == "http://nutrition-api"
+    assert cfg.nutrition_api_url == "http://kazper"
     assert cfg.sync_tz == "UTC"
 
 
@@ -42,7 +42,7 @@ def test_missing_required_raises(missing):
 
 def test_bad_url_scheme_raises():
     env = _full_env()
-    env["NUTRITION_API_URL"] = "nutrition-api"
+    env["NUTRITION_API_URL"] = "kazper"
     with pytest.raises(config.ConfigError):
         config.load(env)
 

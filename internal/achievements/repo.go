@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 // Repo persists achievement rows.

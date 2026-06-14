@@ -59,11 +59,11 @@ jobs:
           version: latest
 
       - name: helm lint
-        run: helm lint deploy/helm/nutrition-api/
+        run: helm lint deploy/helm/kazper/
 
       - name: helm template (chart-managed Secret path)
         run: |
-          helm template smoke deploy/helm/nutrition-api/ \
+          helm template smoke deploy/helm/kazper/ \
             --set secrets.databaseUrl=ci-stub \
             --set secrets.mobileApiToken=ci-stub \
             --set secrets.agentApiToken=ci-stub \
@@ -71,7 +71,7 @@ jobs:
 
       - name: helm template (Ingress + cert-manager path)
         run: |
-          helm template smoke deploy/helm/nutrition-api/ \
+          helm template smoke deploy/helm/kazper/ \
             --set secrets.databaseUrl=ci-stub \
             --set secrets.mobileApiToken=ci-stub \
             --set secrets.agentApiToken=ci-stub \

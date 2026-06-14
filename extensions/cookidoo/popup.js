@@ -263,7 +263,7 @@ async function onSubmit(ev) {
     nutriments_per_100g: nutriments,
   };
 
-  // Attach the verbatim ingredient list when the page provided one. nutrition-api
+  // Attach the verbatim ingredient list when the page provided one. kazper
   // stores it unparsed; only recipe-source products may carry it.
   const ingredients =
     recipeContext.recipe && Array.isArray(recipeContext.recipe.ingredients)

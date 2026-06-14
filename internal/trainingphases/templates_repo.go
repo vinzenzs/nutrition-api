@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/store"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/store"
 )
 
 // Sentinel errors.

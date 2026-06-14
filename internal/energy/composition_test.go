@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/energy"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/energy"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // ptr makes test bodies readable when constructing AvailabilityParams.

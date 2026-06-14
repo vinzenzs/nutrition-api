@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
-	"github.com/vinzenzs/nutrition-api/internal/auth"
+	"github.com/vinzenzs/kazper/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/auth"
 )
 
 // scheduleWorkoutSpec is a write-confirm tool injected only in confirm tests —

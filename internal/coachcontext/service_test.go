@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/coachcontext"
-	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
-	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/coachcontext"
+	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
+	"github.com/vinzenzs/kazper/internal/recoverymetrics"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 func ptr[T any](v T) *T { return &v }

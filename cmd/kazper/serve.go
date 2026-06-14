@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	_ "github.com/vinzenzs/nutrition-api/docs"
-	"github.com/vinzenzs/nutrition-api/internal/config"
-	"github.com/vinzenzs/nutrition-api/internal/httpserver"
+	_ "github.com/vinzenzs/kazper/docs"
+	"github.com/vinzenzs/kazper/internal/config"
+	"github.com/vinzenzs/kazper/internal/httpserver"
 )
 
 func serveCmd() *cobra.Command {

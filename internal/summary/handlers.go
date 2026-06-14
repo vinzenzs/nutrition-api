@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/meals"
+	"github.com/vinzenzs/kazper/internal/meals"
 )
 
 const maxRangeDays = 92

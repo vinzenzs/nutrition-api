@@ -1,6 +1,6 @@
-# nutrition-api Helm chart
+# kazper Helm chart
 
-Single-replica deployment of the [nutrition-api](https://github.com/vinzenzs/nutrition-api)
+Single-replica deployment of the [kazper](https://github.com/vinzenzs/kazper)
 REST backend. Ships a `Deployment`, `Service`, `ConfigMap`, optional
 `Ingress`, optional `Secret`, and a `ServiceAccount`. Expects an
 externally provisioned Postgres reachable via `DATABASE_URL` — the chart
@@ -37,10 +37,10 @@ existingSecret=my-secret-name`. The Secret must contain these keys:
 ## Install a tagged release (OCI from GHCR)
 
 ```bash
-helm upgrade --install nutrition-api \
-    oci://ghcr.io/vinzenzs/charts/nutrition-api \
+helm upgrade --install kazper \
+    oci://ghcr.io/vinzenzs/charts/kazper \
     --version v0.1.0 \
-    --namespace nutrition-api --create-namespace \
+    --namespace kazper --create-namespace \
     --set secrets.databaseUrl='postgres://nutrition:...@db.internal:5432/nutrition?sslmode=disable' \
     --set secrets.mobileApiToken='<openssl rand -hex 32>' \
     --set secrets.agentApiToken='<openssl rand -hex 32>'
@@ -65,18 +65,18 @@ ingress:
 ```
 
 ```bash
-helm upgrade --install nutrition-api \
-    oci://ghcr.io/vinzenzs/charts/nutrition-api \
+helm upgrade --install kazper \
+    oci://ghcr.io/vinzenzs/charts/kazper \
     --version v0.1.0 \
-    --namespace nutrition-api --create-namespace \
+    --namespace kazper --create-namespace \
     -f private-values.yaml
 ```
 
 ## Install from the repo (untagged / development)
 
 ```bash
-helm upgrade --install nutrition-api \
-    ./deploy/helm/nutrition-api/ \
+helm upgrade --install kazper \
+    ./deploy/helm/kazper/ \
     --set image.tag=main \
     --set secrets.databaseUrl=... \
     --set secrets.mobileApiToken=... \
@@ -96,32 +96,32 @@ restart automatically.
 ## Rollback
 
 ```bash
-helm history nutrition-api --namespace nutrition-api
-helm rollback nutrition-api <REVISION> --namespace nutrition-api
+helm history kazper --namespace kazper
+helm rollback kazper <REVISION> --namespace kazper
 ```
 
 Rolling back the chart restores the prior image + values. If the
 rollback target has a different schema_migrations head, the binary will
 re-apply forward to whatever the embedded migrations claim (so rolling
 the binary back across a migration boundary requires a separate
-`nutrition-api migrate -version <N> down` step against the database
+`kazper migrate -version <N> down` step against the database
 beforehand).
 
 ## Smoke-test the install
 
 ```bash
-kubectl -n nutrition-api rollout status deploy/nutrition-api
-kubectl -n nutrition-api port-forward svc/nutrition-api 8080:80 &
+kubectl -n kazper rollout status deploy/kazper
+kubectl -n kazper port-forward svc/kazper 8080:80 &
 curl -s http://localhost:8080/healthz   # {"status":"ok"}
 curl -s http://localhost:8080/readyz    # {"status":"ok"}
 ```
 
-`nutrition-api version` inside the pod reports the embedded build
+`kazper version` inside the pod reports the embedded build
 identity:
 
 ```bash
-kubectl -n nutrition-api exec deploy/nutrition-api -- /app/nutrition-api version
-# nutrition-api version=v0.1.0 commit=<sha> date=unknown
+kubectl -n kazper exec deploy/kazper -- /app/kazper version
+# kazper version=v0.1.0 commit=<sha> date=unknown
 ```
 
 ## Probes
@@ -142,8 +142,8 @@ fit a personal cluster; bump them if you see throttling or OOM in
 ## Tearing down
 
 ```bash
-helm uninstall nutrition-api --namespace nutrition-api
-kubectl delete namespace nutrition-api   # if you created it for this chart
+helm uninstall kazper --namespace kazper
+kubectl delete namespace kazper   # if you created it for this chart
 ```
 
 The chart does NOT touch your Postgres — data survives uninstall.

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/products"
+	"github.com/vinzenzs/kazper/internal/products"
 )
 
 func createManualHelper(t *testing.T, r http.Handler, body string) *products.Product {

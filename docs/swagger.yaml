@@ -2667,9 +2667,9 @@ definitions:
     type: object
 info:
   contact: {}
-  description: Personal nutrition tracking REST API. All endpoints under /products,
-    /meals, and /summary require a bearer token.
-  title: Nutrition API
+  description: Kazper — personal endurance-fueling and training-coach REST API. All
+    endpoints under /products, /meals, and /summary require a bearer token.
+  title: Kazper
   version: 0.1.0
 paths:
   /achievements:

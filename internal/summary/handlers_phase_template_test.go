@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
-	"github.com/vinzenzs/nutrition-api/internal/summary"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/summary"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
 )
 
 // TestSummaryDaily_PhaseTemplateAdherenceAndPhaseName wires the full

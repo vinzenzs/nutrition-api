@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // dispatcher executes a tool's REST call in-process against the server's own

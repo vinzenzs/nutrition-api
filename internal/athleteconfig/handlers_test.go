@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/athleteconfig"
-	"github.com/vinzenzs/nutrition-api/internal/idempotency"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/athleteconfig"
+	"github.com/vinzenzs/kazper/internal/idempotency"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
 )
 
 func init() { gin.SetMode(gin.TestMode) }

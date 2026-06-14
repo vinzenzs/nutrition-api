@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
+	"github.com/vinzenzs/kazper/internal/workouttemplates"
 )
 
 // Plan mirrors a training_plans row. Weeks is populated only by the nested

@@ -1,6 +1,6 @@
 package energy
 
-import "github.com/vinzenzs/nutrition-api/internal/numfmt"
+import "github.com/vinzenzs/kazper/internal/numfmt"
 
 // computeEA returns the Loucks EA value in kcal / kg FFM / day.
 //

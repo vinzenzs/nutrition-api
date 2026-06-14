@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nutrition-api.fullname" . }}
+  name: {{ include "kazper.fullname" . }}
   labels:
-    {{- include "nutrition-api.labels" . | nindent 4 }}
+    {{- include "kazper.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
@@ -12,7 +12,7 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "nutrition-api.selectorLabels" . | nindent 6 }}
+      {{- include "kazper.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -26,12 +26,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "nutrition-api.selectorLabels" . | nindent 8 }}
+        {{- include "kazper.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "nutrition-api.serviceAccountName" . }}
+      serviceAccountName: {{ include "kazper.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -39,8 +39,8 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: nutrition-api
-          image: {{ include "nutrition-api.image" . }}
+        - name: kazper
+          image: {{ include "kazper.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["serve"]
           ports:
@@ -49,9 +49,9 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: {{ include "nutrition-api.configMapName" . }}
+                name: {{ include "kazper.configMapName" . }}
             - secretRef:
-                name: {{ include "nutrition-api.secretName" . }}
+                name: {{ include "kazper.secretName" . }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:

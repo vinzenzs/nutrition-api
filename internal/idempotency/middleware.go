@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
+	"github.com/vinzenzs/kazper/internal/auth"
 )
 
 const HeaderName = "Idempotency-Key"

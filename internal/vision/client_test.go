@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/vision"
+	"github.com/vinzenzs/kazper/internal/vision"
 )
 
 // loadFixture pulls a recorded Anthropic response from testdata/.

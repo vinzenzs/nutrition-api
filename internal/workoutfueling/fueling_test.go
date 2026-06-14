@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/hydration"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/products"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
-	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
-	"github.com/vinzenzs/nutrition-api/internal/workoutfueling"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/hydration"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/products"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/workoutfuel"
+	"github.com/vinzenzs/kazper/internal/workoutfueling"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 func init() {

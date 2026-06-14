@@ -65,7 +65,7 @@
   }
 
   // Convert a Schema.org NutritionInformation block (per serving) into a
-  // best-effort per-serving nutriment object using the fields nutrition-api
+  // best-effort per-serving nutriment object using the fields kazper
   // understands. Anything we can't parse stays absent.
   function parsePerServingNutriments(nutrition, warnings) {
     if (!nutrition || typeof nutrition !== "object") return {};
@@ -173,7 +173,7 @@
 
     // recipeIngredient is an ordered array of verbatim free-text strings
     // (e.g. "100 g Staudensellerie"). Kept exactly as the page provides them —
-    // nutrition-api stores them unparsed for the shopping-list flow.
+    // kazper stores them unparsed for the shopping-list flow.
     let ingredients = [];
     if (Array.isArray(recipe.recipeIngredient)) {
       ingredients = recipe.recipeIngredient.filter((x) => typeof x === "string");
@@ -226,7 +226,7 @@
     const r = result && result.recipe;
     // eslint-disable-next-line no-console
     console.log(
-      "[nutrition-api importer] " + label,
+      "[kazper importer] " + label,
       {
         hasRecipe: !!r,
         name: r ? r.name : null,

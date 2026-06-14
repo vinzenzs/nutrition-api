@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/numfmt"
 )
 
 // TrendParams scopes a rolling-average trend computation. From and To are

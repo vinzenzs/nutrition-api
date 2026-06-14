@@ -19,7 +19,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print build metadata and exit",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "nutrition-api version=%s commit=%s date=%s\n", version, commit, date)
+			fmt.Fprintf(cmd.OutOrStdout(), "kazper version=%s commit=%s date=%s\n", version, commit, date)
 		},
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/products"
+	"github.com/vinzenzs/kazper/internal/products"
 )
 
 // PATCH sets nutriments on a recipe imported without a serving size, merging

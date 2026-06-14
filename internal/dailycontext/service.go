@@ -8,17 +8,17 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/hydration"
-	"github.com/vinzenzs/nutrition-api/internal/hydrationbalance"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
-	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
-	"github.com/vinzenzs/nutrition-api/internal/summary"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
-	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/hydration"
+	"github.com/vinzenzs/kazper/internal/hydrationbalance"
+	"github.com/vinzenzs/kazper/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/recoverymetrics"
+	"github.com/vinzenzs/kazper/internal/summary"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/workoutfuel"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // Service composes a DailyContext bundle from existing read-side primitives.

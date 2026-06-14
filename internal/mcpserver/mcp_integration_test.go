@@ -2,7 +2,7 @@
 
 // Run with:  go test -tags=integration ./internal/mcpserver/
 //
-// Builds the nutrition-api binary, spawns `nutrition-api mcp` as a
+// Builds the kazper binary, spawns `kazper mcp` as a
 // subprocess with a stub REST server for healthz, exchanges JSON-RPC
 // frames over stdio, and asserts that the eight expected tools are
 // announced via tools/list.
@@ -29,9 +29,9 @@ import (
 
 func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "nutrition-api")
+	binPath := filepath.Join(tmpDir, "kazper")
 
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/nutrition-api")
+	build := exec.Command("go", "build", "-o", binPath, "./cmd/kazper")
 	// Build from the repo root so the package path resolves.
 	build.Dir = filepath.Join("..", "..")
 	out, err := build.CombinedOutput()

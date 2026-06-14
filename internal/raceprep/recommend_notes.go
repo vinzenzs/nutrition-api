@@ -1,6 +1,6 @@
 package raceprep
 
-import "github.com/vinzenzs/nutrition-api/internal/workouts"
+import "github.com/vinzenzs/kazper/internal/workouts"
 
 // buildNotes assembles the literature-context notes that don't fit as
 // single numbers in the per-section rationale. Always returns the three

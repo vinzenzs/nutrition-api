@@ -12,12 +12,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/hydration"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
-	"github.com/vinzenzs/nutrition-api/internal/summary"
-	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/hydration"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/summary"
+	"github.com/vinzenzs/kazper/internal/workoutfuel"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // Window-length defaults + bounds. Documented in the workouts capability spec.

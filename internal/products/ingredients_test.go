@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/products"
+	"github.com/vinzenzs/kazper/internal/products"
 )
 
 // A flat-imported recipe with ingredients round-trips: the array comes back in

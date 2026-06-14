@@ -7,9 +7,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/bodyweight"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
+	"github.com/vinzenzs/kazper/internal/meals"
+	"github.com/vinzenzs/kazper/internal/numfmt"
 )
 
 // MPS literature value (Phillips 2014 / Loucks 2007 / Stokes 2018 all converge):

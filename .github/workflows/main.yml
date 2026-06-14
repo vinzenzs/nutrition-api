@@ -65,8 +65,8 @@ jobs:
             VERSION=main-${{ steps.sha.outputs.short }}
             COMMIT=${{ github.sha }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/nutrition-api:main
-            ghcr.io/${{ github.repository_owner }}/nutrition-api:sha-${{ steps.sha.outputs.short }}
+            ghcr.io/${{ github.repository_owner }}/kazper:main
+            ghcr.io/${{ github.repository_owner }}/kazper:sha-${{ steps.sha.outputs.short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

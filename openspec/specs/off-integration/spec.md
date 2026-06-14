@@ -13,7 +13,7 @@ The Open Food Facts client SHALL fetch products from `https://world.openfoodfact
 #### Scenario: User-Agent is set on every OFF request
 
 - **WHEN** the client issues any HTTP request to Open Food Facts
-- **THEN** the request includes a `User-Agent` header of the form `nutrition-api/<version> (+<contact-url-or-email>)`
+- **THEN** the request includes a `User-Agent` header of the form `kazper/<version> (+<contact-url-or-email>)`
 - **AND** the contact value is sourced from the `OFF_USER_AGENT_CONTACT` env var, falling back to a hardcoded default if unset
 
 #### Scenario: Request times out after the configured timeout

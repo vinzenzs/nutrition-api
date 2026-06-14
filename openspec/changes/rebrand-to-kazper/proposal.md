@@ -1,19 +1,19 @@
 ## Why
 
-The project name `nutrition-api` describes a backend, not the product. The product is **Kazper** — an endurance-fueling and training coach that the app embodies. The in-app coach persona (shipped generically in `expand-chat-to-coach` phase 3) should *be* Kazper: one identity shared by the product and the assistant, matching the direction that arc already set (one coach, embodied by the app). This change rebrands the user-facing identity to Kazper without disturbing the codebase's internal plumbing.
+The project name `kazper` describes a backend, not the product. The product is **Kazper** — an endurance-fueling and training coach that the app embodies. The in-app coach persona (shipped generically in `expand-chat-to-coach` phase 3) should *be* Kazper: one identity shared by the product and the assistant, matching the direction that arc already set (one coach, embodied by the app). This change rebrands the user-facing identity to Kazper without disturbing the codebase's internal plumbing.
 
 **The name.** Kazper (Casper → Kazper) reads as a *name*, not a category: trademark-clean, no mattress-brand collision, ownable via the K/Z spelling. It carries two intended readings — **Casper**, the friendly, ever-present companion (the tone: warm, ambient, non-judgmental), and **Kaspar the Magus**, the wise guide who follows a star bearing gifts (the arc: guiding the athlete over a months-long journey to a destination race).
 
 ## What Changes
 
-- **Scope: rebrand only — the Go module path stays `github.com/vinzenzs/nutrition-api`.** No 186-file import sweep. The rename is user-facing identity + build/deploy names, not internal package structure.
+- **Scope: full rename.** Mid-apply the user renamed the GitHub repo to `kazper`, which reopened the original "keep module path" call — keeping it would split the Go import path (`nutrition-api`) from the repo URL (`kazper`). Decision flipped to a **full rename**: the Go module path `github.com/vinzenzs/nutrition-api` → `github.com/vinzenzs/kazper` (186 import sites + `go.mod`), verified with `go build ./...` + `go vet`.
 - **The AI coach is named Kazper.** `internal/chat`'s system prompt names the assistant Kazper (a follow-on edit to the persona shipped in `expand-chat-to-coach` phase 3).
 - **Binary + entrypoint:** `bin/nutrition-api` → `bin/kazper`; `cmd/nutrition-api/` → `cmd/kazper/`; Taskfile `build`/`install` targets and the installed `~/.local/bin/` name.
-- **API + MCP identity:** the REST API swag `@title "Nutrition API"` → "Kazper"; the MCP server announced name `"nutrition"` → `"kazper"` (visible in the agent's server list).
-- **Deploy:** Helm chart `deploy/helm/nutrition-api/` → `deploy/helm/kazper/` + `Chart.yaml` name (a redeploy under the new release name, not an in-place upgrade — see design).
-- **Companion + satellites:** the Flutter app display name + `pubspec.yaml` name, the `garmin-bridge` and `cookidoo` extension naming/strings.
-- **Docs:** README, RUN_LOCAL, CLAUDE.md, and other prose referring to "nutrition-api"/"Nutrition API".
-- **Explicitly kept (internal, low-value-to-churn):** the Go module path, the Postgres database name, env var names (unprefixed today — `CHAT_*`, `ANTHROPIC_API_KEY`, …), and the OpenSpec capability spec directory names (`nutrition-chat`, etc.).
+- **API + MCP identity:** the REST API swag `@title` → "Kazper" (`docs/` regenerated); the MCP server announced name `"nutrition"` → `"kazper"` (visible in the agent's server list); the Open Food Facts User-Agent and `kazper version` output.
+- **Deploy:** Helm chart `deploy/helm/nutrition-api/` → `deploy/helm/kazper/` + `Chart.yaml`/template namespace + image name (a redeploy under the new release name, not an in-place upgrade — see design).
+- **Companion + satellites:** the Flutter app display name (iOS `CFBundleDisplayName`, Android `android:label` → Kazper) and the `cookidoo` extension name; `garmin-bridge` product strings.
+- **Docs:** README, RUN_LOCAL, CLAUDE.md, and other prose referring to the old name.
+- **Explicitly kept:** the Postgres database name + `nutrition-pg` container, env var names (`NUTRITION_API_URL`, `CHAT_*`, `ANTHROPIC_API_KEY`, …), domain terms (`nutrition_goals`, `nutrition_per_serving`), the OpenSpec capability spec directory names (`nutrition-chat`, …), and the Flutter **Dart package id** `nutrition_companion` (a separate Flutter-build-gated rename — see design).
 
 ## Capabilities
 

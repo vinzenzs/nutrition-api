@@ -1,6 +1,6 @@
 # Nutrition Companion (Flutter, Android)
 
-The mobile companion to the nutrition-api backend. It is a **focused supplement
+The mobile companion to the kazper backend. It is a **focused supplement
 to the agent, not a replacement** — three screens and three killer interactions
 the phone does better than a chat surface:
 

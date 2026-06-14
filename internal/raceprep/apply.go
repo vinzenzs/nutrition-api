@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
+	"github.com/vinzenzs/kazper/internal/goals"
 )
 
 // ApplyRequest carries the same parameters as a carb-load Plan, with the

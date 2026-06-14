@@ -1,10 +1,10 @@
-// Command nutrition-api is the single binary entrypoint for the project.
+// Command kazper is the single binary entrypoint for the project.
 // It exposes the HTTP API, the MCP server, schema migrations, and version
 // info as Cobra subcommands.
 //
-// @title           Nutrition API
+// @title           Kazper
 // @version         0.1.0
-// @description     Personal nutrition tracking REST API. All endpoints under /products, /meals, and /summary require a bearer token.
+// @description     Kazper — personal endurance-fueling and training-coach REST API. All endpoints under /products, /meals, and /summary require a bearer token.
 // @BasePath        /
 // @securityDefinitions.apikey  BearerAuth
 // @in                          header
@@ -28,9 +28,9 @@ func main() {
 
 func rootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "nutrition-api",
-		Short: "Nutrition tracking API and supporting tooling",
-		Long: `nutrition-api bundles the HTTP REST API, the MCP server, and ` +
+		Use:   "kazper",
+		Short: "Kazper — endurance-fueling and training-coach API and tooling",
+		Long: `kazper bundles the HTTP REST API, the MCP server, and ` +
 			`migration tooling behind a single binary. Run with --help on any ` +
 			`subcommand for details.`,
 		SilenceUsage: true,

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/meals"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/meals"
 )
 
 // Window-day bounds for /summary/rolling. Beyond 30 the trailing-trend framing

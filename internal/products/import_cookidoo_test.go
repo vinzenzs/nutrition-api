@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/cookidoo"
-	"github.com/vinzenzs/nutrition-api/internal/off"
-	"github.com/vinzenzs/nutrition-api/internal/products"
-	"github.com/vinzenzs/nutrition-api/internal/store/storetest"
+	"github.com/vinzenzs/kazper/internal/cookidoo"
+	"github.com/vinzenzs/kazper/internal/off"
+	"github.com/vinzenzs/kazper/internal/products"
+	"github.com/vinzenzs/kazper/internal/store/storetest"
 )
 
 // stubCookidoo implements products.CookidooClient. It returns a fixed recipe (or

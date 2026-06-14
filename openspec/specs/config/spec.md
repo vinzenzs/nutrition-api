@@ -53,7 +53,7 @@ The loader SHALL apply the following precedence, highest first: Cobra flags > en
 
 #### Scenario: Flag overrides environment
 
-- **WHEN** the user runs `nutrition-api serve --addr :9090` with `HTTP_ADDR=:8080` set
+- **WHEN** the user runs `kazper serve --addr :9090` with `HTTP_ADDR=:8080` set
 - **THEN** the resolved `Config.HTTPAddr` is `:9090`
 
 #### Scenario: Environment overrides default

@@ -1,7 +1,12 @@
-# nutrition-api
+# Kazper
 
-A personal nutrition logging backend. Single user. Two clients: a mobile app
-(barcode scans + manual entry) and an LLM coaching agent reached over MCP.
+Kazper is a personal endurance-fueling and training coach — a nutrition +
+training backend with an in-app AI coach (also named Kazper). Single user. Two
+clients: a mobile app (barcode scans + manual entry) and an LLM coaching agent
+reached over MCP.
+
+> The Go module path and binary are `kazper`; the database keeps its original
+> `nutrition` name and the `NUTRITION_API_URL` env var is unchanged.
 
 > **First time here?** See [**RUN_LOCAL.md**](RUN_LOCAL.md) for a 10-minute
 > walkthrough from a fresh clone to a working API and registered MCP server.
@@ -71,20 +76,20 @@ cp .env.example .env
 
 # 3. Run (migrations run on startup by default)
 set -a; . ./.env; set +a
-task run                # equivalent to: go run ./cmd/nutrition-api serve
+task run                # equivalent to: go run ./cmd/kazper serve
 ```
 
 The binary is a single Cobra-based command — invoke it as
-`nutrition-api <subcommand>`:
+`kazper <subcommand>`:
 
 | Subcommand                | Purpose                                                |
 |---------------------------|--------------------------------------------------------|
-| `nutrition-api serve`     | Run the HTTP REST API                                  |
-| `nutrition-api mcp`       | Run the MCP server over stdio                          |
-| `nutrition-api migrate`   | Apply pending database migrations and exit             |
-| `nutrition-api version`   | Print the embedded version, commit, and build date     |
+| `kazper serve`     | Run the HTTP REST API                                  |
+| `kazper mcp`       | Run the MCP server over stdio                          |
+| `kazper migrate`   | Apply pending database migrations and exit             |
+| `kazper version`   | Print the embedded version, commit, and build date     |
 
-Run `nutrition-api <subcommand> --help` for the flags each accepts (the only
+Run `kazper <subcommand> --help` for the flags each accepts (the only
 serve-specific flag today is `--addr`, which overrides `HTTP_ADDR`).
 
 ## Configuration (env)
@@ -100,7 +105,7 @@ serve-specific flag today is `--addr`, which overrides `HTTP_ADDR`).
 | `GARMIN_BRIDGE_URL`      | _unset_                                       | In-cluster base URL of the garmin-bridge. When set, `/garmin/login` + `/garmin/login/mfa` proxy to it (driving the interactive re-link from the agent); unset returns 503 `garmin_disabled` |
 | `DEFAULT_USER_TZ`        | `UTC`                                         | IANA timezone used when summary endpoints omit `tz`                  |
 | `OFF_TIMEOUT_SECONDS`    | `5`                                           | Open Food Facts request timeout                                      |
-| `OFF_USER_AGENT_CONTACT` | `+https://github.com/vinzenzs/nutrition-api`  | Identification baked into the OFF `User-Agent`                       |
+| `OFF_USER_AGENT_CONTACT` | `+https://github.com/vinzenzs/kazper`  | Identification baked into the OFF `User-Agent`                       |
 | `IDEMPOTENCY_TTL_HOURS`  | `24`                                          | How long idempotency records are retained before cleanup             |
 | `MIGRATE_ON_START`       | `true`                                        | Run schema migrations at startup                                     |
 | `SWAGGER_ENABLED`        | `false`                                       | Serve `/swagger/*` in release mode (always served in debug mode)     |
@@ -1121,14 +1126,14 @@ require `swag` to be installed.
 
 ## MCP server (LLM agent integration)
 
-`nutrition-api mcp` is a stdio MCP server that fronts the REST API for an LLM
+`kazper mcp` is a stdio MCP server that fronts the REST API for an LLM
 agent. It is a thin wrapper: each MCP tool issues exactly one HTTP call to the
 REST API, using `AGENT_API_TOKEN` for auth. The REST API must be running before
 the agent calls any tool.
 
 ```bash
-# Build and install the single binary; the MCP server is `nutrition-api mcp`.
-task install             # builds bin/nutrition-api and copies to ~/.local/bin/nutrition-api
+# Build and install the single binary; the MCP server is `kazper mcp`.
+task install             # builds bin/kazper and copies to ~/.local/bin/kazper
 ```
 
 ### Register with Claude Desktop
@@ -1139,7 +1144,7 @@ In `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "nutrition": {
-      "command": "/Users/<you>/.local/bin/nutrition-api",
+      "command": "/Users/<you>/.local/bin/kazper",
       "args": ["mcp"],
       "env": {
         "NUTRITION_API_URL": "http://localhost:8080",
@@ -1158,7 +1163,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 {
   "mcpServers": {
     "nutrition": {
-      "command": "/Users/<you>/.local/bin/nutrition-api",
+      "command": "/Users/<you>/.local/bin/kazper",
       "args": ["mcp"],
       "env": {
         "NUTRITION_API_URL": "http://localhost:8080",
@@ -1299,30 +1304,30 @@ do not double-log. To intentionally log the same item twice, pass a distinct
 task run    # or: task dev (sets up env automatically)
 
 # In another: launch the MCP server (waits for JSON-RPC on stdin)
-go run ./cmd/nutrition-api mcp
+go run ./cmd/kazper mcp
 ```
 
 The MCP integration test (`go test -tags=integration ./internal/mcpserver/`)
-builds the binary, spawns `nutrition-api mcp`, exchanges `initialize` +
+builds the binary, spawns `kazper mcp`, exchanges `initialize` +
 `tools/list` over stdio, and asserts the expected tools are announced.
 
 ## Deploying
 
 The repo ships a `Dockerfile`, a Helm chart at
-[`deploy/helm/nutrition-api/`](deploy/helm/nutrition-api/README.md),
+[`deploy/helm/kazper/`](deploy/helm/kazper/README.md),
 and three GitHub Actions workflows under
 [`.github/workflows/`](.github/workflows/) — see the
-[chart README](deploy/helm/nutrition-api/README.md) for the install /
+[chart README](deploy/helm/kazper/README.md) for the install /
 upgrade walkthrough.
 
 Container images publish to:
 
-- `ghcr.io/vinzenzs/nutrition-api:main` — rolling tip-of-main
-- `ghcr.io/vinzenzs/nutrition-api:sha-<short>` — per-commit pin
-- `ghcr.io/vinzenzs/nutrition-api:vX.Y.Z` + `:latest` — tagged releases
+- `ghcr.io/vinzenzs/kazper:main` — rolling tip-of-main
+- `ghcr.io/vinzenzs/kazper:sha-<short>` — per-commit pin
+- `ghcr.io/vinzenzs/kazper:vX.Y.Z` + `:latest` — tagged releases
 
 Packaged Helm charts publish on `v*` tags to
-`oci://ghcr.io/vinzenzs/charts/nutrition-api`. The chart assumes an
+`oci://ghcr.io/vinzenzs/charts/kazper`. The chart assumes an
 externally provisioned Postgres reachable via `DATABASE_URL` — there is
 no in-chart database.
 
@@ -1333,8 +1338,8 @@ task dev                      # one-command local: Postgres up + env + serve
 task run                      # start the API (uses current env)
 task test                     # full test suite (boots Postgres via testcontainers)
 task vet                      # go vet
-task build                    # compile bin/nutrition-api
-task install                  # build + copy to ~/.local/bin/nutrition-api
+task build                    # compile bin/kazper
+task install                  # build + copy to ~/.local/bin/kazper
 task db:up                    # start the local Postgres container (idempotent)
 task db:down                  # stop and remove the local Postgres container
 task migrate                  # apply migrations using the binary
@@ -1352,7 +1357,7 @@ be running. On Podman, the test helper disables the Ryuk reaper automatically
 ## Project layout
 
 ```
-cmd/nutrition-api/        single binary: serve | mcp | migrate | version
+cmd/kazper/        single binary: serve | mcp | migrate | version
 docs/                     generated OpenAPI (committed; regenerate with `task swag`)
 internal/auth/            two-token bearer middleware
 internal/config/          Viper-backed env + flag loader shared by all subcommands

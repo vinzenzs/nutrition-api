@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"sort"
 
-	"github.com/vinzenzs/nutrition-api/internal/agenttools"
+	"github.com/vinzenzs/kazper/internal/agenttools"
 )
 
 // AnnouncedToolNames returns the exact set of tool names the MCP server

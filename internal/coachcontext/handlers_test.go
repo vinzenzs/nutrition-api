@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/coachcontext"
+	"github.com/vinzenzs/kazper/internal/coachcontext"
 )
 
 func init() { gin.SetMode(gin.TestMode) }

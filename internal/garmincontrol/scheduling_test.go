@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/auth"
-	"github.com/vinzenzs/nutrition-api/internal/garmincontrol"
-	"github.com/vinzenzs/nutrition-api/internal/trainingplan"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
-	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
+	"github.com/vinzenzs/kazper/internal/auth"
+	"github.com/vinzenzs/kazper/internal/garmincontrol"
+	"github.com/vinzenzs/kazper/internal/trainingplan"
+	"github.com/vinzenzs/kazper/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/workouttemplates"
 )
 
 // --- stub repos/service satisfying garmincontrol's unexported interfaces ---

@@ -62,7 +62,7 @@ is safe for everything.
 | `GARMIN_EMAIL`      | yes      | Garmin Connect account email                           |
 | `GARMIN_PASSWORD`   | yes      | Garmin Connect password (Secret only)                  |
 | `GARMIN_API_TOKEN`  | yes      | Bearer token for the backend's `garmin` identity       |
-| `NUTRITION_API_URL` | yes      | Backend base URL, e.g. `http://nutrition-api`          |
+| `NUTRITION_API_URL` | yes      | Backend base URL, e.g. `http://kazper`          |
 | `SYNC_TZ`           | no       | IANA tz "today" resolves in (default `UTC`)            |
 | `SYNC_LOOKBACK_DAYS`| no       | Dateless `/sync` rolling-window lookback (default `2` → today + 2 prior; `0` = today only) |
 | `PORT`              | no       | Listen port (default `8080`)                           |
@@ -175,7 +175,7 @@ true. Bootstrap order:
 2. Log in once (the pod holds SSO state in memory, so target the Service):
 
    ```bash
-   kubectl port-forward svc/<release>-nutrition-api-garmin-bridge 8080:80
+   kubectl port-forward svc/<release>-kazper-garmin-bridge 8080:80
    curl -X POST localhost:8080/login
    curl -X POST localhost:8080/login/mfa -d '{"code":"123456"}' -H 'Content-Type: application/json'
    ```

@@ -4,7 +4,7 @@
 //
 //	go test -tags=goldengen -run TestCaptureAnnouncedSchemas ./internal/mcpserver/
 //
-// It builds the binary, boots `nutrition-api mcp`, calls tools/list, and writes
+// It builds the binary, boots `kazper mcp`, calls tools/list, and writes
 // every tool's announced inputSchema to testdata/announced_schemas.json. Run it
 // ONCE, from the pre-port surface, to freeze the baseline; the committed golden
 // test (schema_golden_test.go) then asserts each ported tool's reflected schema
@@ -32,8 +32,8 @@ import (
 
 func TestCaptureAnnouncedSchemas(t *testing.T) {
 	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "nutrition-api")
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/nutrition-api")
+	binPath := filepath.Join(tmpDir, "kazper")
+	build := exec.Command("go", "build", "-o", binPath, "./cmd/kazper")
 	build.Dir = filepath.Join("..", "..")
 	out, err := build.CombinedOutput()
 	require.NoError(t, err, "go build failed: %s", out)

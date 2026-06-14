@@ -1,6 +1,6 @@
 // Package mcpserver hosts the Model Context Protocol server that exposes
 // the nutrition REST API as a set of agent tools. It was previously the
-// cmd/mcp package; it now lives behind the `nutrition-api mcp` subcommand.
+// cmd/mcp package; it now lives behind the `kazper mcp` subcommand.
 package mcpserver
 
 import (
@@ -11,7 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/vinzenzs/nutrition-api/internal/config"
+	"github.com/vinzenzs/kazper/internal/config"
 )
 
 // Run starts the MCP server over stdio and blocks until ctx is cancelled or
@@ -37,7 +37,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	smokeCancel()
 
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "nutrition",
+		Name:    "kazper",
 		Version: Version,
 	}, nil)
 

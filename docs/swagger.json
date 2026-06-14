@@ -1,8 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Personal nutrition tracking REST API. All endpoints under /products, /meals, and /summary require a bearer token.",
-        "title": "Nutrition API",
+        "description": "Kazper — personal endurance-fueling and training-coach REST API. All endpoints under /products, /meals, and /summary require a bearer token.",
+        "title": "Kazper",
         "contact": {},
         "version": "0.1.0"
     },

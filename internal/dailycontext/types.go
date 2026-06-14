@@ -9,12 +9,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
-	"github.com/vinzenzs/nutrition-api/internal/goals"
-	"github.com/vinzenzs/nutrition-api/internal/hydrationbalance"
-	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
-	"github.com/vinzenzs/nutrition-api/internal/summary"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
+	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/hydrationbalance"
+	"github.com/vinzenzs/kazper/internal/recoverymetrics"
+	"github.com/vinzenzs/kazper/internal/summary"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
 )
 
 // DailyContext is the top-level response shape. Each sub-block re-uses the

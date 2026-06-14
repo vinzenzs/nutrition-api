@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/raceprep"
+	"github.com/vinzenzs/kazper/internal/raceprep"
 )
 
 // fixedToday is the simulated "now" used across these tests: 2026-06-07 UTC.

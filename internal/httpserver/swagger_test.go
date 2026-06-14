@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	_ "github.com/vinzenzs/nutrition-api/docs"
-	"github.com/vinzenzs/nutrition-api/internal/httpserver"
+	_ "github.com/vinzenzs/kazper/docs"
+	"github.com/vinzenzs/kazper/internal/httpserver"
 )
 
 func TestRegisterSwagger_DebugMode_AlwaysOn(t *testing.T) {

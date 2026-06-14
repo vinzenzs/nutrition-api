@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/chat"
-	"github.com/vinzenzs/nutrition-api/internal/chatsessions"
+	"github.com/vinzenzs/kazper/internal/chat"
+	"github.com/vinzenzs/kazper/internal/chatsessions"
 )
 
 // chatSessionStore adapts *chatsessions.Repo to the chat.SessionStore interface

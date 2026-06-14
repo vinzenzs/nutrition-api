@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/vinzenzs/nutrition-api/internal/workoutfuel"
+	"github.com/vinzenzs/kazper/internal/workoutfuel"
 )
 
 // TestDeleteWorkoutCascadesNullOnFuelEntry asserts the FK's

@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/vinzenzs/nutrition-api/internal/config"
-	"github.com/vinzenzs/nutrition-api/internal/mcpserver"
+	"github.com/vinzenzs/kazper/internal/config"
+	"github.com/vinzenzs/kazper/internal/mcpserver"
 )
 
 func mcpCmd() *cobra.Command {

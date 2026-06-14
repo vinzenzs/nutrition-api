@@ -59,11 +59,11 @@ func New(cfg Config, logger *slog.Logger) (*Client, error) {
 	}
 	contact := cfg.Contact
 	if contact == "" {
-		contact = "+https://github.com/vinzenzs/nutrition-api"
+		contact = "+https://github.com/vinzenzs/kazper"
 	}
 	return &Client{
 		baseURL:    u,
-		userAgent:  fmt.Sprintf("nutrition-api/%s (%s)", Version, contact),
+		userAgent:  fmt.Sprintf("kazper/%s (%s)", Version, contact),
 		httpClient: hc,
 		logger:     logger,
 	}, nil

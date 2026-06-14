@@ -24,7 +24,7 @@ class Config:
         Credentials for the interactive SSO login. Read from a Secret, never
         from a request body.
     nutrition_api_url
-        Base URL of the nutrition REST API (e.g. http://nutrition-api).
+        Base URL of the nutrition REST API (e.g. http://kazper).
     garmin_api_token
         Bearer token the bridge authenticates to the backend with — the
         ``garmin`` identity (per add-garmin-auth-token).

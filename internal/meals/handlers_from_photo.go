@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vinzenzs/nutrition-api/internal/vision"
+	"github.com/vinzenzs/kazper/internal/vision"
 )
 
 // fromPhotoResponse is the envelope returned on 201. The `meal` block is the

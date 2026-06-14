@@ -1,6 +1,6 @@
 package raceprep
 
-import "github.com/vinzenzs/nutrition-api/internal/numfmt"
+import "github.com/vinzenzs/kazper/internal/numfmt"
 
 // postWorkoutFor returns the recovery-window recommendation. The 0.3 g/kg
 // protein factor is the same MPS threshold add-protein-distribution uses to

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "nutrition-api: Cookidoo importer",
-  "description": "Save Cookidoo recipes to nutrition-api as products you can log meals against.",
+  "name": "Kazper: Cookidoo importer",
+  "description": "Save Cookidoo recipes to Kazper as products you can log meals against.",
   "version": "0.1.0",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
@@ -28,7 +28,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Save Cookidoo recipe to nutrition-api",
+    "default_title": "Save Cookidoo recipe to kazper",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

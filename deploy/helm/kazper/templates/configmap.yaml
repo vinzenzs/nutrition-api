@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "nutrition-api.configMapName" . }}
+  name: {{ include "kazper.configMapName" . }}
   labels:
-    {{- include "nutrition-api.labels" . | nindent 4 }}
+    {{- include "kazper.labels" . | nindent 4 }}
 data:
   # Mirrors the README.md Configuration table — every non-secret env var the
   # Viper config layer reads. Keys MUST be the env-var names the binary

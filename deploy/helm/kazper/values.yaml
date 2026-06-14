@@ -1,9 +1,9 @@
-# Default values for nutrition-api.
+# Default values for kazper.
 # See README.md for the install / upgrade walkthrough.
 
 # -- Container image. tag defaults to the chart's appVersion when empty.
 image:
-  repository: ghcr.io/vinzenzs/nutrition-api
+  repository: ghcr.io/vinzenzs/kazper
   tag: ""
   pullPolicy: IfNotPresent
 
@@ -77,7 +77,7 @@ config:
   migrateOnStart: true
   swaggerEnabled: false
   offTimeoutSeconds: 5
-  offUserAgentContact: "+https://github.com/vinzenzs/nutrition-api"
+  offUserAgentContact: "+https://github.com/vinzenzs/kazper"
   idempotencyTtlHours: 24
   claudeVisionModel: claude-sonnet-4-6
   visionTimeoutSeconds: 15

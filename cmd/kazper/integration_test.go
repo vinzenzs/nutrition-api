@@ -1,8 +1,8 @@
 //go:build integration
 
-// Run with:  go test -tags=integration ./cmd/nutrition-api/
+// Run with:  go test -tags=integration ./cmd/kazper/
 //
-// Builds the nutrition-api binary and exercises the serve, migrate, and
+// Builds the kazper binary and exercises the serve, migrate, and
 // version subcommands against a testcontainers-managed Postgres.
 
 package main_test
@@ -26,9 +26,9 @@ import (
 func buildBinary(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "nutrition-api")
+	binPath := filepath.Join(tmpDir, "kazper")
 
-	build := exec.Command("go", "build", "-o", binPath, "./cmd/nutrition-api")
+	build := exec.Command("go", "build", "-o", binPath, "./cmd/kazper")
 	build.Dir = filepath.Join("..", "..")
 	out, err := build.CombinedOutput()
 	require.NoError(t, err, "go build failed: %s", out)
@@ -66,7 +66,7 @@ func TestVersionSubcommand(t *testing.T) {
 	out, err := exec.Command(bin, "version").CombinedOutput()
 	require.NoError(t, err, "version failed: %s", out)
 	s := string(out)
-	if !strings.Contains(s, "nutrition-api") {
+	if !strings.Contains(s, "kazper") {
 		t.Errorf("version output missing binary name: %q", s)
 	}
 	if !strings.Contains(s, "version=") {

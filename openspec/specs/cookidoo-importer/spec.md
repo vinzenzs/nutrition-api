@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Provide a Chrome MV3 extension that reads Schema.org `Recipe` JSON-LD from Cookidoo recipe pages and saves them to nutrition-api as `source=recipe` products with their Cookidoo URL preserved in `external_url`.
+Provide a Chrome MV3 extension that reads Schema.org `Recipe` JSON-LD from Cookidoo recipe pages and saves them to kazper as `source=recipe` products with their Cookidoo URL preserved in `external_url`.
 ## Requirements
 ### Requirement: A Chrome extension imports Cookidoo recipes via Schema.org JSON-LD
 
-The system SHALL provide a Chrome MV3 extension at `extensions/cookidoo/` that, when the user is viewing a Cookidoo recipe page, can extract the page's embedded Schema.org `Recipe` JSON-LD and save it to nutrition-api as a `source=recipe` product with the Cookidoo URL preserved in `external_url`.
+The system SHALL provide a Chrome MV3 extension at `extensions/cookidoo/` that, when the user is viewing a Cookidoo recipe page, can extract the page's embedded Schema.org `Recipe` JSON-LD and save it to kazper as a `source=recipe` product with the Cookidoo URL preserved in `external_url`.
 
 #### Scenario: Extension activates on Cookidoo recipe URLs
 
@@ -42,7 +42,7 @@ The system SHALL allow the user to edit every parsed field in the popup before s
 - **THEN** the popup leaves the `salt_g` field empty
 - **AND** Save submits the product with `salt_g` absent (the backend stores `null`, not `0`)
 
-### Requirement: Save POSTs to nutrition-api as a flat recipe product
+### Requirement: Save POSTs to kazper as a flat recipe product
 
 The system SHALL convert the popup's form state into a `POST /products` request body and send it to the configured API base URL using the configured token. When the page JSON-LD provided a `recipeIngredient` array, the extension SHALL include it verbatim as `ingredients` in the request body and display a read-only ingredient count in the popup.
 

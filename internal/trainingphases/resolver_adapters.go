@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/goals"
+	"github.com/vinzenzs/kazper/internal/goals"
 )
 
 // PhaseLookupAdapter wraps *PhasesRepo to satisfy goals.PhaseLookup. The

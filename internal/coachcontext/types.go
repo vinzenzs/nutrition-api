@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vinzenzs/nutrition-api/internal/fitnessmetrics"
-	"github.com/vinzenzs/nutrition-api/internal/recoverymetrics"
-	"github.com/vinzenzs/nutrition-api/internal/trainingphases"
+	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
+	"github.com/vinzenzs/kazper/internal/recoverymetrics"
+	"github.com/vinzenzs/kazper/internal/trainingphases"
 )
 
 // PhaseLite is the training-phase slice of the training context.

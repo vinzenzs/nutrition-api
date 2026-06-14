@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vinzenzs/nutrition-api/internal/store"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
-	"github.com/vinzenzs/nutrition-api/internal/workouttemplates"
+	"github.com/vinzenzs/kazper/internal/store"
+	"github.com/vinzenzs/kazper/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/workouttemplates"
 )
 
 // Validation errors map 1:1 to API error codes.

@@ -248,7 +248,7 @@ func TestFetch_UserAgentIsSet(t *testing.T) {
 	}, discardLogger())
 	require.NoError(t, err)
 	_, _ = c.Fetch(context.Background(), "3017624010701")
-	assert.Contains(t, capturedUA, "nutrition-api/")
+	assert.Contains(t, capturedUA, "kazper/")
 	assert.Contains(t, capturedUA, "+test@example.com")
 }
 

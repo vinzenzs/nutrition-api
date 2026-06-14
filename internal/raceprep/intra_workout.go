@@ -3,8 +3,8 @@ package raceprep
 import (
 	"fmt"
 
-	"github.com/vinzenzs/nutrition-api/internal/numfmt"
-	"github.com/vinzenzs/nutrition-api/internal/workouts"
+	"github.com/vinzenzs/kazper/internal/numfmt"
+	"github.com/vinzenzs/kazper/internal/workouts"
 )
 
 // intraWorkoutFor returns the in-session fueling recommendation per the
