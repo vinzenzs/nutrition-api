@@ -51,7 +51,6 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	registerWorkoutFuelTools(server, client)
 	registerWeightTools(server, client)
 	registerCoachContextTools(server, client)
-	registerGarminTools(server, client)
 
 	// Generic registration over the shared agenttools registry for tools that
 	// have been ported off bespoke handlers (unify-mcp-tool-registry). Coexists
