@@ -288,6 +288,26 @@ func TestConfirm_UnknownSession(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "session_not_found")
 }
 
+// A real coach write-confirm tool from the production registry (log_workout)
+// pauses the loop with its code-composed preview — proving phase-3 surface
+// tools integrate with the phase-2 confirm gate (no injected specs here).
+func TestConfirm_RealCoachToolPauses(t *testing.T) {
+	logTurn := sseFrames(frameMessageStart,
+		toolUseFrames("c1", "log_workout",
+			`{"source":"manual","sport":"run","started_at":"2026-06-20T09:00:00Z","ended_at":"2026-06-20T10:00:00Z"}`),
+		messageDelta("tool_use"), frameMessageStop)
+	env := newLoopEnv(t, scriptedAnthropic(t, []string{logTurn}), Config{})
+
+	rec := postMsg(t, env, "log my run this morning")
+	require.Equal(t, http.StatusOK, rec.Code)
+	out := rec.Body.String()
+	assert.Contains(t, out, "event: proposal")
+	assert.Contains(t, out, `"name":"log_workout"`)
+	assert.Contains(t, out, `"tier":"write-confirm"`)
+	assert.Contains(t, out, `"preview":"Log run workout on 2026-06-20"`)
+	assert.Contains(t, out, `"stop_reason":"awaiting_confirmation"`)
+}
+
 // sanitizeHistory preserves a trailing awaiting-confirmation turn (resume
 // anchor) but still drops a truncation-dangling non-confirm tool_use turn.
 func TestSanitizeHistory_PreservesPausedDropsTruncated(t *testing.T) {

@@ -105,9 +105,20 @@ func ByName(specs []Spec) map[string]Spec {
 	return m
 }
 
-// Registry returns the curated tool surface in a stable order. This is the
-// single source of truth for which tools the chat loop exposes.
+// Registry returns the curated coach tool surface in a stable order — the
+// single source of truth for which tools the chat loop exposes: the
+// nutrition-planning subset (reads + write-auto), the aggregate coaching
+// context reads, and the gated write-confirm coaching actions.
 func Registry() []Spec {
+	specs := nutritionPlannerSpecs()
+	specs = append(specs, coachReadSpecs()...)
+	specs = append(specs, coachWriteConfirmSpecs()...)
+	return specs
+}
+
+// nutritionPlannerSpecs is the original meal-planning surface (reads +
+// write-auto), retained as a subset of the coach.
+func nutritionPlannerSpecs() []Spec {
 	return []Spec{
 		// ---------- reads ----------
 		{

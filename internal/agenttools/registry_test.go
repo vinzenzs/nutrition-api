@@ -8,24 +8,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The shared registry exposes EXACTLY the curated coach surface (currently the
-// nutrition-planning subset) in a stable set.
+// The shared registry exposes EXACTLY the curated coach surface in a stable set:
+// the nutrition-planning subset + the aggregate coach reads + the gated
+// write-confirm coaching actions.
 func TestRegistry_ExactSurface(t *testing.T) {
 	got := make([]string, 0)
 	for _, s := range Registry() {
 		got = append(got, s.Name)
 	}
 	want := []string{
+		// nutrition planner (reads + write-auto)
 		"get_daily_context", "get_race_fueling", "list_planned_meals",
 		"list_shopping_items", "search_products", "get_product",
 		"import_cookidoo_recipe", "update_product", "create_planned_meal",
 		"update_planned_meal", "mark_planned_meal_eaten", "add_shopping_items",
 		"update_shopping_item", "clear_checked_shopping_items",
+		// coach aggregate reads
+		"get_training_context", "get_recovery_context",
+		// coach write-confirm actions
+		"log_workout", "patch_workout", "delete_workout",
+		"log_weight", "log_hydration", "log_meal_freeform",
+		"set_daily_goal_override", "delete_daily_goal_override",
 	}
 	assert.ElementsMatch(t, want, got)
 }
 
-// Every tool's schema is valid JSON and every tool carries the expected tier.
+// Every tool's schema is valid JSON, carries the expected tier, and every
+// write-confirm tool has a Format formatter so its confirmation preview is
+// code-composed (D6) rather than falling back to the generic verb/resource line.
 func TestRegistry_SchemasValidAndTiers(t *testing.T) {
 	wantTier := map[string]Tier{
 		"get_daily_context":   TierRead,
@@ -34,15 +44,26 @@ func TestRegistry_SchemasValidAndTiers(t *testing.T) {
 		"list_shopping_items": TierRead,
 		"search_products":     TierRead,
 		"get_product":         TierRead,
+		"get_training_context": TierRead,
+		"get_recovery_context": TierRead,
 
-		"import_cookidoo_recipe":      TierWriteAuto,
-		"update_product":              TierWriteAuto,
-		"create_planned_meal":         TierWriteAuto,
-		"update_planned_meal":         TierWriteAuto,
-		"mark_planned_meal_eaten":     TierWriteAuto,
-		"add_shopping_items":          TierWriteAuto,
-		"update_shopping_item":        TierWriteAuto,
+		"import_cookidoo_recipe":       TierWriteAuto,
+		"update_product":               TierWriteAuto,
+		"create_planned_meal":          TierWriteAuto,
+		"update_planned_meal":          TierWriteAuto,
+		"mark_planned_meal_eaten":      TierWriteAuto,
+		"add_shopping_items":           TierWriteAuto,
+		"update_shopping_item":         TierWriteAuto,
 		"clear_checked_shopping_items": TierWriteAuto,
+
+		"log_workout":                TierWriteConfirm,
+		"patch_workout":              TierWriteConfirm,
+		"delete_workout":             TierWriteConfirm,
+		"log_weight":                 TierWriteConfirm,
+		"log_hydration":              TierWriteConfirm,
+		"log_meal_freeform":          TierWriteConfirm,
+		"set_daily_goal_override":    TierWriteConfirm,
+		"delete_daily_goal_override": TierWriteConfirm,
 	}
 	for _, s := range Registry() {
 		var schema any
@@ -50,6 +71,9 @@ func TestRegistry_SchemasValidAndTiers(t *testing.T) {
 		wt, ok := wantTier[s.Name]
 		require.Truef(t, ok, "no expected tier declared for %s", s.Name)
 		assert.Equalf(t, wt, s.Tier, "tier wrong for %s", s.Name)
+		if s.Tier == TierWriteConfirm {
+			assert.NotNilf(t, s.Format, "write-confirm tool %s should have a Format formatter (D6)", s.Name)
+		}
 	}
 }
 

@@ -67,7 +67,10 @@ func (d *dispatcher) execute(ctx context.Context, toolName string, input json.Ra
 	}
 	req.Header.Set("Authorization", "Bearer "+bearer)
 	req.Header.Set("Content-Type", "application/json")
-	if spec.Tier.IsWrite() {
+	// Write tools carry a derived Idempotency-Key so a replayed turn replays
+	// rather than duplicates — except PUT (full-replace), which the idempotency
+	// middleware rejects with 400 idempotency_unsupported_for_put.
+	if spec.Tier.IsWrite() && call.Method != http.MethodPut {
 		req.Header.Set("Idempotency-Key", agenttools.DeriveIdempotencyKey(toolName, input))
 	}
 

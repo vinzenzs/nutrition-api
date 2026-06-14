@@ -24,11 +24,11 @@
 
 ## 3. Broaden the surface + coach persona
 
-- [ ] 3.0 Aggregate context reads (D10/D11): add `get_training_context` / `get_recovery_context` style `/context/*` endpoints where no aggregate exists. **Dual-surface (D11):** each aggregate ships as a REST endpoint + an MCP tool (added to `AnnouncedToolNames`) + an `agenttools` entry — NOT chat-only — so the drift-guard subset invariant holds and `chatBespokeTools` does not grow. (Candidate for its own small change ahead of this phase — the desktop coach benefits too.)
-- [ ] 3.1 Add the **curated** coach tools (~15–25) to the chat registry — aggregate context reads + the `write-confirm` actions worth proposing (training/goal/log/delete) — with correct tiers. Not the full 127.
-- [ ] 3.2 Rewrite `buildSystemPrompt`: endurance-coaching persona; keep grounding-before-recommending, dietary preference, timezone, meal-planning selection contract; add training-context grounding and the confirm-write disclosure; stays server-assembled and non-overridable.
-- [ ] 3.3 Update `internal/chat` tool/prompt tests for the broadened surface; confirm out-of-surface deletes are now in-surface but `write-confirm`.
-- [ ] 3.4 `task swag` if any handler request/response structs changed (confirm endpoint).
+- [x] 3.0 Aggregate context reads (D10/D11). **Split into its own change `add-coach-context-endpoints`** (committed `af841be`): `GET /context/training` + `GET /context/recovery` (new `internal/coachcontext` package) shipped dual-surface — REST + MCP tools `get_training_context`/`get_recovery_context` in `AnnouncedToolNames`. The matching `agenttools` entries land in 3.1.
+- [x] 3.1 Add the **curated** coach tools to the chat registry (`agenttools.coach.go`): 2 aggregate reads (`get_training_context`, `get_recovery_context`) + 8 `write-confirm` actions (`log_workout`, `patch_workout`, `delete_workout`, `log_weight`, `log_hydration`, `log_meal_freeform`, `set_daily_goal_override`, `delete_daily_goal_override`) — total 24, all names ⊆ `AnnouncedToolNames` (drift guard green). Each write-confirm tool has a `Format` preview formatter (D6). Dispatcher skips `Idempotency-Key` on PUT (override) writes.
+- [x] 3.2 Rewrote `buildSystemPrompt`: endurance-coaching persona; grounding-before-advising (daily/training/recovery context), dietary preference + timezone, retained meal-planning selection contract, propose-but-user-confirms disclosure with anti-spam rules; server-assembled, non-overridable.
+- [x] 3.3 Updated `internal/chat` + `agenttools` surface tests for the broadened registry; added `TestConfirm_RealCoachToolPauses` proving a production write-confirm tool pauses with its code-composed preview; confirmed out-of-surface writes are now in-surface but `write-confirm`.
+- [x] 3.4 No handler request/response structs changed in phase 3 (the confirm endpoint was added + swag-regenerated in phase 2); docs already current.
 
 ## 4. Companion UI
 
