@@ -55,6 +55,18 @@ The system SHALL expose `POST /chat` accepting `{session_id, message}` — the i
 - **THEN** the stream emits an `error` event with code `upstream_unavailable` and terminates
 - **AND** the user turn and any already-completed tool rounds remain persisted to the session, so a retry resumes with full context rather than replaying
 
+## REMOVED Requirements
+
+### Requirement: The tool allowlist is curated and excludes destructive or out-of-scope surfaces
+
+**Reason**: Renamed and broadened — the planner allowlist becomes a curated, tiered coach surface. Replaced by the ADDED "The tool surface is the full coach surface, tiered for confirmation".
+
+### Requirement: The system prompt scopes the assistant to grounded nutrition planning
+
+**Reason**: Renamed and rescoped — the planner persona becomes a coaching persona. Replaced by the ADDED "The system prompt scopes the assistant to grounded endurance coaching".
+
+## ADDED Requirements
+
 ### Requirement: The tool surface is the full coach surface, tiered for confirmation
 
 The chat loop SHALL expose a **curated** coaching tool surface (~15–25 tools), not the desktop MCP server's full surface — favoring a few **aggregate context reads** (e.g. `get_daily_context`, `get_training_context`, `get_recovery_context`) over many granular reads, plus the `write-auto` meal-planning writes and the `write-confirm` actions worth proposing conversationally — sourced from a shared tool registry (`internal/agenttools`). A drift-guard test SHALL assert every tool the chat loop exposes exists in the desktop MCP server's announced surface (modulo a documented allowlist of chat-bespoke convenience tools), so the two cannot silently diverge even though the MCP server is not yet ported onto the shared registry. Each tool SHALL carry a `tier`: `read` (never gated), `write-auto` (low-stakes nutrition-planning writes that dispatch inline), or `write-confirm` (training, goal, and destructive writes that pause for human confirmation). The existing planner writes — `import_cookidoo_recipe`, `update_product`, `create_planned_meal`, `update_planned_meal`, `mark_planned_meal_eaten`, `add_shopping_items`, `update_shopping_item`, `clear_checked_shopping_items` — SHALL be `write-auto`. Training/Garmin/goal/override edits and all delete endpoints SHALL be `write-confirm`. The loop SHALL also include Anthropic's `web_search` server tool restricted via `allowed_domains` to Cookidoo hosts.
@@ -110,8 +122,6 @@ The system prompt SHALL be assembled server-side from a baked-in template plus c
 
 - **WHEN** the user asks "what should I eat tomorrow?"
 - **THEN** the assistant grounds via `get_daily_context` and offers 2–3 options consistent with the configured dietary preference, exactly as the prior planner did
-
-## ADDED Requirements
 
 ### Requirement: Write-confirm calls resume via an explicit confirmation endpoint
 

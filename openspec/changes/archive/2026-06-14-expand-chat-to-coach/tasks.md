@@ -43,4 +43,4 @@
 
 - [x] 5.1 `task test` green across `internal/chat`, `internal/mcpserver`, `internal/agenttools`, `internal/coachcontext`, `internal/chatsessions` (+ full suite; the lone `goals` failure was testcontainers parallel-boot contention, green when re-run alone per CLAUDE.md). Companion `flutter test` + `flutter analyze` green.
 - [x] 5.2 `task vet` clean + `task swag` regenerated.
-- [ ] 5.3 Update `openspec/specs/` deltas on archive; bump the MCP expected-tools list only if names moved.
+- [x] 5.3 Spec deltas synced into `openspec/specs/` on archive (`nutrition-chat`, `mobile-companion`). MCP expected-tools list (`AnnouncedToolNames`) bumped only for the two dual-surface aggregates (in the `add-coach-context-endpoints` change), not for chat-surface names (all already present).
