@@ -19,12 +19,12 @@
 
 ## 3. Port tool groups (DD7 — repeat per group, integration test green each time)
 
-- [ ] 3.1 Port each domain: move typed arg structs into registry entries with `Build` funcs + tiers; delete bespoke `registerXxxTools` + handlers; migrate unit tests to Build-shape assertions. **Progress — 17/~28 domains, 61 tools:**
+- [ ] 3.1 Port each domain: move typed arg structs into registry entries with `Build` funcs + tiers; delete bespoke `registerXxxTools` + handlers; migrate unit tests to Build-shape assertions. **Progress — 18/~28 domains, 78 tools:**
   - [x] **Pilot** (commit `54d94f5`): gear, personal-records, athlete-config
   - [x] **Batch 1** (commit `c8d8df2`): garminmisc, dailysummary, fitnessmetrics, recoverymetrics, hydrationbalance, workouttemplates
   - [x] **Batch 2** (commit `fc5ccf5`): summary, raceprep (conditional GET/POST), races, training-phases (+goal-templates), daily-context, energy, goals (PUT). Idempotency keying made method-based (POST/PATCH/DELETE only).
   - [x] **Batch 3** (commit `a08e98c`): training-plan (13 hierarchical tools). Added `Spec.OmitIdempotencyKey` for re-runnable writes (materialize).
-  - [ ] **garmin** (17 tools — login/MFA/multipart-upload/base64 export; careful manual pass, DD5-adjacent)
+  - [x] **Batch 4** (commit `8a57c3d`): garmin (17 tools, manual). login/submit_mfa use `OmitIdempotencyKey`. No multipart at this layer (base64-in-JSON).
   - [ ] **Dual-surface** (manual reconciliation — tool already a chat entry; one Spec must serve both surfaces with the MCP-reflected schema matching the golden): products, meal-plan, shopping, workouts, weight, hydration, goal-overrides, meals (+`log_meal_from_photo` multipart, DD5), coach-context. _(NB: `goalrange.go` + `recorders_test.go` shims in mcpserver are removable once goal-overrides / mealplan+shopping are ported.)_
 - [x] 3.2 After each group: `go test ./internal/mcpserver/... ./internal/agenttools/...` + golden + `mcp_integration_test.go` green. _(Held green through pilot + batch 1.)_
 
