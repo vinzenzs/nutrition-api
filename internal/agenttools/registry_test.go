@@ -85,7 +85,7 @@ func TestTier_IsWrite(t *testing.T) {
 }
 
 func TestBuild_PathParamAndQueryTools(t *testing.T) {
-	specs := ByName(Registry())
+	specs := ByName(ChatRegistry())
 
 	// get_product → GET /products/{id}
 	call, err := specs["get_product"].Build(json.RawMessage(`{"product_id":"abc"}`))

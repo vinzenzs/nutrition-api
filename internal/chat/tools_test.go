@@ -15,7 +15,9 @@ import (
 // consequential coach writes are present but gated write-confirm, and that
 // genuinely out-of-surface tools are still absent.
 func TestChatToolDefs_SurfaceAndWebSearch(t *testing.T) {
-	specs := agenttools.Registry()
+	// The chat coach surface is the chat-exposed subset of the shared registry;
+	// MCP-only tools (e.g. garmin_login) live in the union but not here.
+	specs := agenttools.ChatRegistry()
 	byName := agenttools.ByName(specs)
 
 	// The coach write actions are now in-surface — but write-confirm (gated),

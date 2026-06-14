@@ -21,7 +21,7 @@ type Service struct {
 }
 
 func NewService(repo *Repo) *Service {
-	return &Service{repo: repo, specs: agenttools.ByName(agenttools.Registry())}
+	return &Service{repo: repo, specs: agenttools.ByName(agenttools.ChatRegistry())}
 }
 
 // SetToolSpecs overrides the tool surface used for tier lookups (the awaiting-
