@@ -51,8 +51,16 @@ func dispatchMCP(ctx context.Context, c *apiClient, s agenttools.Spec, raw json.
 	if err != nil {
 		return toToolResult(0, nil, &transportError{inner: err})
 	}
+	// An idempotency key is attached only to the mutating, idempotency-aware
+	// verbs (POST/PATCH/DELETE) — never GET, never PUT. PUT full-replace
+	// endpoints reject Idempotency-Key (harden-write-paths); GETs never carried
+	// one. This is method-driven, not tier-driven, so a tool that branches verbs
+	// by input (e.g. plan_carb_load: GET preview vs POST apply) keys only its
+	// write branch, exactly as the bespoke handlers did. (The MCP surface
+	// ignores Tier, by design.)
 	var key string
-	if s.Tier.IsWrite() {
+	switch call.Method {
+	case "POST", "PATCH", "DELETE":
 		key = agenttools.EffectiveIdempotencyKey(agenttools.ExplicitIdempotencyKey(raw), s.Name, raw)
 	}
 	status, body, err := c.do(ctx, call.Method, call.Path, call.Query, call.Body, key)

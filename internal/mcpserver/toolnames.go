@@ -35,6 +35,8 @@ var AnnouncedToolNames = []string{
 	"patch_hydration",
 	"delete_hydration",
 	"daily_hydration_summary",
+	"get_goals",
+	"set_goals",
 	"set_daily_goal_override",
 	"get_daily_goal_override",
 	"delete_daily_goal_override",
