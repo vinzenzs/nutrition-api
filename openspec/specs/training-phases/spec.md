@@ -3,9 +3,7 @@
 ## Purpose
 
 Paired training phases and reusable goal templates that extend the effective-goals resolution chain with a resolver-time step between per-date overrides and the singleton default. Phases are named date ranges tagged with a phase type (`base`, `build`, `peak`, `recovery`, `race_week`, `off_season`, `other`) and may point at a goal template whose nutrient bounds drive adherence for every date the phase covers — unless a per-date override exists for that date, in which case the override still wins.
-
 ## Requirements
-
 ### Requirement: Goal templates are named reusable goal-sets
 
 The system SHALL persist named goal templates via a `goal_templates` table whose nutrient-bound columns match the existing `nutrition_goals` and `daily_goal_overrides` projection (30 columns for the 15 supported nutrients × `{min, max}`). Templates SHALL be addressable by `name` in the REST surface (URL path) and by `id` (UUID) in foreign-key references from other tables. Template `name` is `UNIQUE NOT NULL` and chosen by the user; the validation rules for template goals SHALL be identical to those for `PUT /goals` (`goal_value_invalid` for negatives/NaN/empty Range, `goal_range_invalid` for inverted min/max, legacy `kcal_target` rejected).
@@ -244,3 +242,38 @@ The system SHALL include a `default_template_name` field on every phase response
 - **WHEN** a phase has `default_template_id = NULL`
 - **AND** the client calls `GET /phases/<id>`
 - **THEN** the response has `default_template_id: null` AND `default_template_name: null` (or both absent)
+
+### Requirement: A phase carries optional methodology prose
+
+The system SHALL allow a `training_phases` row to carry an optional `methodology`
+free-text Markdown field, stored in a nullable `TEXT` column distinct from the
+existing operational `notes`. It holds the curated, cited "why this phase"
+narrative and is stored verbatim (no server-side rendering or transformation). The
+phase create and update paths SHALL accept `methodology`, and the phase read paths
+SHALL return it. A null `methodology` means none is set and SHALL serialize as
+null, not an error. The MCP phase-write tool SHALL carry `methodology` in its
+payload; no new MCP tool is added.
+
+#### Scenario: A phase stores and returns methodology
+
+- **WHEN** a phase is created or updated with a `methodology` Markdown string
+  (e.g. a Base-phase "Why" block citing Seiler)
+- **THEN** the phase persists it in the `methodology` column and the phase read
+  returns it verbatim
+
+#### Scenario: Methodology is independent of notes
+
+- **WHEN** a phase has both `notes` and `methodology` set and a write supplies a new
+  `methodology` without `notes`
+- **THEN** `methodology` is replaced and `notes` is left unchanged
+
+#### Scenario: Absent methodology serializes as null
+
+- **WHEN** a phase has no `methodology`
+- **THEN** the read returns `methodology` as null and no error
+
+#### Scenario: The phase-write MCP tool carries methodology
+
+- **WHEN** the agent writes a phase with a `methodology` field
+- **THEN** the phase is persisted with that methodology and the read returns it
+
