@@ -14,9 +14,9 @@ class FakeGarth:
     def __init__(self, profile=None):
         self.loaded = None
         self.refreshed = False
-        # The social profile garth restores from a token blob; load_api copies
-        # displayName/fullName off it onto the garminconnect client.
-        self.profile = profile if profile is not None else {}
+        # garth.dumps/loads persists only OAuth tokens, so load_api re-fetches
+        # the profile live via connectapi; this fake serves it from that call.
+        self._profile = profile if profile is not None else {}
 
     def dumps(self) -> str:
         return "TOKEN-BLOB"
@@ -26,6 +26,11 @@ class FakeGarth:
 
     def refresh_oauth2(self) -> None:
         self.refreshed = True
+
+    def connectapi(self, path: str, **kwargs):
+        if path == "/userprofile-service/userprofile/profile":
+            return self._profile
+        return None
 
 
 class FakeGarmin:
@@ -81,9 +86,9 @@ def test_load_api_loads_and_refreshes(monkeypatch):
 
 
 def test_load_api_restores_display_name_from_profile(monkeypatch):
-    # A token blob whose social profile carries the display name → the rehydrated
-    # client must expose it, so per-user endpoints don't interpolate None into
-    # the path (the cause of the .../None 403s).
+    # The live profile fetch returns the display name → the rehydrated client
+    # must expose it, so per-user endpoints don't interpolate None into the path
+    # (the cause of the .../None 403s).
     fake = FakeGarmin(needs_mfa=False, profile={"displayName": "edge_sport", "fullName": "Edge Sport"})
     import garminconnect
 
@@ -94,8 +99,8 @@ def test_load_api_restores_display_name_from_profile(monkeypatch):
 
 
 def test_load_api_missing_display_name_is_none(monkeypatch):
-    # A blob minted before the account had a display name → None (and a warning
-    # is logged); a fresh login is required to repair it.
+    # The account's profile has no displayName → None (and a warning naming the
+    # returned fields is logged); the display name must be set on the account.
     fake = FakeGarmin(needs_mfa=False, profile={})
     import garminconnect
 

@@ -99,20 +99,28 @@ def load_api(token_b64: str):
             refresh()
         except Exception as exc:  # noqa: BLE001 — lazy refresh on first request is fine
             logger.debug("eager oauth2 refresh skipped: %s", exc)
-    # garth.loads() restores the OAuth session but NOT garminconnect's cached
-    # display_name / full_name — only Garmin.login() sets those. The sync path
-    # never logs in (it rehydrates from the stored blob), so without this the
-    # per-user endpoints interpolate a None display name into the path
-    # (".../dailyHeartRate/None" -> 403) and the guarded fetches log
-    # "Display name is not set". Restore them from the social profile carried in
-    # the token blob so a rehydrated client behaves like a freshly logged-in one.
-    profile = getattr(garth, "profile", None) or {}
-    api.display_name = profile.get("displayName")
-    api.full_name = profile.get("fullName")
+    # garth.loads() restores ONLY the OAuth tokens (see garth.Client.dumps) — not
+    # the social profile — and the sync path never calls garminconnect.login(),
+    # which is the only place display_name / full_name get set. Per-user endpoints
+    # interpolate display_name into the path, so without it they hit ".../None"
+    # -> 403 and the guarded fetches log "Display name is not set". Fetch the
+    # profile live (the same endpoint garminconnect.login uses) and populate the
+    # client, so a rehydrated client behaves like a freshly logged-in one.
+    try:
+        prof = garth.connectapi("/userprofile-service/userprofile/profile") or {}
+    except Exception as exc:  # noqa: BLE001 — network/profile fetch is best-effort
+        logger.warning("could not fetch Garmin profile on rehydrate: %s", exc)
+        prof = {}
+    api.display_name = prof.get("displayName")
+    api.full_name = prof.get("fullName")
     if not api.display_name:
+        # No display name on the account's profile — per-user fetches will 403.
+        # Surface the fields Garmin DID return so it's clear what to set where.
         logger.warning(
-            "rehydrated Garmin client has no displayName in its token profile; "
-            "per-user fetches will 403 until a fresh POST /login mints a new token"
+            "rehydrated Garmin client has no displayName; per-user fetches will 403. "
+            "Garmin profile returned displayName=%r userName=%r fullName=%r — set a "
+            "public-profile display name at connect.garmin.com.",
+            prof.get("displayName"), prof.get("userName"), prof.get("fullName"),
         )
     return api
 
