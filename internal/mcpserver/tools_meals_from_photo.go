@@ -66,3 +66,26 @@ func handleLogMealFromPhoto(ctx context.Context, c *apiClient, args LogMealFromP
 	status, respBody, err := c.PostMultipart(ctx, "/meals/from_photo", body.Bytes(), mw.FormDataContentType(), key)
 	return toToolResult(status, respBody, err)
 }
+
+// registerMealPhotoTool registers the one tool that cannot flow through the
+// generic registry dispatcher: log_meal_from_photo posts multipart/form-data
+// (the documented DD5 exception), which agenttools.HTTPCall does not model. The
+// rest of the meals domain is ported onto the shared registry
+// (unify-mcp-tool-registry); this bespoke registration survives for the photo
+// upload only. Its registration block is unchanged from the prior
+// registerMealsTools.
+func registerMealPhotoTool(server *mcp.Server, c *apiClient) {
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "log_meal_from_photo",
+		Description: "Log a meal from a photo via Claude Vision. The image is supplied as " +
+			"base64-encoded bytes (JPEG or PNG; HEIC is rejected with 415 in v1). Backend resizes " +
+			"to max 1568px edge, calls Claude Vision with a tool-forced output, then creates a " +
+			"freeform meal entry. Returns the canonical meal block plus an `inference` block with " +
+			"model, confidence (0–1), token usage, and image dimensions. Use the freeform path " +
+			"directly when the user can describe the meal in text — this tool exists for the " +
+			"future MCP-aware UI that passes images through, and for headless test harnesses. " +
+			"503 vision_unavailable when ANTHROPIC_API_KEY is not configured on the REST server.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args LogMealFromPhotoArgs) (*mcp.CallToolResult, any, error) {
+		return handleLogMealFromPhoto(ctx, c, args), nil, nil
+	})
+}

@@ -41,16 +41,11 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		Version: Version,
 	}, nil)
 
-	registerProductsTools(server, client)
-	registerMealsTools(server, client)
-	registerMealPlanTools(server, client)
-	registerShoppingTools(server, client)
-	registerGoalOverrideTools(server, client)
-	registerHydrationTools(server, client)
-	registerWorkoutsTools(server, client)
+	// Bespoke registrations that remain: the multipart photo upload (DD5) and
+	// the not-yet-ported workout-fuel domain. Everything else flows through the
+	// generic registry dispatcher below.
+	registerMealPhotoTool(server, client)
 	registerWorkoutFuelTools(server, client)
-	registerWeightTools(server, client)
-	registerCoachContextTools(server, client)
 
 	// Generic registration over the shared agenttools registry for tools that
 	// have been ported off bespoke handlers (unify-mcp-tool-registry). Coexists

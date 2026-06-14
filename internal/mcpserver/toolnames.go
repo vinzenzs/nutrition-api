@@ -10,6 +10,8 @@ package mcpserver
 var AnnouncedToolNames = []string{
 	"lookup_product_by_barcode",
 	"search_products",
+	"create_recipe",
+	"recompute_recipe",
 	"log_meal",
 	"log_meal_freeform",
 	"patch_meal",
