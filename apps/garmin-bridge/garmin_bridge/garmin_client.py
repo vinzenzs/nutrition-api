@@ -104,14 +104,17 @@ def load_api(token_b64: str):
     # which is the only place display_name / full_name get set. Per-user endpoints
     # interpolate display_name into the path, so without it they hit ".../None"
     # -> 403 and the guarded fetches log "Display name is not set". Fetch the
-    # profile live (the same endpoint garminconnect.login uses) and populate the
-    # client, so a rehydrated client behaves like a freshly logged-in one.
+    # profile live (the same /socialProfile endpoint garminconnect.login uses —
+    # NOT /userprofile/profile, which 404s) and populate the client, so a
+    # rehydrated client behaves like a freshly logged-in one.
     try:
-        prof = garth.connectapi("/userprofile-service/userprofile/profile") or {}
+        prof = garth.connectapi("/userprofile-service/socialProfile") or {}
     except Exception as exc:  # noqa: BLE001 — network/profile fetch is best-effort
         logger.warning("could not fetch Garmin profile on rehydrate: %s", exc)
         prof = {}
-    api.display_name = prof.get("displayName")
+    # Mirror garminconnect.login: fall back to userName when the account has no
+    # public displayName — Garmin's per-user paths accept the userName slug too.
+    api.display_name = prof.get("displayName") or prof.get("userName")
     api.full_name = prof.get("fullName")
     if not api.display_name:
         # No display name on the account's profile — per-user fetches will 403.
