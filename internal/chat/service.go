@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 )
 
 // Config carries the chat runtime knobs, sourced from the server config.
@@ -98,7 +99,7 @@ func (s *Service) SessionExists(ctx context.Context, sessionID uuid.UUID) (bool,
 // every new turn is persisted; message is the new user message; bearer is the
 // caller's token, forwarded to tools.
 func (s *Service) stream(ctx context.Context, sse *sseWriter, sessionID uuid.UUID, message, bearer string) {
-	specs := registry()
+	specs := agenttools.Registry()
 	toolDefs := anthropicToolDefs(specs)
 	system := buildSystemPrompt(promptParams{
 		DietaryPreferences: s.cfg.DietaryPreferences,

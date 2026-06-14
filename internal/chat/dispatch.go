@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 )
 
 // dispatcher executes a tool's REST call in-process against the server's own
@@ -18,11 +20,11 @@ import (
 // forwarded so the sub-request authenticates as the same caller.
 type dispatcher struct {
 	handler http.Handler
-	specs   map[string]toolSpec
+	specs   map[string]agenttools.Spec
 }
 
 func newDispatcher(handler http.Handler) *dispatcher {
-	return &dispatcher{handler: handler, specs: registryByName(registry())}
+	return &dispatcher{handler: handler, specs: agenttools.ByName(agenttools.Registry())}
 }
 
 // toolResult is the outcome of one tool execution.
@@ -45,29 +47,29 @@ func (d *dispatcher) execute(ctx context.Context, toolName string, input json.Ra
 	if !ok {
 		return toolResult{err: errUnknownTool(toolName)}
 	}
-	call, err := spec.build(input)
+	call, err := spec.Build(input)
 	if err != nil {
 		return toolResult{err: err}
 	}
 
-	target := call.path
-	if len(call.query) > 0 {
-		target += "?" + call.query.Encode()
+	target := call.Path
+	if len(call.Query) > 0 {
+		target += "?" + call.Query.Encode()
 	}
 	var bodyReader *bytes.Reader
-	if len(call.body) > 0 {
-		bodyReader = bytes.NewReader(call.body)
+	if len(call.Body) > 0 {
+		bodyReader = bytes.NewReader(call.Body)
 	} else {
 		bodyReader = bytes.NewReader(nil)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, call.method, target, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, call.Method, target, bodyReader)
 	if err != nil {
 		return toolResult{err: err}
 	}
 	req.Header.Set("Authorization", "Bearer "+bearer)
 	req.Header.Set("Content-Type", "application/json")
-	if spec.write {
+	if spec.Tier.IsWrite() {
 		req.Header.Set("Idempotency-Key", deriveIdempotencyKey(toolName, input))
 	}
 
