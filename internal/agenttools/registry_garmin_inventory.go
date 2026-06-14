@@ -12,6 +12,8 @@ import (
 // reads; the descriptions and arg structs are byte-identical to the prior
 // bespoke registrations so the announced schema is unchanged.
 
+func init() { registerMCPDomain(garminInventorySpecs()) }
+
 // ListGearArgs is the input to gear_list.
 type ListGearArgs struct {
 	Retired *bool `json:"retired,omitempty" jsonschema:"optional filter by retirement state (true returns only retired gear, false only active)"`

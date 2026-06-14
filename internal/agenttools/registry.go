@@ -168,12 +168,24 @@ func chatSpecs() []Spec {
 	return specs
 }
 
+// mcpDomainSlices holds each ported domain's specs. Domain files self-register
+// via init() (registerMCPDomain) so a new domain is a single conflict-free file
+// addition — no central edit to this function (unify-mcp-tool-registry, DD7).
+var mcpDomainSlices [][]Spec
+
+// registerMCPDomain is called from each registry_<domain>.go init() to add that
+// domain's tools to the MCP-only surface.
+func registerMCPDomain(specs []Spec) {
+	mcpDomainSlices = append(mcpDomainSlices, specs)
+}
+
 // mcpOnlySpecs is the desktop MCP coach surface being ported onto the shared
-// registry one domain at a time (unify-mcp-tool-registry). Each domain
-// contributes a slice; every tool here is MCP-exposed.
+// registry one domain at a time. Every tool here is MCP-exposed.
 func mcpOnlySpecs() []Spec {
 	var specs []Spec
-	specs = append(specs, garminInventorySpecs()...)
+	for _, ds := range mcpDomainSlices {
+		specs = append(specs, ds...)
+	}
 	for i := range specs {
 		specs[i].MCPExposed = true
 	}
