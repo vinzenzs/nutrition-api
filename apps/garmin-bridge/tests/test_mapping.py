@@ -267,6 +267,29 @@ def test_achievements_mapping_namespaces_external_id(raw_day):
     assert "earned_at" not in challenge
 
 
+def test_achievement_drops_out_of_range_progress_but_keeps_record():
+    # Garmin step-month badges report badgeProgressValue as the raw metric
+    # achieved (e.g. 300000 steps), not a 0-100 percent. That value must be
+    # dropped (it 400s the backend's progress_pct) WITHOUT dropping the whole
+    # achievement — the badge is still earned and must persist.
+    raw = {
+        "earned_badges": [
+            {
+                "badgeId": 1501,
+                "badgeName": "May Step Month",
+                "badgeEarnedDate": "2022-05-16T21:59:59.0",
+                "badgeProgressValue": 300000.0,
+            }
+        ]
+    }
+    achs = mapping.map_achievements(raw)
+    assert len(achs) == 1
+    badge = achs[0]
+    assert badge["external_id"] == "badge:1501"
+    assert badge["name"] == "May Step Month"
+    assert "progress_pct" not in badge  # out-of-range value omitted, record kept
+
+
 def test_misc_mirror_empty_when_absent():
     assert mapping.map_devices({}) == []
     assert mapping.map_achievements({}) == []

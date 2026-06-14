@@ -96,6 +96,21 @@ def _prune(body: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in body.items() if v is not None}
 
 
+def _progress_pct(value: Any) -> float | None:
+    """A 0–100 completion percent, else None.
+
+    Garmin's badge ``badgeProgressValue`` is the raw metric achieved (e.g. a
+    step-month badge reports 300000 steps), NOT a percentage — feeding it to the
+    backend's 0–100 ``progress_pct`` field 400s and drops the whole achievement.
+    Keep only values that are genuinely a percent; an out-of-range value means
+    "no usable percent" and is omitted (the achievement still persists).
+    """
+    pct = _as_float(value)
+    if pct is None or pct < 0 or pct > 100:
+        return None
+    return pct
+
+
 def _has_metrics(snapshot: dict[str, Any]) -> bool:
     """True if the snapshot carries at least one metric beyond `date`."""
     return any(k != "date" for k in snapshot)
@@ -699,7 +714,7 @@ def map_achievements(raw: dict[str, Any]) -> list[dict[str, Any]]:
                     "kind": "badge",
                     "name": name,
                     "earned_at": _achievement_ts(b.get("badgeEarnedDate") or b.get("earnedDate")),
-                    "progress_pct": _as_float(b.get("badgeProgressValue")),
+                    "progress_pct": _progress_pct(b.get("badgeProgressValue")),
                 }
             )
         )
@@ -718,7 +733,7 @@ def map_achievements(raw: dict[str, Any]) -> list[dict[str, Any]]:
                     "kind": "challenge",
                     "name": name,
                     "earned_at": _achievement_ts(ch.get("completionDate") or ch.get("endDate")),
-                    "progress_pct": _as_float(ch.get("progress") or ch.get("userRankProgress")),
+                    "progress_pct": _progress_pct(ch.get("progress") or ch.get("userRankProgress")),
                 }
             )
         )
