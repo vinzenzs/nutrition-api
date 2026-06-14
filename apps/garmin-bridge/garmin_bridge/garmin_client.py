@@ -361,7 +361,9 @@ def schedule_workout(api, workout_id: str, date: str) -> str:
     resp = _connect_write(
         api, f"/workout-service/schedule/{workout_id}", "POST", json={"date": date}
     )
-    sid = (resp or {}).get("id")
+    # Garmin returns the schedule id as `workoutScheduleId`; older API revisions
+    # used a bare `id`. Accept either so a library/API bump doesn't break us.
+    sid = (resp or {}).get("workoutScheduleId") or (resp or {}).get("id")
     if sid is None:
         raise RuntimeError("garmin did not return a schedule id")
     return str(sid)

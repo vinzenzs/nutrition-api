@@ -215,6 +215,20 @@ def test_create_workout_garth_client_uses_connectapi():
     assert ("POST", "/workout-service/workout") in api.client.calls
 
 
+def test_schedule_workout_reads_workout_schedule_id():
+    # Garmin returns the schedule id as `workoutScheduleId` (not bare `id`);
+    # reading `id` raised "garmin did not return a schedule id" -> false 502.
+    class G:
+        def connectapi(self, path, **kwargs):  # bundled-style (no method param)
+            return None
+
+        def post(self, _domain, path, **kwargs):
+            return {"workoutScheduleId": 778899, "workout": {"workoutId": 1}}
+
+    api = ApiWithGarth(G())
+    assert gc.schedule_workout(api, "gw-1", "2026-06-20") == "778899"
+
+
 def test_schedule_and_unschedule_bundled_client():
     api = ApiWithGarth(BundledGarth())
     assert gc.schedule_workout(api, "gw-1", "2026-06-20") == "sched-1"
