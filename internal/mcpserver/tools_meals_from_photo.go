@@ -8,6 +8,8 @@ import (
 	"strconv"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/vinzenzs/nutrition-api/internal/agenttools"
 )
 
 // LogMealFromPhotoArgs is the MCP input for the photo-of-meal tool. The
@@ -61,7 +63,7 @@ func handleLogMealFromPhoto(ctx context.Context, c *apiClient, args LogMealFromP
 	// convention the other write tools use. The image bytes ensure two
 	// distinct uploads with no explicit key still get distinct keys; an
 	// explicit key from the agent overrides the derivation.
-	key := effectiveIdempotencyKey(args.IdempotencyKey, "log_meal_from_photo", args)
+	key := agenttools.EffectiveIdempotencyKey(args.IdempotencyKey, "log_meal_from_photo", args)
 
 	status, respBody, err := c.PostMultipart(ctx, "/meals/from_photo", body.Bytes(), mw.FormDataContentType(), key)
 	return toToolResult(status, respBody, err)

@@ -96,19 +96,21 @@ func TestMCPServer_AnnouncesEightTools(t *testing.T) {
 	tools, ok := result["tools"].([]any)
 	require.True(t, ok, "tools/list result missing tools array")
 
-	names := map[string]bool{}
+	announced := make([]string, 0, len(tools))
 	for _, tool := range tools {
 		obj, ok := tool.(map[string]any)
 		if !ok {
 			continue
 		}
 		if name, _ := obj["name"].(string); name != "" {
-			names[name] = true
+			announced = append(announced, name)
 		}
 	}
-	for _, want := range AnnouncedToolNames {
-		assert.True(t, names[want], "tool %q should be announced", want)
-	}
+	// The announced surface must EXACTLY equal the registry-derived list — no
+	// missing tools, no extras. This is the post-unification contract (DD6):
+	// the surface is generated from agenttools.Registry(), so any drift is a bug.
+	assert.ElementsMatch(t, AnnouncedToolNames(), announced,
+		"announced MCP surface must equal the registry-derived tool list")
 
 	_ = stdin.Close()
 	_ = cmd.Wait()
