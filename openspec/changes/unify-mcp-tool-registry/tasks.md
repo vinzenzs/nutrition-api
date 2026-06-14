@@ -19,23 +19,24 @@
 
 ## 3. Port tool groups (DD7 — repeat per group, integration test green each time)
 
-- [ ] 3.1 Port each domain: move typed arg structs into registry entries with `Build` funcs + tiers; delete bespoke `registerXxxTools` + handlers; migrate unit tests to Build-shape assertions. **Progress — 18/~28 domains, 78 tools:**
+- [x] 3.1 Port each domain: move typed arg structs into registry entries with `Build` funcs + tiers; delete bespoke `registerXxxTools` + handlers; migrate unit tests to Build-shape assertions. **DONE — 28/28 domains, all 128 generic tools (+ log_meal_from_photo bespoke):**
   - [x] **Pilot** (commit `54d94f5`): gear, personal-records, athlete-config
   - [x] **Batch 1** (commit `c8d8df2`): garminmisc, dailysummary, fitnessmetrics, recoverymetrics, hydrationbalance, workouttemplates
   - [x] **Batch 2** (commit `fc5ccf5`): summary, raceprep (conditional GET/POST), races, training-phases (+goal-templates), daily-context, energy, goals (PUT). Idempotency keying made method-based (POST/PATCH/DELETE only).
   - [x] **Batch 3** (commit `a08e98c`): training-plan (13 hierarchical tools). Added `Spec.OmitIdempotencyKey` for re-runnable writes (materialize).
   - [x] **Batch 4** (commit `8a57c3d`): garmin (17 tools, manual). login/submit_mfa use `OmitIdempotencyKey`. No multipart at this layer (base64-in-JSON).
-  - [ ] **Dual-surface** (manual reconciliation — tool already a chat entry; one Spec must serve both surfaces with the MCP-reflected schema matching the golden): products, meal-plan, shopping, workouts, weight, hydration, goal-overrides, meals (+`log_meal_from_photo` multipart, DD5), coach-context. _(NB: `goalrange.go` + `recorders_test.go` shims in mcpserver are removable once goal-overrides / mealplan+shopping are ported.)_
-- [x] 3.2 After each group: `go test ./internal/mcpserver/... ./internal/agenttools/...` + golden + `mcp_integration_test.go` green. _(Held green through pilot + batch 1.)_
+  - [x] **Batch 5 — dual-surface** (commit `772eaee`): products, workouts, weight, hydration, goal-overrides, meal-plan, shopping, coach-context, meals. Each shared-name MCP tool got its own MCP-exposed entry (two surfaces filter independently); chat untouched; `goalrange.go`/recorder/`tools_metrics_test` shims removed. `log_meal_from_photo` stays bespoke (multipart, DD5).
+  - [x] **Batch 6** (commit `e764729`): workout-fuel — the last domain.
+- [x] 3.2 After each group: `go test ./internal/mcpserver/... ./internal/agenttools/...` + golden + `mcp_integration_test.go` green. _(Held green through every batch.)_
 
 ## 4. Retire the drift machinery
 
-- [ ] 4.1 Replace `AnnouncedToolNames` with a registry-derived function (or delete it) and update `mcp_integration_test.go` to assert announced surface == registry names (DD6).
-- [ ] 4.2 Delete `mcpserver/drift_test.go` + the `chatBespokeTools` allowlist (now redundant — both surfaces are one registry).
-- [ ] 4.3 Remove `mcpserver`'s `effectiveIdempotencyKey`/`deriveIdempotencyKey`/`canonicalJSON`/`stripIdempotencyKey` (superseded by `agenttools`).
+- [x] 4.1 `AnnouncedToolNames` is now a function derived from `agenttools.MCPRegistry()` (+ bespoke `log_meal_from_photo`); `mcp_integration_test.go` asserts the announced surface EXACTLY equals it (`ElementsMatch`) — stronger than the prior subset check (commit `640ab47`).
+- [x] 4.2 Deleted `mcpserver/drift_test.go` + the `chatBespokeTools` allowlist (commit `772eaee`).
+- [x] 4.3 Removed `mcpserver`'s `effectiveIdempotencyKey`/`deriveIdempotencyKey` wrappers + test; the one caller (log_meal_from_photo) calls `agenttools.EffectiveIdempotencyKey` directly. (`canonicalJSON`/`stripIdempotencyKey` already lived in `agenttools`.) (commit `640ab47`)
 
 ## 5. Cross-cutting
 
-- [ ] 5.1 Full `task test` green (`internal/mcpserver`, `internal/agenttools`, `internal/chat`).
-- [ ] 5.2 `task vet`; `task swag` (no REST/handler change expected — verify the spec didn't drift).
-- [ ] 5.3 Confirm `internal/chat`'s exposed surface is unchanged (curated subset still filtered correctly after DD1).
+- [x] 5.1 Full `task test` green across the whole suite (incl. `internal/mcpserver`, `internal/agenttools`, `internal/chat`, `internal/chatsessions`).
+- [x] 5.2 `task vet` clean; `task swag` produced no `docs/` drift (the port is MCP-client-side only — no REST/handler change).
+- [x] 5.3 `internal/chat`'s exposed surface is unchanged: chat consumes `ChatRegistry()` (the 24-tool curated subset), proven by `TestRegistry_ExactSurface` + `TestChatToolDefs_SurfaceAndWebSearch`, green throughout.
