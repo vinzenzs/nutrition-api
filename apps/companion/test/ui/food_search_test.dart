@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/state/app_providers.dart';
-import 'package:nutrition_companion/ui/camera/food_search.dart';
+import 'package:kazper/state/app_providers.dart';
+import 'package:kazper/ui/camera/food_search.dart';
 
 import '../support/fake_repository.dart';
 

@@ -1,16 +1,16 @@
-package com.corelyr.nutrition_companion
+package com.corelyr.kazper
 
-import com.corelyr.nutrition_companion.widget.HydrationSnapshot
-import com.corelyr.nutrition_companion.widget.HydrationWidget
-import com.corelyr.nutrition_companion.widget.SnapshotDb
-import com.corelyr.nutrition_companion.widget.WidgetConfig
+import com.corelyr.kazper.widget.HydrationSnapshot
+import com.corelyr.kazper.widget.HydrationWidget
+import com.corelyr.kazper.widget.SnapshotDb
+import com.corelyr.kazper.widget.WidgetConfig
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val tokenBridgeChannel = "com.corelyr.nutrition_companion/token_bridge"
-    private val widgetBridgeChannel = "com.corelyr.nutrition_companion/widget_bridge"
+    private val tokenBridgeChannel = "com.corelyr.kazper/token_bridge"
+    private val widgetBridgeChannel = "com.corelyr.kazper/widget_bridge"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

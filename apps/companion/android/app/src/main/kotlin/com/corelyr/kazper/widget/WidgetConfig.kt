@@ -1,4 +1,4 @@
-package com.corelyr.nutrition_companion.widget
+package com.corelyr.kazper.widget
 
 import android.content.Context
 
@@ -7,7 +7,7 @@ import android.content.Context
  * goal) plus the resolved path to Drift's SQLite file so the spillover writer
  * can target the same `widget_failures` table the Flutter app drains. The
  * bearer token is NOT here — it lives in EncryptedSharedPreferences via
- * [com.corelyr.nutrition_companion.TokenBridge].
+ * [com.corelyr.kazper.TokenBridge].
  */
 object WidgetConfig {
     private const val PREFS = "nutrition_companion_widget"

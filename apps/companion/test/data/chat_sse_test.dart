@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/data/net/chat_client.dart';
-import 'package:nutrition_companion/domain/chat.dart';
+import 'package:kazper/data/net/chat_client.dart';
+import 'package:kazper/domain/chat.dart';
 
 /// Feeds raw SSE lines through the pure parser.
 Stream<String> _lines(List<String> raw) => Stream.fromIterable(raw);

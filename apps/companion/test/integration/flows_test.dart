@@ -4,13 +4,13 @@ import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/data/auth/token_store.dart';
-import 'package:nutrition_companion/data/db/app_database.dart';
-import 'package:nutrition_companion/data/sync/outbox_worker.dart';
-import 'package:nutrition_companion/state/app_providers.dart';
-import 'package:nutrition_companion/state/pairing_provider.dart';
-import 'package:nutrition_companion/state/recent_provider.dart';
-import 'package:nutrition_companion/state/scan_provider.dart';
+import 'package:kazper/data/auth/token_store.dart';
+import 'package:kazper/data/db/app_database.dart';
+import 'package:kazper/data/sync/outbox_worker.dart';
+import 'package:kazper/state/app_providers.dart';
+import 'package:kazper/state/pairing_provider.dart';
+import 'package:kazper/state/recent_provider.dart';
+import 'package:kazper/state/scan_provider.dart';
 
 import '../support/fake_repository.dart';
 

@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/data/auth/token_store.dart';
-import 'package:nutrition_companion/data/net/chat_client.dart';
-import 'package:nutrition_companion/domain/chat.dart';
-import 'package:nutrition_companion/state/app_providers.dart';
-import 'package:nutrition_companion/state/chat_provider.dart';
-import 'package:nutrition_companion/state/sessions_provider.dart';
+import 'package:kazper/data/auth/token_store.dart';
+import 'package:kazper/data/net/chat_client.dart';
+import 'package:kazper/domain/chat.dart';
+import 'package:kazper/state/app_providers.dart';
+import 'package:kazper/state/chat_provider.dart';
+import 'package:kazper/state/sessions_provider.dart';
 
 class _StubTokenStore implements TokenStore {
   @override

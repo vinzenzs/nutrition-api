@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/data/db/app_database.dart';
-import 'package:nutrition_companion/data/db/dao/pending_writes_dao.dart';
-import 'package:nutrition_companion/data/db/dao/widget_failures_dao.dart';
-import 'package:nutrition_companion/data/sync/outbox_worker.dart';
+import 'package:kazper/data/db/app_database.dart';
+import 'package:kazper/data/db/dao/pending_writes_dao.dart';
+import 'package:kazper/data/db/dao/widget_failures_dao.dart';
+import 'package:kazper/data/sync/outbox_worker.dart';
 
 /// In-memory sender — returns a canned response per `path` and records how
 /// many times each row id was sent.

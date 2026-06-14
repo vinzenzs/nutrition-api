@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/data/repository.dart';
-import 'package:nutrition_companion/domain/models.dart';
-import 'package:nutrition_companion/state/app_providers.dart';
-import 'package:nutrition_companion/state/goals_provider.dart';
-import 'package:nutrition_companion/state/recent_provider.dart';
-import 'package:nutrition_companion/state/scan_provider.dart';
-import 'package:nutrition_companion/state/today_provider.dart';
+import 'package:kazper/data/repository.dart';
+import 'package:kazper/domain/models.dart';
+import 'package:kazper/state/app_providers.dart';
+import 'package:kazper/state/goals_provider.dart';
+import 'package:kazper/state/recent_provider.dart';
+import 'package:kazper/state/scan_provider.dart';
+import 'package:kazper/state/today_provider.dart';
 
 import '../support/fake_repository.dart';
 

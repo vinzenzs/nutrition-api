@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:nutrition_companion/data/auth/token_store.dart';
+import 'package:kazper/data/auth/token_store.dart';
 
 class _MockSecureStorage extends Mock implements FlutterSecureStorage {}
 

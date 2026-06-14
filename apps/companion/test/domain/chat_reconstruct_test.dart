@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/domain/chat.dart';
+import 'package:kazper/domain/chat.dart';
 
 void main() {
   test('reconstructs text bubbles, dropping tool turns', () {

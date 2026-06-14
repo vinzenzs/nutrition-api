@@ -1,4 +1,4 @@
-package com.corelyr.nutrition_companion
+package com.corelyr.kazper
 
 import android.content.Context
 import android.content.SharedPreferences

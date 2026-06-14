@@ -12,7 +12,7 @@ class SecureTokenStore implements TokenStore {
   static const _tokenKey = 'mobile_api_token';
   static const _baseUrlKey = 'base_url';
   static const _bridgeChannel =
-      MethodChannel('com.corelyr.nutrition_companion/token_bridge');
+      MethodChannel('com.corelyr.kazper/token_bridge');
 
   final FlutterSecureStorage _storage;
   final MethodChannel _channel;

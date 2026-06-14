@@ -1,9 +1,9 @@
-package com.corelyr.nutrition_companion.widget
+package com.corelyr.kazper.widget
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.corelyr.nutrition_companion.TokenBridge
+import com.corelyr.kazper.TokenBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType

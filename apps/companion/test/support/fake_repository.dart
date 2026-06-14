@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:nutrition_companion/data/repository.dart';
-import 'package:nutrition_companion/domain/models.dart';
-import 'package:nutrition_companion/domain/planning.dart';
+import 'package:kazper/data/repository.dart';
+import 'package:kazper/domain/models.dart';
+import 'package:kazper/domain/planning.dart';
 
 /// Behaviour-only fake — no Drift, no Dio. Tests set the public fields to wire
 /// responses and read [meals]/[deletedMeals]/[hydration] to assert writes.

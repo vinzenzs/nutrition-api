@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:nutrition_companion/data/db/app_database.dart';
-import 'package:nutrition_companion/data/net/api_client.dart';
-import 'package:nutrition_companion/data/repository.dart';
-import 'package:nutrition_companion/data/sync/outbox_worker.dart';
+import 'package:kazper/data/db/app_database.dart';
+import 'package:kazper/data/net/api_client.dart';
+import 'package:kazper/data/repository.dart';
+import 'package:kazper/data/sync/outbox_worker.dart';
 
 class _MockApiClient extends Mock implements ApiClient {}
 

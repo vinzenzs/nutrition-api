@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 /// waking Flutter. All calls tolerate a missing channel (e.g. unit tests).
 class WidgetBridge {
   static const _channel =
-      MethodChannel('com.corelyr.nutrition_companion/widget_bridge');
+      MethodChannel('com.corelyr.kazper/widget_bridge');
 
   final MethodChannel _ch;
   WidgetBridge({MethodChannel? channel}) : _ch = channel ?? _channel;

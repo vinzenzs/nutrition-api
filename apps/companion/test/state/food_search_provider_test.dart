@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/domain/models.dart';
-import 'package:nutrition_companion/state/app_providers.dart';
-import 'package:nutrition_companion/state/food_search_provider.dart';
+import 'package:kazper/domain/models.dart';
+import 'package:kazper/state/app_providers.dart';
+import 'package:kazper/state/food_search_provider.dart';
 
 import '../support/fake_repository.dart';
 

@@ -1,4 +1,4 @@
-package com.corelyr.nutrition_companion.widget
+package com.corelyr.kazper.widget
 
 import android.content.ContentValues
 import android.content.Context

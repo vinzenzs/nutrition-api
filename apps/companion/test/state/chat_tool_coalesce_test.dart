@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nutrition_companion/domain/chat.dart';
-import 'package:nutrition_companion/state/chat_provider.dart';
+import 'package:kazper/domain/chat.dart';
+import 'package:kazper/state/chat_provider.dart';
 
 ChatToolEvent _tool(String id, String name, String status, {String summary = ''}) =>
     ChatToolEvent(id: id, name: name, status: status, summary: summary);

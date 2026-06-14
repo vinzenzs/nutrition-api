@@ -1,4 +1,4 @@
-package com.corelyr.nutrition_companion.widget
+package com.corelyr.kazper.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -9,7 +9,7 @@ import android.content.Intent
 import android.widget.RemoteViews
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.corelyr.nutrition_companion.R
+import com.corelyr.kazper.R
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -42,7 +42,7 @@ class HydrationWidget : AppWidgetProvider() {
 
     companion object {
         private const val ACTION_TAP =
-            "com.corelyr.nutrition_companion.widget.ACTION_TAP"
+            "com.corelyr.kazper.widget.ACTION_TAP"
 
         /** Re-renders every instance of the widget from the current snapshot. */
         fun requestUpdate(context: Context) {
