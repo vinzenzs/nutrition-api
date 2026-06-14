@@ -41,11 +41,10 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		Version: Version,
 	}, nil)
 
-	// Bespoke registrations that remain: the multipart photo upload (DD5) and
-	// the not-yet-ported workout-fuel domain. Everything else flows through the
-	// generic registry dispatcher below.
+	// The only bespoke registration that remains: the multipart photo upload
+	// (DD5), which agenttools.HTTPCall cannot model. Everything else flows
+	// through the generic registry dispatcher below.
 	registerMealPhotoTool(server, client)
-	registerWorkoutFuelTools(server, client)
 
 	// Generic registration over the shared agenttools registry for tools that
 	// have been ported off bespoke handlers (unify-mcp-tool-registry). Coexists
