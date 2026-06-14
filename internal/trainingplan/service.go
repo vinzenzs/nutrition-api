@@ -18,16 +18,17 @@ import (
 
 // Validation errors map 1:1 to API error codes.
 var (
-	ErrNameRequired          = errors.New("name_required")
-	ErrStartDateInvalid      = errors.New("start_date_invalid")
-	ErrOrdinalInvalid        = errors.New("ordinal_invalid")
-	ErrWeekdayInvalid        = errors.New("weekday_invalid")
-	ErrTimeOfDayInvalid      = errors.New("time_of_day_invalid")
-	ErrTemplateRequired      = errors.New("template_id_required")
-	ErrScopeInvalid          = errors.New("scope_invalid")
-	ErrOverrideIntentInvalid = errors.New("override_intent_invalid")
-	ErrOverrideDuplicate     = errors.New("override_intent_duplicate")
-	ErrOverrideTargetInvalid = errors.New("override_target_invalid")
+	ErrNameRequired            = errors.New("name_required")
+	ErrStartDateInvalid        = errors.New("start_date_invalid")
+	ErrOrdinalInvalid          = errors.New("ordinal_invalid")
+	ErrWeekdayInvalid          = errors.New("weekday_invalid")
+	ErrTimeOfDayInvalid        = errors.New("time_of_day_invalid")
+	ErrTemplateRequired        = errors.New("template_id_required")
+	ErrScopeInvalid            = errors.New("scope_invalid")
+	ErrOverrideIntentInvalid   = errors.New("override_intent_invalid")
+	ErrOverrideDuplicate       = errors.New("override_intent_duplicate")
+	ErrOverrideTargetInvalid   = errors.New("override_target_invalid")
+	ErrOverrideDurationInvalid = errors.New("override_duration_invalid")
 )
 
 const dateLayout = "2006-01-02"
@@ -177,11 +178,12 @@ func (s *Service) DeleteWeek(ctx context.Context, weekID uuid.UUID) error {
 // ----- slot -----
 
 type SlotInput struct {
-	Weekday         int
-	Ordinal         int
-	TemplateID      uuid.UUID
-	TimeOfDay       *string
-	TargetOverrides []SlotTargetOverride
+	Weekday           int
+	Ordinal           int
+	TemplateID        uuid.UUID
+	TimeOfDay         *string
+	TargetOverrides   []SlotTargetOverride
+	DurationOverrides []SlotDurationOverride
 }
 
 func (s *Service) CreateSlot(ctx context.Context, weekID uuid.UUID, in SlotInput) (*PlanSlot, error) {
@@ -197,12 +199,16 @@ func (s *Service) CreateSlot(ctx context.Context, weekID uuid.UUID, in SlotInput
 	if err := validateOverrides(in.TargetOverrides); err != nil {
 		return nil, err
 	}
+	if err := validateDurationOverrides(in.DurationOverrides); err != nil {
+		return nil, err
+	}
 	if _, err := s.repo.GetWeek(ctx, weekID); err != nil {
 		return nil, err
 	}
 	return s.repo.CreateSlot(ctx, &PlanSlot{
 		PlanWeekID: weekID, Weekday: in.Weekday, Ordinal: in.Ordinal,
-		TemplateID: in.TemplateID, TimeOfDay: in.TimeOfDay, TargetOverrides: in.TargetOverrides,
+		TemplateID: in.TemplateID, TimeOfDay: in.TimeOfDay,
+		TargetOverrides: in.TargetOverrides, DurationOverrides: in.DurationOverrides,
 	})
 }
 
@@ -216,6 +222,10 @@ type SlotPatch struct {
 	// TargetOverrides is the replacement list when SetOverrides is true; an
 	// empty/nil slice clears all overrides.
 	TargetOverrides []SlotTargetOverride
+	SetDurations    bool
+	// DurationOverrides is the replacement list when SetDurations is true; an
+	// empty/nil slice clears all duration overrides.
+	DurationOverrides []SlotDurationOverride
 }
 
 func (s *Service) PatchSlot(ctx context.Context, slotID uuid.UUID, p SlotPatch) (*PlanSlot, error) {
@@ -250,6 +260,12 @@ func (s *Service) PatchSlot(ctx context.Context, slotID uuid.UUID, p SlotPatch) 
 		}
 		sl.TargetOverrides = p.TargetOverrides
 	}
+	if p.SetDurations {
+		if err := validateDurationOverrides(p.DurationOverrides); err != nil {
+			return nil, err
+		}
+		sl.DurationOverrides = p.DurationOverrides
+	}
 	return s.repo.UpdateSlot(ctx, sl)
 }
 
@@ -268,6 +284,33 @@ func validateOverrides(overrides []SlotTargetOverride) error {
 		t := o.Target
 		if err := workouttemplates.ValidateTarget(&t); err != nil {
 			return ErrOverrideTargetInvalid
+		}
+	}
+	return nil
+}
+
+// validateDurationOverrides enforces: each intent is a known template intent, no
+// intent repeats, and each duration is a bounded kind (time / distance) passing
+// the workout-templates Duration validator. The unbounded kinds (lap_button /
+// open) are rejected — a duration override must set an actual length.
+func validateDurationOverrides(overrides []SlotDurationOverride) error {
+	seen := make(map[string]bool, len(overrides))
+	for _, o := range overrides {
+		if !workouttemplates.ValidIntent(o.Intent) {
+			return ErrOverrideIntentInvalid
+		}
+		if seen[o.Intent] {
+			return ErrOverrideDuplicate
+		}
+		seen[o.Intent] = true
+		switch o.Duration.Kind {
+		case workouttemplates.DurationTime, workouttemplates.DurationDistance:
+			d := o.Duration
+			if err := workouttemplates.ValidateDuration(&d); err != nil {
+				return ErrOverrideDurationInvalid
+			}
+		default:
+			return ErrOverrideDurationInvalid
 		}
 	}
 	return nil
@@ -319,8 +362,14 @@ func (s *Service) Materialize(ctx context.Context, planID uuid.UUID, scope Scope
 				continue
 			}
 			started := s.startTime(date, sl)
+			// Session length, in order: the effective program's summed step
+			// durations when fully time-bounded (so duration_overrides move the
+			// window), else the template's estimated_duration_sec, else fallback.
 			durSec := fallbackDurationSec
-			if sl.TemplateDurationSec != nil && *sl.TemplateDurationSec > 0 {
+			effSteps := applyOverrides(sl.TemplateSteps, nil, sl.DurationOverrides)
+			if eff, ok := effectiveSessionDurationSec(effSteps); ok {
+				durSec = eff
+			} else if sl.TemplateDurationSec != nil && *sl.TemplateDurationSec > 0 {
 				durSec = *sl.TemplateDurationSec
 			}
 			ended := started.Add(time.Duration(durSec) * time.Second)
@@ -413,47 +462,89 @@ func (s *Service) EffectiveProgram(ctx context.Context, workoutID uuid.UUID) (*P
 	if err != nil {
 		return nil, err
 	}
-	var overrides []SlotTargetOverride
+	var targets []SlotTargetOverride
+	var durations []SlotDurationOverride
 	if w.PlanSlotID != nil {
 		if sl, err := s.repo.GetSlot(ctx, *w.PlanSlotID); err == nil {
-			overrides = sl.TargetOverrides
+			targets = sl.TargetOverrides
+			durations = sl.DurationOverrides
 		}
 	}
-	prog.Steps = applyOverrides(tmpl.Steps, overrides)
+	prog.Steps = applyOverrides(tmpl.Steps, targets, durations)
 	return prog, nil
 }
 
-// applyOverrides returns a copy of steps with each step's target replaced when
-// its intent has a matching override; repeat groups are recursed one level.
-func applyOverrides(steps []workouttemplates.Step, overrides []SlotTargetOverride) []workouttemplates.Step {
+// applyOverrides returns a copy of steps with each step's target and/or duration
+// replaced when its intent has a matching override; the two override lists are
+// independent and compose. Repeat groups are recursed one level.
+func applyOverrides(steps []workouttemplates.Step, targets []SlotTargetOverride, durations []SlotDurationOverride) []workouttemplates.Step {
 	if len(steps) == 0 {
 		return []workouttemplates.Step{}
 	}
-	byIntent := make(map[string]workouttemplates.Target, len(overrides))
-	for _, o := range overrides {
-		byIntent[o.Intent] = o.Target
+	tByIntent := make(map[string]workouttemplates.Target, len(targets))
+	for _, o := range targets {
+		tByIntent[o.Intent] = o.Target
+	}
+	dByIntent := make(map[string]workouttemplates.Duration, len(durations))
+	for _, o := range durations {
+		dByIntent[o.Intent] = o.Duration
 	}
 	out := make([]workouttemplates.Step, len(steps))
 	for i, st := range steps {
-		out[i] = applyOverrideToStep(st, byIntent)
+		out[i] = applyOverrideToStep(st, tByIntent, dByIntent)
 	}
 	return out
 }
 
-func applyOverrideToStep(st workouttemplates.Step, byIntent map[string]workouttemplates.Target) workouttemplates.Step {
+func applyOverrideToStep(st workouttemplates.Step, tByIntent map[string]workouttemplates.Target, dByIntent map[string]workouttemplates.Duration) workouttemplates.Step {
 	if st.Type == workouttemplates.NodeRepeat {
 		inner := make([]workouttemplates.Step, len(st.Steps))
 		for i, child := range st.Steps {
-			inner[i] = applyOverrideToStep(child, byIntent)
+			inner[i] = applyOverrideToStep(child, tByIntent, dByIntent)
 		}
 		st.Steps = inner
 		return st
 	}
-	if t, ok := byIntent[st.Intent]; ok {
+	if t, ok := tByIntent[st.Intent]; ok {
 		tt := t
 		st.Target = &tt
 	}
+	if d, ok := dByIntent[st.Intent]; ok {
+		dd := d
+		st.Duration = &dd
+	}
 	return st
+}
+
+// effectiveSessionDurationSec sums the time-bounded durations of a resolved
+// program (repeat groups multiplied by their count). It reports ok=false — so
+// the caller falls back to the template's estimated_duration_sec — when the
+// program is empty or any leaf step is not time-bounded (distance / open /
+// lap_button), since those cannot be summed into a wall-clock session length.
+func effectiveSessionDurationSec(steps []workouttemplates.Step) (int, bool) {
+	if len(steps) == 0 {
+		return 0, false
+	}
+	total := 0
+	for _, st := range steps {
+		if st.Type == workouttemplates.NodeRepeat {
+			inner, ok := effectiveSessionDurationSec(st.Steps)
+			if !ok {
+				return 0, false
+			}
+			count := st.Count
+			if count < 1 {
+				count = 1
+			}
+			total += inner * count
+			continue
+		}
+		if st.Duration == nil || st.Duration.Kind != workouttemplates.DurationTime || st.Duration.Seconds == nil {
+			return 0, false
+		}
+		total += *st.Duration.Seconds
+	}
+	return total, true
 }
 
 // ----- validators -----

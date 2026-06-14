@@ -179,6 +179,10 @@ func ValidIntent(s string) bool {
 // to template steps. Exported for reuse by training-plan slot target overrides.
 func ValidateTarget(t *Target) error { return validateTarget(t) }
 
+// ValidateDuration validates a single duration using the same rules applied to
+// template steps. Exported for reuse by training-plan slot duration overrides.
+func ValidateDuration(d *Duration) error { return validateDuration(d) }
+
 func validateDuration(d *Duration) error {
 	if d == nil {
 		return ErrDurationInvalid

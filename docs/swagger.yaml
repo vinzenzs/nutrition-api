@@ -2139,6 +2139,15 @@ definitions:
     properties:
       created_at:
         type: string
+      duration_overrides:
+        description: |-
+          DurationOverrides supersede the referenced template's step durations,
+          matched by intent, when the planned workout's effective program is
+          resolved (and drive the materialized session length). At most one entry
+          per intent; nil/empty means no overrides.
+        items:
+          $ref: '#/definitions/trainingplan.SlotDurationOverride'
+        type: array
       id:
         type: string
       ordinal:
@@ -2197,6 +2206,13 @@ definitions:
       workout_id:
         type: string
     type: object
+  trainingplan.SlotDurationOverride:
+    properties:
+      duration:
+        $ref: '#/definitions/workouttemplates.Duration'
+      intent:
+        type: string
+    type: object
   trainingplan.SlotTargetOverride:
     properties:
       intent:
@@ -2217,6 +2233,10 @@ definitions:
     type: object
   trainingplan.createSlotRequest:
     properties:
+      duration_overrides:
+        items:
+          $ref: '#/definitions/trainingplan.SlotDurationOverride'
+        type: array
       ordinal:
         type: integer
       target_overrides:
@@ -7254,7 +7274,8 @@ paths:
             $ref: '#/definitions/trainingplan.PlanSlot'
         "400":
           description: invalid_json | weekday_invalid | template_id_required | time_of_day_invalid
-            | template_not_found
+            | template_not_found | override_intent_invalid | override_intent_duplicate
+            | override_target_invalid | override_duration_invalid
           schema:
             additionalProperties:
               type: string
@@ -8015,8 +8036,8 @@ paths:
   /workouts/{id}/program:
     get:
       description: Resolves the workout's template steps with its plan-slot target
-        overrides applied per intent. A workout with no template returns its sport/name
-        and an empty step list.
+        and duration overrides applied per intent. A workout with no template returns
+        its sport/name and an empty step list.
       parameters:
       - description: Workout UUID
         in: path
@@ -8038,7 +8059,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Get a planned workout's effective program (template steps + slot target
+      summary: Get a planned workout's effective program (template steps + slot target/duration
         overrides)
       tags:
       - workouts

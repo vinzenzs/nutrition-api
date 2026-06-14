@@ -79,25 +79,35 @@ type SlotTargetOverrideArg struct {
 	Target map[string]any `json:"target" jsonschema:"effort target, same shape as a workout-template step target (e.g. {\"kind\":\"pace\",\"low_sec_per_km\":435,\"high_sec_per_km\":435} for 7:15/km)"`
 }
 
+// SlotDurationOverrideArg overrides the duration of every template step whose
+// intent matches, when the planned workout's effective program is resolved (and
+// drives the materialized session length).
+type SlotDurationOverrideArg struct {
+	Intent   string         `json:"intent" jsonschema:"step intent to override: warmup|active|interval|recovery|rest|cooldown"`
+	Duration map[string]any `json:"duration" jsonschema:"bounded duration, same shape as a workout-template step duration (e.g. {\"kind\":\"time\",\"seconds\":3600} for 60min or {\"kind\":\"distance\",\"meters\":10000}); open/lap_button are rejected"`
+}
+
 type AddPlanSlotArgs struct {
-	PlanID          string                  `json:"plan_id" jsonschema:"the plan UUID"`
-	WeekID          string                  `json:"week_id" jsonschema:"the week UUID"`
-	Weekday         int                     `json:"weekday" jsonschema:"day of week 0 (Monday) through 6 (Sunday)"`
-	Ordinal         int                     `json:"ordinal" jsonschema:"order of this session within the day (0-based)"`
-	TemplateID      string                  `json:"template_id" jsonschema:"the workout-template UUID this slot schedules"`
-	TimeOfDay       *string                 `json:"time_of_day,omitempty" jsonschema:"optional local start time HH:MM or HH:MM:SS"`
-	TargetOverrides []SlotTargetOverrideArg `json:"target_overrides,omitempty" jsonschema:"optional per-intent target overrides that supersede the template's targets (e.g. progress an interval pace across weeks); at most one per intent"`
-	IdempotencyKey  string                  `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
+	PlanID            string                    `json:"plan_id" jsonschema:"the plan UUID"`
+	WeekID            string                    `json:"week_id" jsonschema:"the week UUID"`
+	Weekday           int                       `json:"weekday" jsonschema:"day of week 0 (Monday) through 6 (Sunday)"`
+	Ordinal           int                       `json:"ordinal" jsonschema:"order of this session within the day (0-based)"`
+	TemplateID        string                    `json:"template_id" jsonschema:"the workout-template UUID this slot schedules"`
+	TimeOfDay         *string                   `json:"time_of_day,omitempty" jsonschema:"optional local start time HH:MM or HH:MM:SS"`
+	TargetOverrides   []SlotTargetOverrideArg   `json:"target_overrides,omitempty" jsonschema:"optional per-intent target overrides that supersede the template's targets (e.g. progress an interval pace across weeks); at most one per intent"`
+	DurationOverrides []SlotDurationOverrideArg `json:"duration_overrides,omitempty" jsonschema:"optional per-intent duration overrides that supersede the template's step durations (e.g. progress a tempo block 75min→80min across weeks) and drive the materialized session length; at most one per intent"`
+	IdempotencyKey    string                    `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
 }
 
 type PatchPlanSlotArgs struct {
-	PlanID          string                   `json:"plan_id" jsonschema:"the plan UUID"`
-	SlotID          string                   `json:"slot_id" jsonschema:"the slot UUID"`
-	Weekday         *int                     `json:"weekday,omitempty" jsonschema:"optional new weekday 0..6"`
-	Ordinal         *int                     `json:"ordinal,omitempty" jsonschema:"optional new within-day order"`
-	TemplateID      *string                  `json:"template_id,omitempty" jsonschema:"optional new template UUID"`
-	TimeOfDay       *string                  `json:"time_of_day,omitempty" jsonschema:"optional new local start time HH:MM or HH:MM:SS"`
-	TargetOverrides *[]SlotTargetOverrideArg `json:"target_overrides,omitempty" jsonschema:"optional replacement override list (replaces wholesale; empty list clears all overrides)"`
+	PlanID            string                     `json:"plan_id" jsonschema:"the plan UUID"`
+	SlotID            string                     `json:"slot_id" jsonschema:"the slot UUID"`
+	Weekday           *int                       `json:"weekday,omitempty" jsonschema:"optional new weekday 0..6"`
+	Ordinal           *int                       `json:"ordinal,omitempty" jsonschema:"optional new within-day order"`
+	TemplateID        *string                    `json:"template_id,omitempty" jsonschema:"optional new template UUID"`
+	TimeOfDay         *string                    `json:"time_of_day,omitempty" jsonschema:"optional new local start time HH:MM or HH:MM:SS"`
+	TargetOverrides   *[]SlotTargetOverrideArg   `json:"target_overrides,omitempty" jsonschema:"optional replacement override list (replaces wholesale; empty list clears all overrides)"`
+	DurationOverrides *[]SlotDurationOverrideArg `json:"duration_overrides,omitempty" jsonschema:"optional replacement duration-override list (replaces wholesale; empty list clears all duration overrides)"`
 }
 
 type GetWorkoutProgramArgs struct {
@@ -268,7 +278,7 @@ func trainingPlanSpecs() []Spec {
 		// ----- slot -----
 		{
 			Name:        "add_plan_slot",
-			Description: "Add a day-slot to a plan week: a weekday (0=Mon..6=Sun), a within-day ordinal, the workout-template to schedule, an optional time_of_day, and optional per-intent target_overrides (e.g. run a tempo template's interval at pace 7:15 this week, faster next week) so one template can progress across the plan.",
+			Description: "Add a day-slot to a plan week: a weekday (0=Mon..6=Sun), a within-day ordinal, the workout-template to schedule, an optional time_of_day, and optional per-intent target_overrides (progress an interval pace across weeks) and duration_overrides (progress a block's length, e.g. 75min→80min) so one template can progress across the plan.",
 			SchemaType:  AddPlanSlotArgs{},
 			Tier:        TierWriteAuto,
 			Build: func(in json.RawMessage) (HTTPCall, error) {
@@ -280,6 +290,9 @@ func trainingPlanSpecs() []Spec {
 				if a.TargetOverrides != nil {
 					payload["target_overrides"] = a.TargetOverrides
 				}
+				if a.DurationOverrides != nil {
+					payload["duration_overrides"] = a.DurationOverrides
+				}
 				body, err := json.Marshal(payload)
 				if err != nil {
 					return HTTPCall{}, err
@@ -289,7 +302,7 @@ func trainingPlanSpecs() []Spec {
 		},
 		{
 			Name:        "patch_plan_slot",
-			Description: "Update a slot's weekday / ordinal / template_id / time_of_day / target_overrides (replaces the override list wholesale; empty clears). Re-materialize to retarget the planned workout.",
+			Description: "Update a slot's weekday / ordinal / template_id / time_of_day / target_overrides / duration_overrides (each override list replaces wholesale; empty clears). Re-materialize to retarget the planned workout.",
 			SchemaType:  PatchPlanSlotArgs{},
 			Tier:        TierWriteAuto,
 			Build: func(in json.RawMessage) (HTTPCall, error) {
@@ -313,6 +326,10 @@ func trainingPlanSpecs() []Spec {
 				if a.TargetOverrides != nil {
 					// Present (possibly empty → clears all overrides); replaces wholesale.
 					payload["target_overrides"] = *a.TargetOverrides
+				}
+				if a.DurationOverrides != nil {
+					// Present (possibly empty → clears all duration overrides); replaces wholesale.
+					payload["duration_overrides"] = *a.DurationOverrides
 				}
 				body, err := json.Marshal(payload)
 				if err != nil {

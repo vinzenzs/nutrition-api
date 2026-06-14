@@ -280,6 +280,54 @@ func TestTrainingPlan_PatchSlotClearsOverrides(t *testing.T) {
 	assert.Len(t, arr, 0)
 }
 
+// add_plan_slot forwards duration_overrides when supplied (and omits them when
+// not), alongside target_overrides — the two lists are independent.
+func TestTrainingPlan_AddSlotForwardsDurationOverrides(t *testing.T) {
+	specs := ByName(MCPRegistry())
+	call, err := specs["add_plan_slot"].Build(json.RawMessage(
+		`{"plan_id":"p1","week_id":"w2","weekday":2,"ordinal":0,"template_id":"t1",` +
+			`"duration_overrides":[{"intent":"active","duration":{"kind":"time","seconds":4800}}]}`))
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(call.Body, &body))
+	assert.NotContains(t, body, "target_overrides")
+	dov, ok := body["duration_overrides"].([]any)
+	require.True(t, ok)
+	require.Len(t, dov, 1)
+	entry := dov[0].(map[string]any)
+	assert.Equal(t, "active", entry["intent"])
+	dur := entry["duration"].(map[string]any)
+	assert.Equal(t, "time", dur["kind"])
+	assert.Equal(t, float64(4800), dur["seconds"])
+}
+
+func TestTrainingPlan_AddSlotOmitsDurationOverrides(t *testing.T) {
+	specs := ByName(MCPRegistry())
+	call, err := specs["add_plan_slot"].Build(json.RawMessage(
+		`{"plan_id":"p1","week_id":"w2","weekday":2,"ordinal":0,"template_id":"t1"}`))
+	require.NoError(t, err)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(call.Body, &body))
+	assert.NotContains(t, body, "duration_overrides")
+}
+
+// patch_plan_slot forwards an empty duration_overrides list (the wholesale-clear
+// sentinel) because the pointer is non-nil — same tri-state as target_overrides.
+func TestTrainingPlan_PatchSlotClearsDurationOverrides(t *testing.T) {
+	specs := ByName(MCPRegistry())
+	call, err := specs["patch_plan_slot"].Build(json.RawMessage(
+		`{"plan_id":"p1","slot_id":"s3","duration_overrides":[]}`))
+	require.NoError(t, err)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(call.Body, &body))
+	v, ok := body["duration_overrides"]
+	require.True(t, ok, "empty list sentinel must be forwarded (clears all duration overrides)")
+	arr, ok := v.([]any)
+	require.True(t, ok)
+	assert.Len(t, arr, 0)
+}
+
 // delete_plan_slot → DELETE /training-plans/{plan_id}/slots/{slot_id}.
 func TestTrainingPlan_DeleteSlot(t *testing.T) {
 	specs := ByName(MCPRegistry())

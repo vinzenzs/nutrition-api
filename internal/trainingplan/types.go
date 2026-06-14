@@ -50,8 +50,13 @@ type PlanSlot struct {
 	// by intent, when the planned workout's effective program is resolved. At
 	// most one entry per intent; nil/empty means no overrides.
 	TargetOverrides []SlotTargetOverride `json:"target_overrides,omitempty"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
+	// DurationOverrides supersede the referenced template's step durations,
+	// matched by intent, when the planned workout's effective program is
+	// resolved (and drive the materialized session length). At most one entry
+	// per intent; nil/empty means no overrides.
+	DurationOverrides []SlotDurationOverride `json:"duration_overrides,omitempty"`
+	CreatedAt         time.Time              `json:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at"`
 }
 
 // SlotTargetOverride replaces the effort target of every template step whose
@@ -60,6 +65,15 @@ type PlanSlot struct {
 type SlotTargetOverride struct {
 	Intent string                  `json:"intent"`
 	Target workouttemplates.Target `json:"target"`
+}
+
+// SlotDurationOverride replaces the duration of every template step whose intent
+// matches, when a planned workout's effective program is resolved. The Duration
+// reuses the workout-templates Duration shape and validator verbatim, restricted
+// to the bounded kinds (time / distance) — see validateDurationOverrides.
+type SlotDurationOverride struct {
+	Intent   string                    `json:"intent"`
+	Duration workouttemplates.Duration `json:"duration"`
 }
 
 // Program is a planned workout's effective program: its template steps with the

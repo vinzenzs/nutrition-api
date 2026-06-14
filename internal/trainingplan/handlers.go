@@ -292,11 +292,12 @@ func (h *Handlers) deleteWeek(c *gin.Context) {
 // ----- slot -----
 
 type createSlotRequest struct {
-	Weekday         int                  `json:"weekday"`
-	Ordinal         int                  `json:"ordinal"`
-	TemplateID      uuid.UUID            `json:"template_id"`
-	TimeOfDay       *string              `json:"time_of_day,omitempty"`
-	TargetOverrides []SlotTargetOverride `json:"target_overrides,omitempty"`
+	Weekday           int                    `json:"weekday"`
+	Ordinal           int                    `json:"ordinal"`
+	TemplateID        uuid.UUID              `json:"template_id"`
+	TimeOfDay         *string                `json:"time_of_day,omitempty"`
+	TargetOverrides   []SlotTargetOverride   `json:"target_overrides,omitempty"`
+	DurationOverrides []SlotDurationOverride `json:"duration_overrides,omitempty"`
 }
 
 // createSlot godoc
@@ -308,7 +309,7 @@ type createSlotRequest struct {
 // @Param        weekId  path  string             true  "Week UUID"
 // @Param        body    body  createSlotRequest  true  "Slot"
 // @Success      201  {object}  PlanSlot
-// @Failure      400  {object}  map[string]string  "invalid_json | weekday_invalid | template_id_required | time_of_day_invalid | template_not_found"
+// @Failure      400  {object}  map[string]string  "invalid_json | weekday_invalid | template_id_required | time_of_day_invalid | template_not_found | override_intent_invalid | override_intent_duplicate | override_target_invalid | override_duration_invalid"
 // @Failure      404  {object}  map[string]string  "plan_week_not_found"
 // @Security     BearerAuth
 // @Router       /training-plans/{id}/weeks/{weekId}/slots [post]
@@ -323,7 +324,7 @@ func (h *Handlers) createSlot(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "invalid_json")
 		return
 	}
-	out, err := h.svc.CreateSlot(c.Request.Context(), weekID, SlotInput{Weekday: req.Weekday, Ordinal: req.Ordinal, TemplateID: req.TemplateID, TimeOfDay: req.TimeOfDay, TargetOverrides: req.TargetOverrides})
+	out, err := h.svc.CreateSlot(c.Request.Context(), weekID, SlotInput{Weekday: req.Weekday, Ordinal: req.Ordinal, TemplateID: req.TemplateID, TimeOfDay: req.TimeOfDay, TargetOverrides: req.TargetOverrides, DurationOverrides: req.DurationOverrides})
 	if err != nil {
 		respondNotFoundOr(c, err)
 		return
@@ -381,6 +382,15 @@ func (h *Handlers) patchSlot(c *gin.Context) {
 		p.SetOverrides = true
 		if !isNull(v) {
 			if json.Unmarshal(v, &p.TargetOverrides) != nil {
+				respondError(c, http.StatusBadRequest, "invalid_json")
+				return
+			}
+		}
+	}
+	if v, present := raw["duration_overrides"]; present {
+		p.SetDurations = true
+		if !isNull(v) {
+			if json.Unmarshal(v, &p.DurationOverrides) != nil {
 				respondError(c, http.StatusBadRequest, "invalid_json")
 				return
 			}
@@ -451,8 +461,8 @@ func (h *Handlers) materialize(c *gin.Context) {
 // ----- workout program -----
 
 // workoutProgram godoc
-// @Summary      Get a planned workout's effective program (template steps + slot target overrides)
-// @Description  Resolves the workout's template steps with its plan-slot target overrides applied per intent. A workout with no template returns its sport/name and an empty step list.
+// @Summary      Get a planned workout's effective program (template steps + slot target/duration overrides)
+// @Description  Resolves the workout's template steps with its plan-slot target and duration overrides applied per intent. A workout with no template returns its sport/name and an empty step list.
 // @Tags         workouts
 // @Produce      json
 // @Param        id  path  string  true  "Workout UUID"
@@ -545,6 +555,7 @@ func respondServiceError(c *gin.Context, err error) {
 		ErrTimeOfDayInvalid, ErrTemplateRequired, ErrScopeInvalid,
 		ErrTemplateMissing, ErrWeekOrdinalTaken,
 		ErrOverrideIntentInvalid, ErrOverrideDuplicate, ErrOverrideTargetInvalid,
+		ErrOverrideDurationInvalid,
 	} {
 		if errors.Is(err, e) {
 			respondError(c, http.StatusBadRequest, e.Error())

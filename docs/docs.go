@@ -6779,7 +6779,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "invalid_json | weekday_invalid | template_id_required | time_of_day_invalid | template_not_found",
+                        "description": "invalid_json | weekday_invalid | template_id_required | time_of_day_invalid | template_not_found | override_intent_invalid | override_intent_duplicate | override_target_invalid | override_duration_invalid",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -7924,14 +7924,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Resolves the workout's template steps with its plan-slot target overrides applied per intent. A workout with no template returns its sport/name and an empty step list.",
+                "description": "Resolves the workout's template steps with its plan-slot target and duration overrides applied per intent. A workout with no template returns its sport/name and an empty step list.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "workouts"
                 ],
-                "summary": "Get a planned workout's effective program (template steps + slot target overrides)",
+                "summary": "Get a planned workout's effective program (template steps + slot target/duration overrides)",
                 "parameters": [
                     {
                         "type": "string",
@@ -11160,6 +11160,13 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "duration_overrides": {
+                    "description": "DurationOverrides supersede the referenced template's step durations,\nmatched by intent, when the planned workout's effective program is\nresolved (and drive the materialized session length). At most one entry\nper intent; nil/empty means no overrides.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/trainingplan.SlotDurationOverride"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -11243,6 +11250,17 @@ const docTemplate = `{
                 }
             }
         },
+        "trainingplan.SlotDurationOverride": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "$ref": "#/definitions/workouttemplates.Duration"
+                },
+                "intent": {
+                    "type": "string"
+                }
+            }
+        },
         "trainingplan.SlotTargetOverride": {
             "type": "object",
             "properties": {
@@ -11274,6 +11292,12 @@ const docTemplate = `{
         "trainingplan.createSlotRequest": {
             "type": "object",
             "properties": {
+                "duration_overrides": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/trainingplan.SlotDurationOverride"
+                    }
+                },
                 "ordinal": {
                     "type": "integer"
                 },
