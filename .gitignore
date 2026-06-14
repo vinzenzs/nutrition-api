@@ -8,3 +8,5 @@ mcp
 
 # flutter
 apps/companion/devtools_options.yaml
+
+.mcp.json
