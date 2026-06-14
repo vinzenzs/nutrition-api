@@ -19,8 +19,13 @@
 
 ## 3. Port tool groups (DD7 — repeat per group, integration test green each time)
 
-- [ ] 3.1 For each domain (meals, meal-plan, shopping, products, workouts, workout-fuel, hydration, weight, goals, overrides, training-phases, goal-templates, energy/summary, race/raceprep, recovery-metrics, fitness-metrics, devices/health-vitals/achievements, gear, personal-records, daily-context, garmin login/scheduling/reconcile/library/activity/backfill): move its typed arg structs into registry entries with `Build` funcs + correct tiers; delete its bespoke `registerXxxTools` + handlers; migrate its unit tests to registry-driven assertions (Build→HTTPCall shape, dispatch result).
-- [ ] 3.2 After each group: `go test ./internal/mcpserver/... ./internal/agenttools/...` green; `mcp_integration_test.go` announced-surface + per-group smoke green.
+- [ ] 3.1 Port each domain: move typed arg structs into registry entries with `Build` funcs + tiers; delete bespoke `registerXxxTools` + handlers; migrate unit tests to Build-shape assertions. **Progress — 9/~28 domains, 23 tools:**
+  - [x] **Pilot** (commit `54d94f5`): gear, personal-records, athlete-config
+  - [x] **Batch 1** (commit `c8d8df2`): garminmisc, dailysummary, fitnessmetrics, recoverymetrics, hydrationbalance, workouttemplates
+  - [ ] **MCP-only, remaining** (clean mechanical, workflow-portable): summary, raceprep, races, training-phases (+goal-templates), daily-context, energy, goals, training-plan (13 hierarchical tools)
+  - [ ] **garmin** (17 tools — login/MFA/multipart-upload/base64 export; careful manual pass, DD5-adjacent)
+  - [ ] **Dual-surface** (manual reconciliation — tool already a chat entry; one Spec must serve both surfaces with the MCP-reflected schema matching the golden): products, meal-plan, shopping, workouts, weight, hydration, goal-overrides, meals (+`log_meal_from_photo` multipart, DD5), coach-context
+- [x] 3.2 After each group: `go test ./internal/mcpserver/... ./internal/agenttools/...` + golden + `mcp_integration_test.go` green. _(Held green through pilot + batch 1.)_
 
 ## 4. Retire the drift machinery
 
