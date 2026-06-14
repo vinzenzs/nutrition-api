@@ -13,7 +13,7 @@ import (
 // write-confirm coaching actions.
 func TestRegistry_ExactSurface(t *testing.T) {
 	got := make([]string, 0)
-	for _, s := range Registry() {
+	for _, s := range ChatRegistry() {
 		got = append(got, s.Name)
 	}
 	want := []string{
@@ -65,7 +65,7 @@ func TestRegistry_SchemasValidAndTiers(t *testing.T) {
 		"set_daily_goal_override":    TierWriteConfirm,
 		"delete_daily_goal_override": TierWriteConfirm,
 	}
-	for _, s := range Registry() {
+	for _, s := range ChatRegistry() {
 		var schema any
 		require.NoErrorf(t, json.Unmarshal([]byte(s.Schema), &schema), "tool %s schema invalid", s.Name)
 		wt, ok := wantTier[s.Name]

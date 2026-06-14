@@ -4,18 +4,18 @@
 
 ## 1. agenttools: carry the full surface
 
-- [ ] 1.1 Add a visibility marker to `agenttools.Spec` (DD1) — e.g. `ChatExposed bool` (or `Surfaces []Surface`); default existing 14 chat tools to chat-exposed. `internal/chat` filters to chat-exposed entries; `internal/mcpserver` ignores it.
-- [ ] 1.2 Add an optional typed schema source to `Spec` (DD2): `SchemaType any` + a resolver that reflects it to a JSON-Schema string using the **same library the MCP SDK uses**; entries provide either `Schema` (string) or `SchemaType`. Keep the existing 14 string schemas working.
-- [ ] 1.3 Golden test: for each tool with a `SchemaType`, the reflected JSON Schema equals the schema the MCP SDK announced before this change (capture a snapshot first). This is the safety gate before deleting any bespoke registration.
-- [ ] 1.4 Confirm `agenttools.EffectiveIdempotencyKey`/`DeriveIdempotencyKey` exist (from `expand-chat-to-coach` 1.5); if not yet landed, land them here first.
-- [ ] 1.5 Split the registry into per-domain files (`registry_meals.go`, `registry_workouts.go`, …) concatenated by `Registry()` (DD-risk: big file).
+- [x] 1.1 Add a visibility marker to `agenttools.Spec` (DD1) — added `ChatExposed`/`MCPExposed` bools; `Registry()` is now the union, `ChatRegistry()`/`MCPRegistry()` filter; `chatSpecs()` marks the existing 24 chat tools chat-exposed; `internal/chat` consumes `ChatRegistry()`, `internal/mcpserver` iterates `MCPRegistry()`.
+- [x] 1.2 Add an optional typed schema source to `Spec` (DD2): `SchemaType any` added; the MCP server reflects it via `jsonschema.ForType(reflect.TypeOf(SchemaType), &ForOptions{})` — the exact call the SDK uses internally (server.go setSchema:436), which announces the unresolved schema, so parity is by construction. Hand-written `Schema` strings still drive the chat surface.
+- [x] 1.3 Golden test (`schema_golden_test.go`): for each `MCPRegistry()` entry the reflected schema MUST equal the frozen `testdata/announced_schemas.json` baseline (captured pre-port from the live surface via `golden_capture_test.go`, `-tags=goldengen`). Safety gate before deleting any bespoke registration. _(Note: the 3 pilot reads were moved verbatim and their baseline was captured post-move; the gate is fully independent for every domain the workflow ports next.)_
+- [x] 1.4 Confirmed `agenttools.EffectiveIdempotencyKey`/`DeriveIdempotencyKey` exist (landed in `expand-chat-to-coach` 1.5); added `agenttools.ExplicitIdempotencyKey(raw)` to read an agent-supplied key out of raw input (DD4).
+- [ ] 1.5 Split the registry into per-domain files (`registry_meals.go`, `registry_workouts.go`, …) concatenated by `Registry()` (DD-risk: big file). _(Pattern established: `registry_garmin_inventory.go` is the first; `mcpOnlySpecs()` concatenates per-domain slices. Remaining domains land in 3.1.)_
 
 ## 2. mcpserver: generic dispatch path
 
-- [ ] 2.1 `apiClient` adapter: execute an `agenttools.HTTPCall` by switching on `Method` (`Get/Post/Patch/Put/Delete`), passing `Query`/`Body` and the idempotency key for write tiers.
-- [ ] 2.2 `dispatchMCP(ctx, c, spec, raw)` (DD3): `spec.Build(raw)` → `HTTPCall` → adapter → existing `toToolResult`; attach `EffectiveIdempotencyKey(explicit-from-raw, name, raw)` for writes (DD4).
-- [ ] 2.3 Generic registration loop over `agenttools.Registry()` using the SDK's raw-schema/untyped registration entry point; confirm the SDK exposes it, else add a one-line generated typed shim per tool (DD3 fallback).
-- [ ] 2.4 Multipart escape hatch (DD5): register `log_meal_from_photo` outside the generic loop (documented single exception), still a registry entry for naming/discovery.
+- [x] 2.1 `apiClient` adapter: `dispatchMCP` executes an `agenttools.HTTPCall` via the existing private `c.do(ctx, Method, Path, Query, Body, key)` — already query-aware for every verb (apiclient.go:115), so one call faithfully replaces the per-verb `Get/Post/Patch/Put/Delete` wrappers.
+- [x] 2.2 `dispatchMCP(ctx, c, spec, raw)` (DD3): `spec.Build(raw)` → `HTTPCall` → `c.do` → existing `toToolResult`; attaches `EffectiveIdempotencyKey(ExplicitIdempotencyKey(raw), name, raw)` for write tiers (DD4). (204-empty-body delete handled identically by `toToolResult`; the old bespoke special-case was redundant.)
+- [x] 2.3 Generic registration loop (`registerSharedTools`) over `agenttools.MCPRegistry()` using the SDK's low-level `server.AddTool(&mcp.Tool{Name,Description,InputSchema}, untypedHandler)` — confirmed exposed (server.go:238); no per-tool shim needed. Coexists with not-yet-ported bespoke registrations (never shares a name).
+- [x] 2.4 Multipart escape hatch (DD5): the generic loop skips `log_meal_from_photo` (const `multipartPhotoTool`); it stays a registry entry for discovery and keeps its bespoke registration. _(Lands as a registry entry when the meals domain is ported in 3.1.)_
 
 ## 3. Port tool groups (DD7 — repeat per group, integration test green each time)
 

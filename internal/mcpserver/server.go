@@ -60,15 +60,17 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	registerFitnessMetricsTools(server, client)
 	registerHydrationBalanceTools(server, client)
 	registerDailySummaryTools(server, client)
-	registerGearTools(server, client)
-	registerPersonalRecordsTools(server, client)
-	registerAthleteConfigTools(server, client)
 	registerGarminMiscTools(server, client)
 	registerEnergyTools(server, client)
 	registerTrainingPhasesTools(server, client)
 	registerDailyContextTools(server, client)
 	registerCoachContextTools(server, client)
 	registerGarminTools(server, client)
+
+	// Generic registration over the shared agenttools registry for tools that
+	// have been ported off bespoke handlers (unify-mcp-tool-registry). Coexists
+	// with the bespoke registrations above; the two never share a tool name.
+	registerSharedTools(server, client)
 
 	logger.Info("nutrition-mcp ready",
 		"version", Version,

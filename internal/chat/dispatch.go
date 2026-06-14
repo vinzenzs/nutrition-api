@@ -22,7 +22,7 @@ type dispatcher struct {
 }
 
 func newDispatcher(handler http.Handler) *dispatcher {
-	return &dispatcher{handler: handler, specs: agenttools.ByName(agenttools.Registry())}
+	return &dispatcher{handler: handler, specs: agenttools.ByName(agenttools.ChatRegistry())}
 }
 
 // toolResult is the outcome of one tool execution.

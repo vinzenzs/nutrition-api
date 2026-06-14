@@ -74,7 +74,7 @@ func New(apiKey string, cfg Config) (*Service, error) {
 	if cfg.MaxHistoryMessages <= 0 {
 		cfg.MaxHistoryMessages = 40
 	}
-	specs := agenttools.Registry()
+	specs := agenttools.ChatRegistry()
 	return &Service{client: c, cfg: cfg, specs: specs, specsByName: agenttools.ByName(specs)}, nil
 }
 

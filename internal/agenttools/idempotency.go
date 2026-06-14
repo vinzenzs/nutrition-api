@@ -35,6 +35,20 @@ func EffectiveIdempotencyKey(explicit, toolName string, args any) string {
 	return DeriveIdempotencyKey(toolName, args)
 }
 
+// ExplicitIdempotencyKey reads an agent-supplied "idempotency_key" field out of
+// a tool's raw input, if present. The generic MCP dispatcher uses this to honor
+// an explicit key without decoding into a typed struct (DD4).
+func ExplicitIdempotencyKey(in json.RawMessage) string {
+	if len(in) == 0 {
+		return ""
+	}
+	var probe struct {
+		Key string `json:"idempotency_key"`
+	}
+	_ = json.Unmarshal(in, &probe)
+	return probe.Key
+}
+
 // canonicalJSON marshals v to JSON with object keys sorted recursively and the
 // field named "idempotency_key" stripped from any object it appears in. Numbers
 // are decoded with UseNumber so their literal form is preserved. This lets the

@@ -45,14 +45,29 @@ type HTTPCall struct {
 type Spec struct {
 	Name        string
 	Description string
-	Schema      string // JSON Schema (object) for the tool input
-	Tier        Tier
-	Build       func(input json.RawMessage) (HTTPCall, error)
+	// Schema is a hand-written JSON Schema (object) for the tool input — the
+	// form the in-app chat coach renders into Anthropic tool defs. Tools ported
+	// from the MCP server instead carry SchemaType (a typed arg struct the MCP
+	// server reflects into an identical schema); exactly one of the two is set.
+	Schema string
+	// SchemaType, when non-nil, is a zero value of the tool's typed arg struct
+	// (jsonschema-tagged). The MCP server reflects it to the announced input
+	// schema via the same library the SDK uses, guaranteeing parity with the
+	// prior hand-written registration (DD2).
+	SchemaType any
+	Tier       Tier
+	Build      func(input json.RawMessage) (HTTPCall, error)
 	// Format, when set, composes the human-readable confirmation preview for a
 	// write-confirm tool from its input (D6) — a deterministic, code-composed
 	// render of the actual bytes about to be sent, NOT the model's narration.
 	// When nil, a generic "<verb> <resource>" line is derived from the name.
 	Format func(input json.RawMessage) string
+	// ChatExposed marks a tool the in-app chat coach surfaces (a curated,
+	// tier-gated subset). MCPExposed marks a tool the desktop MCP coach
+	// registers (the full surface, ignoring tier). A tool may be both — the
+	// aggregate context reads are dual-surface (DD1).
+	ChatExposed bool
+	MCPExposed  bool
 }
 
 // DecodeInto unmarshals a tool's input JSON into dst, returning a friendly
@@ -105,14 +120,63 @@ func ByName(specs []Spec) map[string]Spec {
 	return m
 }
 
-// Registry returns the curated coach tool surface in a stable order — the
-// single source of truth for which tools the chat loop exposes: the
-// nutrition-planning subset (reads + write-auto), the aggregate coaching
-// context reads, and the gated write-confirm coaching actions.
+// Registry returns the full agent-tool union in a stable order: the in-app
+// chat coach surface plus the MCP-only tools ported from internal/mcpserver
+// (unify-mcp-tool-registry). It is the single source of truth both surfaces
+// originate from. Each consumer filters to its surface — ChatRegistry() for the
+// in-app coach, MCPRegistry() for the desktop MCP coach (DD1).
 func Registry() []Spec {
+	specs := chatSpecs()
+	specs = append(specs, mcpOnlySpecs()...)
+	return specs
+}
+
+// ChatRegistry returns only the chat-exposed tools — the curated, tier-gated
+// coach surface the in-app chat loop renders and dispatches.
+func ChatRegistry() []Spec {
+	return filterSpecs(Registry(), func(s Spec) bool { return s.ChatExposed })
+}
+
+// MCPRegistry returns only the MCP-exposed tools — the desktop MCP server
+// registers exactly these via one generic handler, ignoring tier and
+// chat-visibility (DD1/DD3).
+func MCPRegistry() []Spec {
+	return filterSpecs(Registry(), func(s Spec) bool { return s.MCPExposed })
+}
+
+func filterSpecs(specs []Spec, keep func(Spec) bool) []Spec {
+	out := make([]Spec, 0, len(specs))
+	for _, s := range specs {
+		if keep(s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// chatSpecs is the curated coach surface the in-app chat loop exposes: the
+// nutrition-planning subset (reads + write-auto), the aggregate coaching
+// context reads, and the gated write-confirm coaching actions. All are
+// chat-exposed by construction.
+func chatSpecs() []Spec {
 	specs := nutritionPlannerSpecs()
 	specs = append(specs, coachReadSpecs()...)
 	specs = append(specs, coachWriteConfirmSpecs()...)
+	for i := range specs {
+		specs[i].ChatExposed = true
+	}
+	return specs
+}
+
+// mcpOnlySpecs is the desktop MCP coach surface being ported onto the shared
+// registry one domain at a time (unify-mcp-tool-registry). Each domain
+// contributes a slice; every tool here is MCP-exposed.
+func mcpOnlySpecs() []Spec {
+	var specs []Spec
+	specs = append(specs, garminInventorySpecs()...)
+	for i := range specs {
+		specs[i].MCPExposed = true
+	}
 	return specs
 }
 
