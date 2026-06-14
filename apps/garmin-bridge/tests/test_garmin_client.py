@@ -11,9 +11,12 @@ import garmin_bridge.garmin_client as gc
 
 
 class FakeGarth:
-    def __init__(self):
+    def __init__(self, profile=None):
         self.loaded = None
         self.refreshed = False
+        # The social profile garth restores from a token blob; load_api copies
+        # displayName/fullName off it onto the garminconnect client.
+        self.profile = profile if profile is not None else {}
 
     def dumps(self) -> str:
         return "TOKEN-BLOB"
@@ -28,8 +31,8 @@ class FakeGarth:
 class FakeGarmin:
     """Mimics garminconnect.Garmin's MFA two-step + .client exposure."""
 
-    def __init__(self, email="", password="", return_on_mfa=False, needs_mfa=True):
-        self.client = FakeGarth()
+    def __init__(self, email="", password="", return_on_mfa=False, needs_mfa=True, profile=None):
+        self.client = FakeGarth(profile=profile)
         self._needs_mfa = needs_mfa
 
     def login(self):
@@ -75,6 +78,30 @@ def test_load_api_loads_and_refreshes(monkeypatch):
     assert api is fake
     assert fake.client.loaded == "STORED-BLOB"
     assert fake.client.refreshed is True
+
+
+def test_load_api_restores_display_name_from_profile(monkeypatch):
+    # A token blob whose social profile carries the display name → the rehydrated
+    # client must expose it, so per-user endpoints don't interpolate None into
+    # the path (the cause of the .../None 403s).
+    fake = FakeGarmin(needs_mfa=False, profile={"displayName": "edge_sport", "fullName": "Edge Sport"})
+    import garminconnect
+
+    monkeypatch.setattr(garminconnect, "Garmin", lambda *a, **k: fake)
+    api = gc.load_api("STORED-BLOB")
+    assert api.display_name == "edge_sport"
+    assert api.full_name == "Edge Sport"
+
+
+def test_load_api_missing_display_name_is_none(monkeypatch):
+    # A blob minted before the account had a display name → None (and a warning
+    # is logged); a fresh login is required to repair it.
+    fake = FakeGarmin(needs_mfa=False, profile={})
+    import garminconnect
+
+    monkeypatch.setattr(garminconnect, "Garmin", lambda *a, **k: fake)
+    api = gc.load_api("STORED-BLOB")
+    assert api.display_name is None
 
 
 def test_garth_accessor_prefers_client():

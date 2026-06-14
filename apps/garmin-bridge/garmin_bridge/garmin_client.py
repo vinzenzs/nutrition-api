@@ -99,6 +99,21 @@ def load_api(token_b64: str):
             refresh()
         except Exception as exc:  # noqa: BLE001 — lazy refresh on first request is fine
             logger.debug("eager oauth2 refresh skipped: %s", exc)
+    # garth.loads() restores the OAuth session but NOT garminconnect's cached
+    # display_name / full_name — only Garmin.login() sets those. The sync path
+    # never logs in (it rehydrates from the stored blob), so without this the
+    # per-user endpoints interpolate a None display name into the path
+    # (".../dailyHeartRate/None" -> 403) and the guarded fetches log
+    # "Display name is not set". Restore them from the social profile carried in
+    # the token blob so a rehydrated client behaves like a freshly logged-in one.
+    profile = getattr(garth, "profile", None) or {}
+    api.display_name = profile.get("displayName")
+    api.full_name = profile.get("fullName")
+    if not api.display_name:
+        logger.warning(
+            "rehydrated Garmin client has no displayName in its token profile; "
+            "per-user fetches will 403 until a fresh POST /login mints a new token"
+        )
     return api
 
 
