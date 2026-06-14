@@ -56,6 +56,28 @@ func TestTrainingPhases_CreatePhase(t *testing.T) {
 	assert.NotContains(t, body, "notes")
 }
 
+// create_phase / update_phase forward methodology into the body when supplied.
+func TestTrainingPhases_MethodologyForwarded(t *testing.T) {
+	specs := ByName(MCPRegistry())
+
+	add, err := specs["create_phase"].Build(json.RawMessage(
+		`{"name":"build-1","type":"build","start_date":"2026-07-01","end_date":"2026-07-28","methodology":"## Build\nSeiler 80/20."}`))
+	require.NoError(t, err)
+	var addBody map[string]any
+	require.NoError(t, json.Unmarshal(add.Body, &addBody))
+	assert.Contains(t, addBody["methodology"], "Seiler")
+
+	patch, err := specs["update_phase"].Build(json.RawMessage(
+		`{"phase_id":"p1","methodology":"## Build (revised)"}`))
+	require.NoError(t, err)
+	assert.Equal(t, "PATCH", patch.Method)
+	var patchBody map[string]any
+	require.NoError(t, json.Unmarshal(patch.Body, &patchBody))
+	assert.Equal(t, "## Build (revised)", patchBody["methodology"])
+	// unrelated fields stay absent.
+	assert.NotContains(t, patchBody, "notes")
+}
+
 // list_phases → GET /phases?from&to, no idempotency.
 func TestTrainingPhases_ListPhases(t *testing.T) {
 	specs := ByName(MCPRegistry())

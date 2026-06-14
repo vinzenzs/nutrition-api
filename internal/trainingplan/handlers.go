@@ -167,6 +167,17 @@ func (h *Handlers) patchPlan(c *gin.Context) {
 			p.Notes = &sv
 		}
 	}
+	if v, present := raw["methodology"]; present {
+		p.SetMethodology = true
+		if !isNull(v) {
+			var sv string
+			if json.Unmarshal(v, &sv) != nil {
+				respondError(c, http.StatusBadRequest, "invalid_json")
+				return
+			}
+			p.Methodology = &sv
+		}
+	}
 	out, err := h.svc.PatchPlan(c.Request.Context(), id, p)
 	if err != nil {
 		respondNotFoundOr(c, err)

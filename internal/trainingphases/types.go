@@ -131,6 +131,10 @@ type Phase struct {
 	DefaultTemplateID   *uuid.UUID `json:"default_template_id,omitempty"`
 	DefaultTemplateName *string    `json:"default_template_name,omitempty"`
 	Notes               *string    `json:"notes,omitempty"`
+	// Methodology is curated, cited Markdown prose (the "why this phase"
+	// narrative) the coach reads when grounding advice — distinct from the
+	// operational Notes. Stored verbatim; authored in the vault and pushed in.
+	Methodology *string `json:"methodology,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

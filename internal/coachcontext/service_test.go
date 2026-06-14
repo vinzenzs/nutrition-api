@@ -119,6 +119,46 @@ func TestBuildTraining_HappyPath(t *testing.T) {
 	}
 }
 
+func TestBuildTraining_CoveringPhaseCarriesMethodology(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	loc := time.UTC
+	date := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+
+	require.NoError(t, f.phases.Insert(ctx, &trainingphases.Phase{
+		Name:        "build-block",
+		Type:        trainingphases.PhaseTypeBuild,
+		StartDate:   time.Date(2026, 7, 1, 0, 0, 0, 0, loc),
+		EndDate:     time.Date(2026, 7, 28, 0, 0, 0, 0, loc),
+		Methodology: ptr("## Build\nPolarized per Seiler — 80/20."),
+	}))
+
+	out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+	require.NoError(t, err)
+	require.NotNil(t, out.Phase)
+	require.NotNil(t, out.Phase.Methodology, "covering phase's methodology rides the bundle")
+	assert.Contains(t, *out.Phase.Methodology, "Seiler")
+}
+
+func TestBuildTraining_PhaseWithoutMethodologyIsNull(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	loc := time.UTC
+	date := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+
+	require.NoError(t, f.phases.Insert(ctx, &trainingphases.Phase{
+		Name:      "build-block",
+		Type:      trainingphases.PhaseTypeBuild,
+		StartDate: time.Date(2026, 7, 1, 0, 0, 0, 0, loc),
+		EndDate:   time.Date(2026, 7, 28, 0, 0, 0, 0, loc),
+	}))
+
+	out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+	require.NoError(t, err)
+	require.NotNil(t, out.Phase)
+	assert.Nil(t, out.Phase.Methodology, "no methodology set → null in the bundle")
+}
+
 func TestBuildTraining_EmptyIsNotError(t *testing.T) {
 	f := setup(t)
 	out, err := f.svc.BuildTraining(context.Background(), time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC), time.UTC, 0, 0)

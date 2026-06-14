@@ -34,11 +34,12 @@ type GetTrainingPlanArgs struct {
 }
 
 type PatchTrainingPlanArgs struct {
-	ID        string  `json:"id" jsonschema:"the plan UUID"`
-	Name      *string `json:"name,omitempty" jsonschema:"optional new name"`
-	RaceID    *string `json:"race_id,omitempty" jsonschema:"optional new race UUID"`
-	StartDate *string `json:"start_date,omitempty" jsonschema:"optional new start date YYYY-MM-DD (moves all materialized dates on re-materialize)"`
-	Notes     *string `json:"notes,omitempty" jsonschema:"optional new notes"`
+	ID          string  `json:"id" jsonschema:"the plan UUID"`
+	Name        *string `json:"name,omitempty" jsonschema:"optional new name"`
+	RaceID      *string `json:"race_id,omitempty" jsonschema:"optional new race UUID"`
+	StartDate   *string `json:"start_date,omitempty" jsonschema:"optional new start date YYYY-MM-DD (moves all materialized dates on re-materialize)"`
+	Notes       *string `json:"notes,omitempty" jsonschema:"optional new notes"`
+	Methodology *string `json:"methodology,omitempty" jsonschema:"optional curated Markdown plan-level methodology (Key Principles, cross-cutting reference) the coach reads via get_training_plan"`
 }
 
 type DeleteTrainingPlanArgs struct {
@@ -174,7 +175,7 @@ func trainingPlanSpecs() []Spec {
 		},
 		{
 			Name:        "patch_training_plan",
-			Description: "Update a plan's name / race_id / start_date / notes. Shifting start_date and re-materializing moves all planned dates.",
+			Description: "Update a plan's name / race_id / start_date / notes / methodology (plan-level coach reference). Shifting start_date and re-materializing moves all planned dates.",
 			SchemaType:  PatchTrainingPlanArgs{},
 			Tier:        TierWriteAuto,
 			Build: func(in json.RawMessage) (HTTPCall, error) {
@@ -194,6 +195,9 @@ func trainingPlanSpecs() []Spec {
 				}
 				if a.Notes != nil {
 					payload["notes"] = *a.Notes
+				}
+				if a.Methodology != nil {
+					payload["methodology"] = *a.Methodology
 				}
 				body, err := json.Marshal(payload)
 				if err != nil {

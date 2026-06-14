@@ -288,6 +288,12 @@ definitions:
         type: string
       id:
         type: string
+      methodology:
+        description: |-
+          Methodology is the covering phase's curated "why" prose (Markdown, null
+          when unset), so the coach has the current phase's reasoning in the same
+          grounding call.
+        type: string
       name:
         type: string
       start_date:
@@ -2054,6 +2060,8 @@ definitions:
         type: string
       end_date:
         type: string
+      methodology:
+        type: string
       name:
         type: string
       notes:
@@ -2068,6 +2076,8 @@ definitions:
       default_template_id:
         type: string
       end_date:
+        type: string
+      methodology:
         type: string
       name:
         type: string
@@ -2118,6 +2128,12 @@ definitions:
       created_at:
         type: string
       id:
+        type: string
+      methodology:
+        description: |-
+          Methodology is curated, cited Markdown prose (Key Principles, Rowing
+          Strategy — cross-cutting, non-phase-specific reference) the coach reads,
+          distinct from the operational Notes. Stored verbatim; pushed from the vault.
         type: string
       name:
         type: string

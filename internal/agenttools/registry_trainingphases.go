@@ -39,6 +39,7 @@ type CreatePhaseArgs struct {
 	EndDate           string  `json:"end_date" jsonschema:"inclusive end date in YYYY-MM-DD (must be >= start_date)"`
 	DefaultTemplateID *string `json:"default_template_id,omitempty" jsonschema:"optional goal-template UUID; when set, the template's bounds drive adherence on every date in the phase (subject to per-date overrides winning)"`
 	Notes             *string `json:"notes,omitempty" jsonschema:"optional free-text notes"`
+	Methodology       *string `json:"methodology,omitempty" jsonschema:"optional curated Markdown 'why this phase' prose (citations, narrative) the coach reads when grounding advice — distinct from operational notes; surfaced in the /context/training covering phase"`
 	IdempotencyKey    string  `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
 }
 
@@ -62,6 +63,7 @@ type UpdatePhaseArgs struct {
 	EndDate           *string `json:"end_date,omitempty"`
 	DefaultTemplateID *string `json:"default_template_id,omitempty" jsonschema:"empty string clears, UUID string sets, missing leaves unchanged"`
 	Notes             *string `json:"notes,omitempty"`
+	Methodology       *string `json:"methodology,omitempty" jsonschema:"optional curated Markdown 'why this phase' prose the coach reads; replaces wholesale when supplied, leaves unchanged when omitted"`
 	IdempotencyKey    string  `json:"idempotency_key,omitempty"`
 }
 
@@ -136,6 +138,7 @@ func trainingPhasesSpecs() []Spec {
 					EndDate           string  `json:"end_date"`
 					DefaultTemplateID *string `json:"default_template_id,omitempty"`
 					Notes             *string `json:"notes,omitempty"`
+					Methodology       *string `json:"methodology,omitempty"`
 				}{
 					Name:              a.Name,
 					Type:              a.Type,
@@ -143,6 +146,7 @@ func trainingPhasesSpecs() []Spec {
 					EndDate:           a.EndDate,
 					DefaultTemplateID: a.DefaultTemplateID,
 					Notes:             a.Notes,
+					Methodology:       a.Methodology,
 				}
 				body, err := json.Marshal(payload)
 				if err != nil {
@@ -199,6 +203,7 @@ func trainingPhasesSpecs() []Spec {
 					EndDate           *string `json:"end_date,omitempty"`
 					DefaultTemplateID *string `json:"default_template_id,omitempty"`
 					Notes             *string `json:"notes,omitempty"`
+					Methodology       *string `json:"methodology,omitempty"`
 				}{
 					Name:              a.Name,
 					Type:              a.Type,
@@ -206,6 +211,7 @@ func trainingPhasesSpecs() []Spec {
 					EndDate:           a.EndDate,
 					DefaultTemplateID: a.DefaultTemplateID,
 					Notes:             a.Notes,
+					Methodology:       a.Methodology,
 				}
 				body, err := json.Marshal(payload)
 				if err != nil {

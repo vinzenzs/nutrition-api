@@ -39,6 +39,7 @@ type CreateInput struct {
 	EndDate             time.Time
 	DefaultTemplateID   *uuid.UUID
 	Notes               *string
+	Methodology         *string
 }
 
 // Create validates input, verifies the template FK if present, inserts the
@@ -70,6 +71,7 @@ func (s *PhasesService) Create(ctx context.Context, in CreateInput) (*Phase, err
 		EndDate:           in.EndDate,
 		DefaultTemplateID: in.DefaultTemplateID,
 		Notes:             in.Notes,
+		Methodology:       in.Methodology,
 	}
 	if err := s.repo.Insert(ctx, p); err != nil {
 		return nil, err

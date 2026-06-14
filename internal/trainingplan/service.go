@@ -91,12 +91,14 @@ func (s *Service) DeletePlan(ctx context.Context, id uuid.UUID) error {
 
 // PlanPatch carries partial plan updates with tri-state for the nullables.
 type PlanPatch struct {
-	Name      *string
-	StartDate *string
-	SetRace   bool
-	RaceID    *uuid.UUID
-	SetNotes  bool
-	Notes     *string
+	Name           *string
+	StartDate      *string
+	SetRace        bool
+	RaceID         *uuid.UUID
+	SetNotes       bool
+	Notes          *string
+	SetMethodology bool
+	Methodology    *string
 }
 
 func (s *Service) PatchPlan(ctx context.Context, id uuid.UUID, p PlanPatch) (*Plan, error) {
@@ -121,6 +123,9 @@ func (s *Service) PatchPlan(ctx context.Context, id uuid.UUID, p PlanPatch) (*Pl
 	}
 	if p.SetNotes {
 		plan.Notes = p.Notes
+	}
+	if p.SetMethodology {
+		plan.Methodology = p.Methodology
 	}
 	return s.repo.UpdatePlan(ctx, plan)
 }

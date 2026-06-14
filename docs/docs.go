@@ -8448,6 +8448,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "methodology": {
+                    "description": "Methodology is the covering phase's curated \"why\" prose (Markdown, null\nwhen unset), so the coach has the current phase's reasoning in the same\ngrounding call.",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -11031,6 +11035,9 @@ const docTemplate = `{
                 "end_date": {
                     "type": "string"
                 },
+                "methodology": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -11052,6 +11059,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "end_date": {
+                    "type": "string"
+                },
+                "methodology": {
                     "type": "string"
                 },
                 "name": {
@@ -11128,6 +11138,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "methodology": {
+                    "description": "Methodology is curated, cited Markdown prose (Key Principles, Rowing\nStrategy — cross-cutting, non-phase-specific reference) the coach reads,\ndistinct from the operational Notes. Stored verbatim; pushed from the vault.",
                     "type": "string"
                 },
                 "name": {

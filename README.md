@@ -910,6 +910,16 @@ named, reusable goal-sets sharing the same `{min?, max?}` Range shape as the
 default goals. Editing a template's bounds propagates to every phase pointing
 at it on next adherence read (no apply step; intentionally cheap to evolve).
 
+A phase may also carry **`methodology`** — curated, cited Markdown prose (the
+"why this phase" narrative), distinct from the operational `notes`. It is the
+coach's reference, not adherence input: because `GET /context/training` resolves
+the phase covering the date, the covering phase's `methodology` rides that bundle
+so the in-app coach has the current block's reasoning in the same grounding call.
+A training **plan** likewise carries plan-level `methodology` (Key Principles,
+cross-cutting reference), returned by `GET /training-plans/{id}`. Both are
+authored in the vault and pushed in; both store Markdown verbatim (the LLM reads
+it raw) and serialize null when unset.
+
 ```bash
 # Create a reusable template (PUT — name in URL is canonical, no Idempotency-Key)
 curl -X PUT -H "Authorization: Bearer $MOBILE_API_TOKEN" \
@@ -1234,7 +1244,7 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `create_training_plan`        | `POST /training-plans`                 | Create a plan (name + start_date = Monday of week 1; optional race link). |
 | `list_training_plans`         | `GET /training-plans`                  | List plans.                                                   |
 | `get_training_plan`           | `GET /training-plans/{id}`             | Get a plan with its nested weeks and slots.                   |
-| `patch_training_plan`         | `PATCH /training-plans/{id}`           | Update name / race_id / start_date / notes.                   |
+| `patch_training_plan`         | `PATCH /training-plans/{id}`           | Update name / race_id / start_date / notes / methodology (plan-level coach reference). |
 | `delete_training_plan`        | `DELETE /training-plans/{id}`          | Delete a plan (cascades weeks + slots; planned workouts detach). |
 | `add_plan_week`               | `POST /training-plans/{id}/weeks`      | Add a week (ordinal ≥ 1, optional phase link).                |
 | `patch_plan_week`             | `PATCH /training-plans/{id}/weeks/{weekId}` | Update a week's ordinal / phase_id / notes.              |
@@ -1255,10 +1265,10 @@ In `~/.claude/mcp.json` (or via `claude mcp add`):
 | `patch_workout_fuel`          | `PATCH /workout-fuel/{id}`             | Edit name / quantitative fields / note / workout link.         |
 | `delete_workout_fuel`         | `DELETE /workout-fuel/{id}`            | Remove a workout-fuel entry.                                   |
 | `weekly_energy_summary`       | `GET /energy/availability?from=…&to=…&tz=…&lean_mass_kg=…&body_fat_pct=…` | Per-day Energy Availability + window aggregate with Loucks bands. Days missing `kcal_burned` are flagged and excluded from `window.avg_ea`. |
-| `create_phase`                | `POST /phases`                         | Create a training phase (named date range tagged `base`/`build`/`peak`/`recovery`/`race_week`/`off_season`/`other`). Optional `default_template_id` makes the phase drive adherence. |
+| `create_phase`                | `POST /phases`                         | Create a training phase (named date range tagged `base`/`build`/`peak`/`recovery`/`race_week`/`off_season`/`other`). Optional `default_template_id` makes the phase drive adherence; optional `methodology` (Markdown coach reference) surfaces via `/context/training`. |
 | `list_phases`                 | `GET /phases?from=…&to=…`              | List phases intersecting a window (max 730 days). |
 | `get_phase`                   | `GET /phases/{id}`                     | Fetch one phase, including resolved `default_template_name`. |
-| `update_phase`                | `PATCH /phases/{id}`                   | Partial update. Tri-state on `default_template_id`: empty string clears, UUID sets, missing leaves unchanged. |
+| `update_phase`                | `PATCH /phases/{id}`                   | Partial update (incl. `methodology`). Tri-state on `default_template_id`: empty string clears, UUID sets, missing leaves unchanged. |
 | `delete_phase`                | `DELETE /phases/{id}`                  | Delete a phase. Dates that were inside fall through to override → singleton default. |
 | `set_goal_template`           | `PUT /goal-templates/{name}`           | Create or replace a named goal template. Full-replace; editing propagates to every phase pointing at it. |
 | `list_goal_templates`         | `GET /goal-templates`                  | List every template ordered by name. |

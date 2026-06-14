@@ -280,6 +280,19 @@ func TestTrainingPlan_PatchSlotClearsOverrides(t *testing.T) {
 	assert.Len(t, arr, 0)
 }
 
+// patch_training_plan forwards plan-level methodology when supplied.
+func TestTrainingPlan_PatchForwardsMethodology(t *testing.T) {
+	specs := ByName(MCPRegistry())
+	call, err := specs["patch_training_plan"].Build(json.RawMessage(
+		`{"id":"p1","methodology":"## Key Principles\nPolarized."}`))
+	require.NoError(t, err)
+	assert.Equal(t, "PATCH", call.Method)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(call.Body, &body))
+	assert.Contains(t, body["methodology"], "Key Principles")
+	assert.NotContains(t, body, "notes")
+}
+
 // add_plan_slot forwards duration_overrides when supplied (and omits them when
 // not), alongside target_overrides — the two lists are independent.
 func TestTrainingPlan_AddSlotForwardsDurationOverrides(t *testing.T) {

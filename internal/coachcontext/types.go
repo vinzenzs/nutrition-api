@@ -22,6 +22,10 @@ type PhaseLite struct {
 	Type      trainingphases.PhaseType `json:"type"`
 	StartDate time.Time                `json:"start_date"`
 	EndDate   time.Time                `json:"end_date"`
+	// Methodology is the covering phase's curated "why" prose (Markdown, null
+	// when unset), so the coach has the current phase's reasoning in the same
+	// grounding call.
+	Methodology *string `json:"methodology"`
 }
 
 // WorkoutLite is a compact workout for the recent/upcoming lists — enough to
@@ -49,11 +53,11 @@ type LoadSummary struct {
 
 // TrainingContext is the GET /context/training bundle.
 type TrainingContext struct {
-	Date          string                  `json:"date"`
-	TZ            string                  `json:"tz"`
-	LookbackDays  int                     `json:"lookback_days"`
-	LookaheadDays int                     `json:"lookahead_days"`
-	Phase         *PhaseLite              `json:"phase"`
+	Date          string                   `json:"date"`
+	TZ            string                   `json:"tz"`
+	LookbackDays  int                      `json:"lookback_days"`
+	LookaheadDays int                      `json:"lookahead_days"`
+	Phase         *PhaseLite               `json:"phase"`
 	Fitness       *fitnessmetrics.Snapshot `json:"fitness"`
 	// ACWR is the acute:chronic load ratio, derived (acute ÷ chronic) only when
 	// both loads are present; null otherwise. Never stored.

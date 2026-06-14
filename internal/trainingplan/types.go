@@ -21,9 +21,13 @@ type Plan struct {
 	RaceID    *uuid.UUID `json:"race_id,omitempty"`
 	StartDate string     `json:"start_date"` // YYYY-MM-DD (Monday of week 1)
 	Notes     *string    `json:"notes,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	Weeks     []PlanWeek `json:"weeks,omitempty"`
+	// Methodology is curated, cited Markdown prose (Key Principles, Rowing
+	// Strategy — cross-cutting, non-phase-specific reference) the coach reads,
+	// distinct from the operational Notes. Stored verbatim; pushed from the vault.
+	Methodology *string    `json:"methodology,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Weeks       []PlanWeek `json:"weeks,omitempty"`
 }
 
 // PlanWeek mirrors a plan_weeks row. Slots is populated by the nested Load.

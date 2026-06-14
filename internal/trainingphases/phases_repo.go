@@ -30,7 +30,7 @@ func NewPhasesRepo(q store.Querier) *PhasesRepo {
 // templates table.
 const phasesSelectCols = `
     p.id, p.name, p.type, p.start_date, p.end_date,
-    p.default_template_id, p.notes,
+    p.default_template_id, p.notes, p.methodology,
     p.created_at, p.updated_at,
     t.name
 `
@@ -49,12 +49,12 @@ func (r *PhasesRepo) Insert(ctx context.Context, p *Phase) error {
 	now := time.Now().UTC()
 	const q = `
         INSERT INTO training_phases
-            (id, name, type, start_date, end_date, default_template_id, notes, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+            (id, name, type, start_date, end_date, default_template_id, notes, methodology, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
     `
 	if _, err := r.q.Exec(ctx, q,
 		p.ID, p.Name, string(p.Type), p.StartDate, p.EndDate,
-		p.DefaultTemplateID, p.Notes, now,
+		p.DefaultTemplateID, p.Notes, p.Methodology, now,
 	); err != nil {
 		return fmt.Errorf("insert phase: %w", err)
 	}
@@ -134,12 +134,14 @@ type PatchParams struct {
 	DefaultTemplateID        *uuid.UUID
 	ClearDefaultTemplateID   bool
 	Notes                    *string
+	Methodology              *string
 }
 
 // HasUpdates reports whether at least one field is set.
 func (p PatchParams) HasUpdates() bool {
 	return p.Name != nil || p.Type != nil || p.StartDate != nil || p.EndDate != nil ||
-		p.DefaultTemplateID != nil || p.ClearDefaultTemplateID || p.Notes != nil
+		p.DefaultTemplateID != nil || p.ClearDefaultTemplateID || p.Notes != nil ||
+		p.Methodology != nil
 }
 
 // Patch applies a partial update to a phase.
@@ -177,6 +179,11 @@ func (r *PhasesRepo) Patch(ctx context.Context, id uuid.UUID, p PatchParams) err
 	if p.Notes != nil {
 		sets = append(sets, fmt.Sprintf("notes = $%d", next))
 		args = append(args, *p.Notes)
+		next++
+	}
+	if p.Methodology != nil {
+		sets = append(sets, fmt.Sprintf("methodology = $%d", next))
+		args = append(args, *p.Methodology)
 		next++
 	}
 	if len(sets) == 1 {
@@ -220,7 +227,7 @@ func scanPhase(s scanner) (*Phase, error) {
 	)
 	if err := s.Scan(
 		&p.ID, &p.Name, &typeStr, &p.StartDate, &p.EndDate,
-		&p.DefaultTemplateID, &p.Notes,
+		&p.DefaultTemplateID, &p.Notes, &p.Methodology,
 		&p.CreatedAt, &p.UpdatedAt,
 		&templateName,
 	); err != nil {

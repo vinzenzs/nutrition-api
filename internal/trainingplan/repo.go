@@ -36,7 +36,7 @@ func NewRepo(q store.Querier) *Repo {
 }
 
 const (
-	planCols = `id, name, race_id, to_char(start_date, 'YYYY-MM-DD') AS start_date, notes, created_at, updated_at`
+	planCols = `id, name, race_id, to_char(start_date, 'YYYY-MM-DD') AS start_date, notes, methodology, created_at, updated_at`
 	weekCols = `id, plan_id, ordinal, phase_id, notes, created_at, updated_at`
 	slotCols = `id, plan_week_id, weekday, ordinal, template_id, to_char(time_of_day, 'HH24:MI:SS') AS time_of_day, target_overrides, duration_overrides, created_at, updated_at`
 )
@@ -79,10 +79,10 @@ func (r *Repo) ListPlans(ctx context.Context) ([]*Plan, error) {
 func (r *Repo) UpdatePlan(ctx context.Context, p *Plan) (*Plan, error) {
 	row := r.q.QueryRow(ctx, `
         UPDATE training_plans
-        SET name = $2, race_id = $3, start_date = $4::date, notes = $5, updated_at = now()
+        SET name = $2, race_id = $3, start_date = $4::date, notes = $5, methodology = $6, updated_at = now()
         WHERE id = $1
         RETURNING `+planCols,
-		p.ID, p.Name, p.RaceID, p.StartDate, p.Notes,
+		p.ID, p.Name, p.RaceID, p.StartDate, p.Notes, p.Methodology,
 	)
 	return scanPlan(row)
 }
@@ -369,7 +369,7 @@ type scanner interface {
 
 func scanPlan(s scanner) (*Plan, error) {
 	var p Plan
-	err := s.Scan(&p.ID, &p.Name, &p.RaceID, &p.StartDate, &p.Notes, &p.CreatedAt, &p.UpdatedAt)
+	err := s.Scan(&p.ID, &p.Name, &p.RaceID, &p.StartDate, &p.Notes, &p.Methodology, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrPlanNotFound

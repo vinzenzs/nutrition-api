@@ -39,6 +39,7 @@ type createRequest struct {
 	EndDate           string  `json:"end_date"`
 	DefaultTemplateID *string `json:"default_template_id,omitempty"`
 	Notes             *string `json:"notes,omitempty"`
+	Methodology       *string `json:"methodology,omitempty"`
 }
 
 // create godoc
@@ -76,11 +77,12 @@ func (h *PhasesHandlers) create(c *gin.Context) {
 		return
 	}
 	in := CreateInput{
-		Name:      req.Name,
-		Type:      PhaseType(req.Type),
-		StartDate: startDate,
-		EndDate:   endDate,
-		Notes:     req.Notes,
+		Name:        req.Name,
+		Type:        PhaseType(req.Type),
+		StartDate:   startDate,
+		EndDate:     endDate,
+		Notes:       req.Notes,
+		Methodology: req.Methodology,
 	}
 	if req.DefaultTemplateID != nil && *req.DefaultTemplateID != "" {
 		tid, err := uuid.Parse(*req.DefaultTemplateID)
@@ -180,6 +182,7 @@ type patchRequest struct {
 	EndDate           *string `json:"end_date,omitempty"`
 	DefaultTemplateID *string `json:"default_template_id,omitempty"`
 	Notes             *string `json:"notes,omitempty"`
+	Methodology       *string `json:"methodology,omitempty"`
 }
 
 // patch godoc
@@ -214,8 +217,9 @@ func (h *PhasesHandlers) patch(c *gin.Context) {
 		return
 	}
 	p := PatchParams{
-		Name:  req.Name,
-		Notes: req.Notes,
+		Name:        req.Name,
+		Notes:       req.Notes,
+		Methodology: req.Methodology,
 	}
 	if req.Type != nil {
 		t := PhaseType(*req.Type)

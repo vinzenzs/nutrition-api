@@ -95,7 +95,7 @@ func (s *Service) BuildTraining(ctx context.Context, date time.Time, loc *time.L
 			}
 			return fmt.Errorf("phase for date: %w", err)
 		}
-		out.Phase = &PhaseLite{ID: p.ID, Name: p.Name, Type: p.Type, StartDate: p.StartDate, EndDate: p.EndDate}
+		out.Phase = &PhaseLite{ID: p.ID, Name: p.Name, Type: p.Type, StartDate: p.StartDate, EndDate: p.EndDate, Methodology: p.Methodology}
 		return nil
 	})
 
