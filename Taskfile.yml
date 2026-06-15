@@ -288,6 +288,37 @@ tasks:
     cmds:
       - task: dev:pair
 
+  prod:pair:
+    desc: Print a pairing QR for the companion app against production (PROD_BASE_URL + MOBILE_API_TOKEN from .env.prod)
+    cmds:
+      - |
+        if ! command -v qrencode >/dev/null 2>&1; then
+          echo "qrencode not found. Install: brew install qrencode (macOS) / apt-get install qrencode (Linux)" >&2
+          exit 1
+        fi
+        if [ -f .env.prod ]; then
+          set -a && . ./.env.prod && set +a
+        fi
+        if [ -z "$PROD_BASE_URL" ]; then
+          echo "PROD_BASE_URL not set — add it to .env.prod (e.g. PROD_BASE_URL=https://api.example.com) or pass it inline." >&2
+          exit 1
+        fi
+        if [ -z "$MOBILE_API_TOKEN" ]; then
+          echo "MOBILE_API_TOKEN not set — add the production token to .env.prod or pass it inline." >&2
+          exit 1
+        fi
+        BASE_URL="${PROD_BASE_URL%/}"
+        PAYLOAD=$(printf '{"base_url":"%s","token":"%s"}' "$BASE_URL" "$MOBILE_API_TOKEN")
+        echo ""
+        echo "Pairing payload (PROD): $PAYLOAD"
+        echo ""
+        qrencode -t ANSIUTF8 "$PAYLOAD"
+
+  app:pair:prod:
+    desc: Alias for `task prod:pair` — print the production pairing QR for the companion app
+    cmds:
+      - task: prod:pair
+
   # ---- Garmin bridge (Python) — local login + sync testing ----
   #
   # The bridge does interactive Garmin SSO and persists the token to the
