@@ -8,6 +8,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/vinzenzs/kazper/internal/athleteconfig"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
 	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
 	"github.com/vinzenzs/kazper/internal/numfmt"
 	"github.com/vinzenzs/kazper/internal/recoverymetrics"
@@ -29,10 +31,12 @@ const (
 // constructor by design (mirrors internal/dailycontext): each dep is a
 // load-bearing reader.
 type Service struct {
-	workoutsRepo *workouts.Repo
-	fitnessRepo  *fitnessmetrics.Repo
-	recoveryRepo *recoverymetrics.Repo
-	phasesRepo   *trainingphases.PhasesRepo
+	workoutsRepo      *workouts.Repo
+	fitnessRepo       *fitnessmetrics.Repo
+	recoveryRepo      *recoverymetrics.Repo
+	phasesRepo        *trainingphases.PhasesRepo
+	athleteConfigRepo *athleteconfig.Repo
+	bodyWeightRepo    *bodyweight.Repo
 }
 
 func NewService(
@@ -40,12 +44,16 @@ func NewService(
 	fitnessRepo *fitnessmetrics.Repo,
 	recoveryRepo *recoverymetrics.Repo,
 	phasesRepo *trainingphases.PhasesRepo,
+	athleteConfigRepo *athleteconfig.Repo,
+	bodyWeightRepo *bodyweight.Repo,
 ) *Service {
 	return &Service{
-		workoutsRepo: workoutsRepo,
-		fitnessRepo:  fitnessRepo,
-		recoveryRepo: recoveryRepo,
-		phasesRepo:   phasesRepo,
+		workoutsRepo:      workoutsRepo,
+		fitnessRepo:       fitnessRepo,
+		recoveryRepo:      recoveryRepo,
+		phasesRepo:        phasesRepo,
+		athleteConfigRepo: athleteConfigRepo,
+		bodyWeightRepo:    bodyWeightRepo,
 	}
 }
 
@@ -114,6 +122,26 @@ func (s *Service) BuildTraining(ctx context.Context, date time.Time, loc *time.L
 		return nil
 	})
 
+	// Athlete physiology config + derived power-to-weight. Both reads are cheap
+	// (singleton + indexed latest-before); a missing config row or no bodyweight
+	// leaves the fields nil rather than erroring.
+	g.Go(func() error {
+		cfg, err := s.athleteConfigRepo.Get(gctx)
+		if err != nil {
+			return fmt.Errorf("athlete config: %w", err)
+		}
+		out.AthleteConfig = cfg
+		bw, err := s.bodyWeightRepo.LatestBefore(gctx, dayEnd.UTC())
+		if err != nil {
+			if errors.Is(err, bodyweight.ErrNotFound) {
+				return nil
+			}
+			return fmt.Errorf("latest bodyweight: %w", err)
+		}
+		out.WattsPerKg = wattsPerKg(cfg, bw.WeightKg)
+		return nil
+	})
+
 	// Recent completed workouts in [date-lookback, date].
 	g.Go(func() error {
 		from := dayStart.AddDate(0, 0, -lookbackDays)
@@ -173,6 +201,16 @@ func acwr(f *fitnessmetrics.Snapshot) *float64 {
 		return nil
 	}
 	v := numfmt.Round1(*f.AcuteLoad / *f.ChronicLoad)
+	return &v
+}
+
+// wattsPerKg derives power-to-weight, rounded, only when an FTP is configured
+// and bodyweight is positive.
+func wattsPerKg(cfg *athleteconfig.AthleteConfig, bwKg float64) *float64 {
+	if cfg == nil || cfg.FtpWatts == nil || bwKg <= 0 {
+		return nil
+	}
+	v := numfmt.Round1(float64(*cfg.FtpWatts) / bwKg)
 	return &v
 }
 

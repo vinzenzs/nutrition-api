@@ -11,35 +11,35 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vinzenzs/kazper/internal/achievements"
+	"github.com/vinzenzs/kazper/internal/athleteconfig"
 	"github.com/vinzenzs/kazper/internal/auth"
 	"github.com/vinzenzs/kazper/internal/bodyweight"
 	"github.com/vinzenzs/kazper/internal/chat"
 	"github.com/vinzenzs/kazper/internal/chatsessions"
+	"github.com/vinzenzs/kazper/internal/coachcontext"
 	"github.com/vinzenzs/kazper/internal/config"
 	"github.com/vinzenzs/kazper/internal/cookidoo"
-	"github.com/vinzenzs/kazper/internal/coachcontext"
 	"github.com/vinzenzs/kazper/internal/dailycontext"
+	"github.com/vinzenzs/kazper/internal/dailysummary"
+	"github.com/vinzenzs/kazper/internal/devices"
 	"github.com/vinzenzs/kazper/internal/energy"
 	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
 	"github.com/vinzenzs/kazper/internal/garminauth"
 	"github.com/vinzenzs/kazper/internal/garmincontrol"
+	"github.com/vinzenzs/kazper/internal/gear"
 	"github.com/vinzenzs/kazper/internal/goals"
+	"github.com/vinzenzs/kazper/internal/healthvitals"
 	"github.com/vinzenzs/kazper/internal/hydration"
 	"github.com/vinzenzs/kazper/internal/hydrationbalance"
 	"github.com/vinzenzs/kazper/internal/idempotency"
 	"github.com/vinzenzs/kazper/internal/mealplan"
 	"github.com/vinzenzs/kazper/internal/meals"
 	"github.com/vinzenzs/kazper/internal/off"
+	"github.com/vinzenzs/kazper/internal/personalrecords"
 	"github.com/vinzenzs/kazper/internal/products"
 	"github.com/vinzenzs/kazper/internal/raceprep"
 	"github.com/vinzenzs/kazper/internal/races"
-	"github.com/vinzenzs/kazper/internal/achievements"
-	"github.com/vinzenzs/kazper/internal/athleteconfig"
-	"github.com/vinzenzs/kazper/internal/dailysummary"
-	"github.com/vinzenzs/kazper/internal/devices"
-	"github.com/vinzenzs/kazper/internal/gear"
-	"github.com/vinzenzs/kazper/internal/healthvitals"
-	"github.com/vinzenzs/kazper/internal/personalrecords"
 	"github.com/vinzenzs/kazper/internal/recoverymetrics"
 	"github.com/vinzenzs/kazper/internal/shoppinglist"
 	"github.com/vinzenzs/kazper/internal/store"
@@ -326,7 +326,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		recoveryMetricsRepo, fitnessMetricsRepo, hydrationBalanceRepo,
 	)
 	dailycontext.NewHandlers(dailyCtxSvc, cfg.DefaultUserTZ, logger).Register(api)
-	coachCtxSvc := coachcontext.NewService(workoutsRepo, fitnessMetricsRepo, recoveryMetricsRepo, phasesRepo)
+	coachCtxSvc := coachcontext.NewService(workoutsRepo, fitnessMetricsRepo, recoveryMetricsRepo, phasesRepo, athleteConfigRepo, bodyWeightRepo)
 	coachcontext.NewHandlers(coachCtxSvc, cfg.DefaultUserTZ, logger).Register(api)
 	// POST /chat streams SSE. The idempotency middleware is a no-op here: it only
 	// engages when an Idempotency-Key header is present, and the chat client does

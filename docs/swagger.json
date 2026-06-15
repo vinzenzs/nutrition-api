@@ -8483,6 +8483,14 @@
                     "description": "ACWR is the acute:chronic load ratio, derived (acute ÷ chronic) only when\nboth loads are present; null otherwise. Never stored.",
                     "type": "number"
                 },
+                "athlete_config": {
+                    "description": "AthleteConfig is the singleton physiology config (FTP, thresholds, HR/power\nzones) so the coach grounds intensity advice on the athlete's zones in the\nsame call; null when no config row has been set.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/athleteconfig.AthleteConfig"
+                        }
+                    ]
+                },
                 "date": {
                     "type": "string"
                 },
@@ -8515,6 +8523,10 @@
                     "items": {
                         "$ref": "#/definitions/coachcontext.WorkoutLite"
                     }
+                },
+                "watts_per_kg": {
+                    "description": "WattsPerKg is power-to-weight, derived (ftp_watts ÷ latest bodyweight kg)\nonly when both are present and bodyweight is non-zero; null otherwise.\nNever stored.",
+                    "type": "number"
                 }
             }
         },

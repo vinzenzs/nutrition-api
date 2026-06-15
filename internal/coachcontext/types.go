@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/vinzenzs/kazper/internal/athleteconfig"
 	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
 	"github.com/vinzenzs/kazper/internal/recoverymetrics"
 	"github.com/vinzenzs/kazper/internal/trainingphases"
@@ -61,7 +62,15 @@ type TrainingContext struct {
 	Fitness       *fitnessmetrics.Snapshot `json:"fitness"`
 	// ACWR is the acute:chronic load ratio, derived (acute ÷ chronic) only when
 	// both loads are present; null otherwise. Never stored.
-	ACWR             *float64       `json:"acwr"`
+	ACWR *float64 `json:"acwr"`
+	// AthleteConfig is the singleton physiology config (FTP, thresholds, HR/power
+	// zones) so the coach grounds intensity advice on the athlete's zones in the
+	// same call; null when no config row has been set.
+	AthleteConfig *athleteconfig.AthleteConfig `json:"athlete_config"`
+	// WattsPerKg is power-to-weight, derived (ftp_watts ÷ latest bodyweight kg)
+	// only when both are present and bodyweight is non-zero; null otherwise.
+	// Never stored.
+	WattsPerKg       *float64       `json:"watts_per_kg"`
 	RecentLoad       LoadSummary    `json:"recent_load"`
 	RecentWorkouts   []*WorkoutLite `json:"recent_workouts"`
 	UpcomingWorkouts []*WorkoutLite `json:"upcoming_workouts"`

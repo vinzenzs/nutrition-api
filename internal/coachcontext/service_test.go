@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/vinzenzs/kazper/internal/athleteconfig"
+	"github.com/vinzenzs/kazper/internal/bodyweight"
 	"github.com/vinzenzs/kazper/internal/coachcontext"
 	"github.com/vinzenzs/kazper/internal/fitnessmetrics"
 	"github.com/vinzenzs/kazper/internal/recoverymetrics"
@@ -25,6 +27,8 @@ type fix struct {
 	fitness  *fitnessmetrics.Repo
 	recovery *recoverymetrics.Repo
 	phases   *trainingphases.PhasesRepo
+	athlete  *athleteconfig.Repo
+	weight   *bodyweight.Repo
 }
 
 func setup(t *testing.T) *fix {
@@ -34,10 +38,21 @@ func setup(t *testing.T) *fix {
 	fm := fitnessmetrics.NewRepo(pool)
 	rm := recoverymetrics.NewRepo(pool)
 	ph := trainingphases.NewPhasesRepo(pool)
+	ac := athleteconfig.NewRepo(pool)
+	bw := bodyweight.NewRepo(pool)
 	return &fix{
-		svc:      coachcontext.NewService(w, fm, rm, ph),
-		workouts: w, fitness: fm, recovery: rm, phases: ph,
+		svc:      coachcontext.NewService(w, fm, rm, ph, ac, bw),
+		workouts: w, fitness: fm, recovery: rm, phases: ph, athlete: ac, weight: bw,
 	}
+}
+
+func seedWeight(t *testing.T, f *fix, at time.Time, kg float64) {
+	t.Helper()
+	require.NoError(t, f.weight.Insert(context.Background(), &bodyweight.Entry{
+		ID:       uuid.New(),
+		LoggedAt: at,
+		WeightKg: kg,
+	}))
 }
 
 func seedWorkout(t *testing.T, f *fix, day time.Time, sport workouts.Sport, status workouts.Status, durMin float64, kcal float64) {
@@ -159,6 +174,72 @@ func TestBuildTraining_PhaseWithoutMethodologyIsNull(t *testing.T) {
 	assert.Nil(t, out.Phase.Methodology, "no methodology set → null in the bundle")
 }
 
+func TestBuildTraining_AthleteConfigAndWattsPerKg(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	loc := time.UTC
+	date := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+
+	require.NoError(t, f.athlete.Upsert(ctx, &athleteconfig.AthleteConfig{
+		FtpWatts:      ptr(256),
+		PowerZone2Max: ptr(180),
+	}))
+	// An older weigh-in and a same-day one — latest on/before the anchor wins.
+	seedWeight(t, f, time.Date(2026, 7, 10, 7, 0, 0, 0, loc), 75.0)
+	seedWeight(t, f, time.Date(2026, 7, 15, 7, 0, 0, 0, loc), 72.0)
+
+	out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+	require.NoError(t, err)
+
+	require.NotNil(t, out.AthleteConfig)
+	require.NotNil(t, out.AthleteConfig.FtpWatts)
+	assert.Equal(t, 256, *out.AthleteConfig.FtpWatts)
+	require.NotNil(t, out.WattsPerKg)
+	assert.InDelta(t, 3.6, *out.WattsPerKg, 0.001, "256 / 72.0 rounded to 1dp")
+}
+
+func TestBuildTraining_WattsPerKgNullWhenInputMissing(t *testing.T) {
+	ctx := context.Background()
+	loc := time.UTC
+	date := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+
+	t.Run("no FTP", func(t *testing.T) {
+		f := setup(t)
+		require.NoError(t, f.athlete.Upsert(ctx, &athleteconfig.AthleteConfig{MaxHR: ptr(190)}))
+		seedWeight(t, f, time.Date(2026, 7, 14, 7, 0, 0, 0, loc), 72.0)
+
+		out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+		require.NoError(t, err)
+		require.NotNil(t, out.AthleteConfig, "config row still surfaced")
+		assert.Nil(t, out.WattsPerKg, "no FTP → null W/kg")
+	})
+
+	t.Run("no bodyweight", func(t *testing.T) {
+		f := setup(t)
+		require.NoError(t, f.athlete.Upsert(ctx, &athleteconfig.AthleteConfig{FtpWatts: ptr(256)}))
+
+		out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+		require.NoError(t, err)
+		require.NotNil(t, out.AthleteConfig)
+		assert.Nil(t, out.WattsPerKg, "no bodyweight → null W/kg")
+	})
+}
+
+func TestBuildTraining_NoAthleteConfigIsNull(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	loc := time.UTC
+	date := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+
+	// Bodyweight present but no config row at all.
+	seedWeight(t, f, time.Date(2026, 7, 14, 7, 0, 0, 0, loc), 72.0)
+
+	out, err := f.svc.BuildTraining(ctx, date, loc, 0, 0)
+	require.NoError(t, err)
+	assert.Nil(t, out.AthleteConfig, "no config row → null block")
+	assert.Nil(t, out.WattsPerKg, "no FTP available → null W/kg")
+}
+
 func TestBuildTraining_EmptyIsNotError(t *testing.T) {
 	f := setup(t)
 	out, err := f.svc.BuildTraining(context.Background(), time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC), time.UTC, 0, 0)
@@ -166,6 +247,8 @@ func TestBuildTraining_EmptyIsNotError(t *testing.T) {
 	assert.Nil(t, out.Phase)
 	assert.Nil(t, out.Fitness)
 	assert.Nil(t, out.ACWR)
+	assert.Nil(t, out.AthleteConfig)
+	assert.Nil(t, out.WattsPerKg)
 	assert.Equal(t, 0, out.RecentLoad.Count)
 	assert.NotNil(t, out.RecentWorkouts)
 	assert.Empty(t, out.RecentWorkouts)

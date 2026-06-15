@@ -37,6 +37,8 @@ func TestHandler_Training_DefaultsToTodayAnd200(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"recent_workouts":[]`)
 	assert.Contains(t, rec.Body.String(), `"upcoming_workouts":[]`)
 	assert.Contains(t, rec.Body.String(), `"phase":null`)
+	assert.Contains(t, rec.Body.String(), `"athlete_config":null`)
+	assert.Contains(t, rec.Body.String(), `"watts_per_kg":null`)
 }
 
 func TestHandler_Training_InvalidTZ(t *testing.T) {
