@@ -101,6 +101,18 @@ func TestListFiltersBySport(t *testing.T) {
 	assert.Equal(t, "swim", resp.WorkoutTemplates[0].Sport)
 }
 
+func TestCreateAcceptsYogaAndMobility(t *testing.T) {
+	r := setup(t)
+	for _, sport := range []string{"yoga", "mobility"} {
+		body := `{"sport":"` + sport + `","name":"Recovery ` + sport + `","steps":[{"type":"step","intent":"active","duration":{"kind":"time","seconds":1800},"target":{"kind":"none"}}]}`
+		rec := do(t, r, http.MethodPost, "/workout-templates", body)
+		require.Equal(t, http.StatusCreated, rec.Code, "sport %q should be accepted", sport)
+		var got workouttemplates.Template
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		assert.Equal(t, sport, got.Sport)
+	}
+}
+
 func TestPatchReplacesStepsAsAUnit(t *testing.T) {
 	r := setup(t)
 	created := createValid(t, r)

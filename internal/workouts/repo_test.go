@@ -521,3 +521,49 @@ func TestUpsertPlannedFromSlot_CompletedNotReverted(t *testing.T) {
 	assert.Equal(t, w.ID, again.ID)
 	assert.Equal(t, "completed", string(again.Status), "guard prevents reverting a fulfilled session")
 }
+
+// seedTemplate inserts a bare workout_templates row with the given sport and
+// returns its id, for FK references that don't need the full plan chain.
+func seedTemplate(t *testing.T, pool interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, sport string) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`INSERT INTO workout_templates (sport, name, steps) VALUES ($1,'Recovery yoga','[{"type":"step","intent":"active","duration":{"kind":"open"},"target":{"kind":"none"}}]'::jsonb) RETURNING id`,
+		sport).Scan(&id))
+	return id
+}
+
+func TestCreateAdhocPlannedFromTemplate(t *testing.T) {
+	pool := storetest.NewPool(t)
+	repo := workouts.NewRepo(pool)
+	ctx := context.Background()
+	templateID := seedTemplate(t, pool, "yoga")
+
+	start := time.Date(2026, 6, 20, 0, 0, 0, 0, time.UTC)
+	end := start.Add(45 * time.Minute)
+	w, err := repo.CreateAdhocPlannedFromTemplate(ctx, workouts.AdhocPlannedInput{
+		TemplateID: templateID,
+		Sport:      "yoga",
+		Name:       ptrStr("Evening yoga"),
+		StartedAt:  start,
+		EndedAt:    end,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, workouts.SourceManual, w.Source)
+	assert.Equal(t, "planned", string(w.Status))
+	assert.Equal(t, workouts.SportYoga, w.Sport)
+	require.NotNil(t, w.TemplateID)
+	assert.Equal(t, templateID, *w.TemplateID)
+	assert.Nil(t, w.PlanSlotID, "ad-hoc rows carry no plan slot")
+	assert.True(t, w.StartedAt.Equal(start))
+	assert.True(t, w.EndedAt.Equal(end))
+
+	// Two calls for the same day yield two distinct rows (no slot to dedup on).
+	w2, err := repo.CreateAdhocPlannedFromTemplate(ctx, workouts.AdhocPlannedInput{
+		TemplateID: templateID, Sport: "yoga", Name: ptrStr("Evening yoga"), StartedAt: start, EndedAt: end,
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, w.ID, w2.ID)
+}

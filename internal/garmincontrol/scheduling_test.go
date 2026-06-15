@@ -54,14 +54,39 @@ func (f *fakeWorkouts) SetGarminIDs(_ context.Context, id uuid.UUID, gw, gs *str
 	return nil
 }
 
-type fakeTemplates struct{ missing map[string]bool }
+func (f *fakeWorkouts) CreateAdhocPlannedFromTemplate(_ context.Context, in workouts.AdhocPlannedInput) (*workouts.Workout, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w := &workouts.Workout{
+		ID:         uuid.New(),
+		Source:     workouts.SourceManual,
+		Sport:      workouts.Sport(in.Sport),
+		Status:     workouts.StatusPlanned,
+		Name:       in.Name,
+		TemplateID: &in.TemplateID,
+		StartedAt:  in.StartedAt,
+		EndedAt:    in.EndedAt,
+	}
+	f.rows[w.ID] = w
+	cp := *w
+	return &cp, nil
+}
+
+type fakeTemplates struct {
+	missing map[string]bool
+	sport   string // defaults to "run" when empty
+}
 
 func (f *fakeTemplates) GetByID(_ context.Context, id string) (*workouttemplates.Template, error) {
 	if f.missing[id] {
 		return nil, workouttemplates.ErrNotFound
 	}
+	sport := f.sport
+	if sport == "" {
+		sport = "run"
+	}
 	return &workouttemplates.Template{
-		ID: id, Sport: "run", Name: "Easy run",
+		ID: id, Sport: sport, Name: "Easy run",
 		Steps: []workouttemplates.Step{{Type: "step", Intent: "active",
 			Duration: &workouttemplates.Duration{Kind: "open"}, Target: &workouttemplates.Target{Kind: "none"}}},
 	}, nil
@@ -88,6 +113,7 @@ type bridgeStub struct {
 	server         *httptest.Server
 	mu             sync.Mutex
 	createCalls    int
+	createBody     string
 	schedCalls     int
 	unschedIDs       []string
 	deleteWorkouts   []string
@@ -107,6 +133,8 @@ func newBridgeStub(t *testing.T) *bridgeStub {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/workouts":
 			b.createCalls++
+			body, _ := io.ReadAll(r.Body)
+			b.createBody = string(body)
 			_, _ = io.WriteString(w, `{"garmin_workout_id":"gw-1"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/schedule":
 			b.schedCalls++
@@ -211,6 +239,90 @@ func TestScheduleWorkout_StoresIDs(t *testing.T) {
 	require.NotNil(t, fw.rows[w.ID].GarminWorkoutID)
 	assert.Equal(t, "gw-1", *fw.rows[w.ID].GarminWorkoutID)
 	assert.Equal(t, "gs-1", *fw.rows[w.ID].GarminScheduleID)
+}
+
+func TestScheduleTemplate_CreatesAndSchedules(t *testing.T) {
+	bridge := newBridgeStub(t)
+	fw := newFakeWorkouts()
+	r := newEngine(bridge.server.URL, fw, &fakeTemplates{}, &fakePlan{})
+
+	tmplID := uuid.New()
+	rec := req(t, r, http.MethodPost, "/garmin/schedule/template",
+		`{"template_id":"`+tmplID.String()+`","date":"2026-06-20"}`)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, 1, bridge.createCalls)
+	assert.Equal(t, 1, bridge.schedCalls)
+
+	require.Len(t, fw.rows, 1, "exactly one ad-hoc planned row created")
+	var w *workouts.Workout
+	for _, row := range fw.rows {
+		w = row
+	}
+	assert.Equal(t, workouts.SourceManual, w.Source)
+	assert.Equal(t, workouts.StatusPlanned, w.Status)
+	require.NotNil(t, w.TemplateID)
+	assert.Equal(t, tmplID, *w.TemplateID)
+	assert.Nil(t, w.PlanSlotID, "ad-hoc row is not plan-bound")
+	// The stub template has only an open-duration step → 60-minute fallback.
+	assert.Equal(t, w.StartedAt.Add(60*time.Minute), w.EndedAt)
+	require.NotNil(t, w.GarminScheduleID)
+	assert.Equal(t, "gs-1", *w.GarminScheduleID)
+	assert.Equal(t, "gw-1", *w.GarminWorkoutID)
+}
+
+func TestScheduleTemplate_YogaSportForwarded(t *testing.T) {
+	bridge := newBridgeStub(t)
+	fw := newFakeWorkouts()
+	r := newEngine(bridge.server.URL, fw, &fakeTemplates{sport: "yoga"}, &fakePlan{})
+
+	rec := req(t, r, http.MethodPost, "/garmin/schedule/template",
+		`{"template_id":"`+uuid.New().String()+`","date":"2026-06-20"}`)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, bridge.createBody, `"sport":"yoga"`, "real sport forwarded to the bridge compile")
+	var w *workouts.Workout
+	for _, row := range fw.rows {
+		w = row
+	}
+	assert.Equal(t, workouts.SportYoga, w.Sport, "created workout keeps the real sport")
+}
+
+func TestScheduleTemplate_UnknownTemplate(t *testing.T) {
+	bridge := newBridgeStub(t)
+	fw := newFakeWorkouts()
+	missingID := uuid.New()
+	ft := &fakeTemplates{missing: map[string]bool{missingID.String(): true}}
+	r := newEngine(bridge.server.URL, fw, ft, &fakePlan{})
+
+	rec := req(t, r, http.MethodPost, "/garmin/schedule/template",
+		`{"template_id":"`+missingID.String()+`","date":"2026-06-20"}`)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	assert.JSONEq(t, `{"error":"template_not_found"}`, rec.Body.String())
+	assert.Equal(t, 0, bridge.createCalls)
+	assert.Empty(t, fw.rows, "no row created on unknown template")
+}
+
+func TestScheduleTemplate_InvalidDate(t *testing.T) {
+	bridge := newBridgeStub(t)
+	fw := newFakeWorkouts()
+	r := newEngine(bridge.server.URL, fw, &fakeTemplates{}, &fakePlan{})
+
+	rec := req(t, r, http.MethodPost, "/garmin/schedule/template",
+		`{"template_id":"`+uuid.New().String()+`","date":"June 20"}`)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.JSONEq(t, `{"error":"date_invalid"}`, rec.Body.String())
+	assert.Equal(t, 0, bridge.createCalls)
+	assert.Empty(t, fw.rows)
+}
+
+func TestScheduleTemplate_DisabledBridge(t *testing.T) {
+	fw := newFakeWorkouts()
+	r := newEngine("", fw, &fakeTemplates{}, &fakePlan{})
+
+	rec := req(t, r, http.MethodPost, "/garmin/schedule/template",
+		`{"template_id":"`+uuid.New().String()+`","date":"2026-06-20"}`)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.JSONEq(t, `{"error":"garmin_disabled"}`, rec.Body.String())
+	assert.Empty(t, fw.rows)
 }
 
 func TestRePush_UnschedulesPriorFirst(t *testing.T) {

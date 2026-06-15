@@ -40,12 +40,14 @@ const (
 	SportBike     Sport = "bike"
 	SportSwim     Sport = "swim"
 	SportStrength Sport = "strength"
+	SportYoga     Sport = "yoga"
+	SportMobility Sport = "mobility"
 	SportOther    Sport = "other"
 )
 
 func ValidSport(s string) bool {
 	switch Sport(s) {
-	case SportRun, SportBike, SportSwim, SportStrength, SportOther:
+	case SportRun, SportBike, SportSwim, SportStrength, SportYoga, SportMobility, SportOther:
 		return true
 	}
 	return false

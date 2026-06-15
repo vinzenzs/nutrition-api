@@ -13,6 +13,10 @@
 //     overridden duration reaches the resolved program and the materialized window.
 //   - add-coach-methodology: create_phase WITH methodology → get_training_context,
 //     asserting the covering phase's methodology rides the grounding bundle.
+//   - schedule-adhoc-yoga-mobility: create_workout_template with sport "yoga" →
+//     get_workout_template, asserting the widened sport vocabulary round-trips
+//     through MCP → REST → DB (the bridge-backed schedule push is covered by
+//     garmincontrol's stub-bridge tests, since this harness runs no bridge).
 package mcpserver
 
 import (
@@ -146,6 +150,25 @@ func TestMCPServer_E2E(t *testing.T) {
 	require.NotNil(t, ctxPhase["methodology"])
 	assert.Contains(t, ctxPhase["methodology"], "Seiler",
 		"the covering phase's methodology is surfaced in /context/training")
+
+	// ---- Change 3: yoga sport round-trips through MCP → REST → DB ----
+	// The full garmin_schedule_template push needs a Garmin bridge, which this
+	// harness does not run (the bridge call is covered by garmincontrol's
+	// stub-bridge tests). Here we verify the widened sport vocabulary end to end:
+	// a yoga template created over MCP persists and reads back with its real sport.
+	yoga := callTool(t, stdin, r, next(), "create_workout_template", map[string]any{
+		"sport": "yoga", "name": "Recovery yoga",
+		"steps": []any{map[string]any{
+			"type": "step", "intent": "active",
+			"duration": map[string]any{"kind": "time", "seconds": 1800},
+			"target":   map[string]any{"kind": "none"},
+		}},
+	})
+	yogaID := yoga["id"].(string)
+	assert.Equal(t, "yoga", yoga["sport"], "create_workout_template persists the yoga sport")
+
+	got := callTool(t, stdin, r, next(), "get_workout_template", map[string]any{"id": yogaID})
+	assert.Equal(t, "yoga", got["sport"], "yoga sport reads back unchanged")
 
 	_ = stdin.Close()
 	_ = cmd.Wait()

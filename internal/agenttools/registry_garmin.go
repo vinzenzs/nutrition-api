@@ -35,6 +35,12 @@ type GarminScheduleWorkoutArgs struct {
 	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; derived when omitted"`
 }
 
+type GarminScheduleTemplateArgs struct {
+	TemplateID     string `json:"template_id" jsonschema:"a workout template's UUID to schedule as a standalone session (e.g. yoga/mobility)"`
+	Date           string `json:"date" jsonschema:"the calendar day YYYY-MM-DD to schedule it on"`
+	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key; derived when omitted"`
+}
+
 type GarminUnscheduleWorkoutArgs struct {
 	WorkoutID      string `json:"workout_id" jsonschema:"the workout UUID to remove from the Garmin calendar"`
 	IdempotencyKey string `json:"idempotency_key,omitempty" jsonschema:"optional retry key"`
@@ -167,6 +173,27 @@ func garminSpecs() []Spec {
 					WorkoutID string `json:"workout_id"`
 				}{a.WorkoutID})
 				return HTTPCall{Method: "POST", Path: "/garmin/schedule/workout", Body: body}, nil
+			},
+		},
+		{
+			Name: "garmin_schedule_template",
+			Description: "Schedule a standalone workout template to a date on the Garmin watch in one call — the path for " +
+				"ad-hoc sessions that aren't part of a materialized plan (e.g. yoga, mobility). Creates an ad-hoc planned " +
+				"workout from the template (its sport is preserved), compiles and schedules it on the date, and stores the " +
+				"Garmin ids. Unschedule it later with garmin_unschedule_workout on the returned workout id. " +
+				"503 garmin_disabled when the bridge is off.",
+			SchemaType: GarminScheduleTemplateArgs{},
+			Tier:       TierWriteAuto,
+			Build: func(in json.RawMessage) (HTTPCall, error) {
+				var a GarminScheduleTemplateArgs
+				if err := DecodeInto(in, &a); err != nil {
+					return HTTPCall{}, err
+				}
+				body, _ := json.Marshal(struct {
+					TemplateID string `json:"template_id"`
+					Date       string `json:"date"`
+				}{a.TemplateID, a.Date})
+				return HTTPCall{Method: "POST", Path: "/garmin/schedule/template", Body: body}, nil
 			},
 		},
 		{

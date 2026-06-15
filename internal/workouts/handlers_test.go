@@ -130,10 +130,22 @@ func TestPost_InvalidSource(t *testing.T) {
 
 func TestPost_InvalidSport(t *testing.T) {
 	f := setup(t)
-	body := `{"source":"manual","sport":"yoga","started_at":"2026-06-07T08:00:00Z","ended_at":"2026-06-07T09:00:00Z"}`
+	body := `{"source":"manual","sport":"pilates","started_at":"2026-06-07T08:00:00Z","ended_at":"2026-06-07T09:00:00Z"}`
 	rec := doReq(t, f.r, http.MethodPost, "/workouts", body)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.JSONEq(t, `{"error":"sport_invalid"}`, rec.Body.String())
+}
+
+func TestPost_YogaAndMobilityAccepted(t *testing.T) {
+	f := setup(t)
+	for _, sport := range []string{"yoga", "mobility"} {
+		body := `{"source":"manual","sport":"` + sport + `","started_at":"2026-06-07T08:00:00Z","ended_at":"2026-06-07T09:00:00Z"}`
+		rec := doReq(t, f.r, http.MethodPost, "/workouts", body)
+		require.Equal(t, http.StatusCreated, rec.Code, "sport %q should be accepted", sport)
+		var got map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+		assert.Equal(t, sport, got["sport"], "sport echoed unchanged")
+	}
 }
 
 func TestPost_MissingWindow(t *testing.T) {
@@ -350,7 +362,7 @@ func TestBulk_MixedBatchPersistsValidAndReportsInvalid(t *testing.T) {
         "workouts": [
             {"external_id":"garmin:bulk-new","source":"garmin","sport":"run","started_at":"2026-06-07T08:00:00Z","ended_at":"2026-06-07T09:00:00Z","kcal_burned":600},
             {"external_id":"garmin:bulk-existing","source":"garmin","sport":"bike","started_at":"2026-06-07T08:00:00Z","ended_at":"2026-06-07T09:30:00Z","kcal_burned":900},
-            {"source":"manual","sport":"yoga","started_at":"2026-06-07T07:00:00Z","ended_at":"2026-06-07T07:45:00Z"}
+            {"source":"manual","sport":"pilates","started_at":"2026-06-07T07:00:00Z","ended_at":"2026-06-07T07:45:00Z"}
         ]
     }`
 	rec := doReq(t, f.r, http.MethodPost, "/workouts/bulk", body)

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -23,6 +24,7 @@ import (
 type workoutsRepo interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*workouts.Workout, error)
 	SetGarminIDs(ctx context.Context, id uuid.UUID, garminWorkoutID, garminScheduleID *string) error
+	CreateAdhocPlannedFromTemplate(ctx context.Context, in workouts.AdhocPlannedInput) (*workouts.Workout, error)
 }
 
 type templatesRepo interface {
@@ -38,10 +40,15 @@ type planService interface {
 
 // Orchestration sentinels.
 var (
-	errWorkoutNotFound = errors.New("workout_not_found")
-	errNotSchedulable  = errors.New("workout_not_schedulable") // not planned or no template
-	errNotScheduled    = errors.New("workout_not_scheduled")   // no stored schedule id
+	errWorkoutNotFound  = errors.New("workout_not_found")
+	errNotSchedulable   = errors.New("workout_not_schedulable") // not planned or no template
+	errNotScheduled     = errors.New("workout_not_scheduled")   // no stored schedule id
+	errTemplateNotFound = errors.New("template_not_found")      // ad-hoc schedule of an unknown template
 )
+
+// adhocFallbackDuration is the session length used when a template's program has
+// no time-based durations to sum (e.g. rep-based strength/mobility work).
+const adhocFallbackDuration = 60 * time.Minute
 
 // ----- handlers -----
 
@@ -84,6 +91,83 @@ func (h *Handlers) scheduleWorkout(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, w)
+}
+
+type scheduleTemplateRequest struct {
+	TemplateID string `json:"template_id"`
+	Date       string `json:"date"`
+}
+
+// scheduleTemplate godoc
+// @Summary      Schedule a standalone template to a date on the Garmin watch
+// @Description  Creates an ad-hoc planned workout from a template (source=manual, status=planned, no plan slot, started_at=date, ended_at=date + the template's summed timed-step duration, falling back to 60 minutes), then compiles and schedules it via the bridge and stores the returned Garmin ids — the server-side replacement for `garmin.py schedule-yoga`. Unschedule via DELETE /garmin/schedule/workout/{id} on the returned workout. Works for any sport the bridge accepts (notably yoga and mobility).
+// @Tags         garmin
+// @Accept       json
+// @Produce      json
+// @Param        body  body  scheduleTemplateRequest  true  "{ template_id, date }"
+// @Success      200  {object}  map[string]interface{}  "the created workout"
+// @Failure      400  {object}  map[string]string  "invalid_json | date_invalid"
+// @Failure      404  {object}  map[string]string  "template_not_found"
+// @Failure      502  {object}  map[string]string  "garmin_bridge_unreachable | garmin_error"
+// @Failure      503  {object}  map[string]string  "garmin_disabled"
+// @Security     BearerAuth
+// @Router       /garmin/schedule/template [post]
+func (h *Handlers) scheduleTemplate(c *gin.Context) {
+	if !h.enabled() {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "garmin_disabled"})
+		return
+	}
+	var req scheduleTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
+		return
+	}
+	tmplID, err := uuid.Parse(req.TemplateID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "template_not_found"})
+		return
+	}
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_invalid"})
+		return
+	}
+	w, err := h.scheduleTemplateOne(c.Request.Context(), tmplID, date)
+	if err != nil {
+		h.respondScheduleErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, w)
+}
+
+// scheduleTemplateOne creates an ad-hoc planned workout from a template on the
+// given date, then delegates to pushOne to compile/schedule/track it. Because the
+// row carries no plan_slot_id, EffectiveProgram compiles the raw template steps.
+func (h *Handlers) scheduleTemplateOne(ctx context.Context, tmplID uuid.UUID, date time.Time) (*workouts.Workout, error) {
+	tmpl, err := h.templatesRepo.GetByID(ctx, tmplID.String())
+	if err != nil {
+		return nil, errTemplateNotFound
+	}
+	dur := time.Duration(workouttemplates.SumTimedDurationSec(tmpl.Steps)) * time.Second
+	if dur <= 0 {
+		dur = adhocFallbackDuration
+	}
+	var name *string
+	if tmpl.Name != "" {
+		n := tmpl.Name
+		name = &n
+	}
+	w, err := h.workoutsRepo.CreateAdhocPlannedFromTemplate(ctx, workouts.AdhocPlannedInput{
+		TemplateID: tmplID,
+		Sport:      tmpl.Sport,
+		Name:       name,
+		StartedAt:  date,
+		EndedAt:    date.Add(dur),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return h.pushOne(ctx, w.ID)
 }
 
 // unscheduleWorkout godoc
@@ -370,6 +454,8 @@ func (h *Handlers) respondScheduleErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, errWorkoutNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "workout_not_found"})
+	case errors.Is(err, errTemplateNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "template_not_found"})
 	case errors.Is(err, errNotSchedulable):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "workout_not_schedulable"})
 	case errors.Is(err, errNotScheduled):

@@ -1947,6 +1947,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/garmin/schedule/template": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates an ad-hoc planned workout from a template (source=manual, status=planned, no plan slot, started_at=date, ended_at=date + the template's summed timed-step duration, falling back to 60 minutes), then compiles and schedules it via the bridge and stores the returned Garmin ids — the server-side replacement for ` + "`" + `garmin.py schedule-yoga` + "`" + `. Unschedule via DELETE /garmin/schedule/workout/{id} on the returned workout. Works for any sport the bridge accepts (notably yoga and mobility).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "garmin"
+                ],
+                "summary": "Schedule a standalone template to a date on the Garmin watch",
+                "parameters": [
+                    {
+                        "description": "{ template_id, date }",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/garmincontrol.scheduleTemplateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the created workout",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "invalid_json | date_invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "template_not_found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "garmin_bridge_unreachable | garmin_error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "garmin_disabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/garmin/schedule/workout": {
             "post": {
                 "security": [
@@ -7271,7 +7347,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter by sport: run | bike | swim | strength | other",
+                        "description": "Filter by sport: run | bike | swim | strength | yoga | mobility | other",
                         "name": "sport",
                         "in": "query"
                     }
@@ -9056,6 +9132,17 @@ const docTemplate = `{
                 },
                 "week": {
                     "type": "integer"
+                }
+            }
+        },
+        "garmincontrol.scheduleTemplateRequest": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "template_id": {
+                    "type": "string"
                 }
             }
         },
@@ -11630,6 +11717,8 @@ const docTemplate = `{
                 "bike",
                 "swim",
                 "strength",
+                "yoga",
+                "mobility",
                 "other"
             ],
             "x-enum-varnames": [
@@ -11637,6 +11726,8 @@ const docTemplate = `{
                 "SportBike",
                 "SportSwim",
                 "SportStrength",
+                "SportYoga",
+                "SportMobility",
                 "SportOther"
             ]
         },

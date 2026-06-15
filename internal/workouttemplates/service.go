@@ -247,3 +247,22 @@ func validatePositiveRange(low, high *int) error {
 	}
 	return nil
 }
+
+// SumTimedDurationSec totals the seconds of every time-based step in a program,
+// recursing one level into repeat groups (each child's seconds counted Count
+// times). Non-time durations (distance/lap_button/open) contribute nothing —
+// they have no wall-clock length. Returns 0 for an all-untimed program; callers
+// that need a concrete session length apply their own fallback.
+func SumTimedDurationSec(steps []Step) int {
+	total := 0
+	for _, st := range steps {
+		if st.Type == NodeRepeat {
+			total += max(st.Count, 1) * SumTimedDurationSec(st.Steps)
+			continue
+		}
+		if st.Duration != nil && st.Duration.Kind == DurationTime && st.Duration.Seconds != nil {
+			total += *st.Duration.Seconds
+		}
+	}
+	return total
+}

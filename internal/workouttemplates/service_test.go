@@ -38,6 +38,26 @@ func TestValidate_AcceptsValidStructuredTemplate(t *testing.T) {
 	}
 }
 
+func TestSumTimedDurationSec(t *testing.T) {
+	// warmup 600 + 5×(180+120) + cooldown 300 = 2400s.
+	if got := SumTimedDurationSec(validRunTemplate().Steps); got != 2400 {
+		t.Fatalf("timed sum: want 2400, got %d", got)
+	}
+
+	// An all-untimed program (distance / open) contributes nothing.
+	untimed := []Step{
+		{Type: NodeStep, Intent: IntentActive,
+			Duration: &Duration{Kind: DurationDistance, Meters: ptrInt(1000)},
+			Target:   &Target{Kind: TargetNone}},
+		{Type: NodeStep, Intent: IntentActive,
+			Duration: &Duration{Kind: DurationOpen},
+			Target:   &Target{Kind: TargetNone}},
+	}
+	if got := SumTimedDurationSec(untimed); got != 0 {
+		t.Fatalf("untimed sum: want 0, got %d", got)
+	}
+}
+
 func TestValidate_RejectsEmptySteps(t *testing.T) {
 	tpl := validRunTemplate()
 	tpl.Steps = nil

@@ -213,6 +213,39 @@ func (r *Repo) getByPlanSlotID(ctx context.Context, q store.Querier, planSlotID 
 	return scanWorkout(row)
 }
 
+// AdhocPlannedInput is the data needed to create a one-off planned workout from
+// a template that is NOT bound to a training-plan slot (e.g. ad-hoc yoga/mobility
+// scheduled straight to a date). plan_slot_id stays NULL; the row otherwise looks
+// like any planned workout, so the existing schedule/unschedule/reconcile paths
+// apply unchanged.
+type AdhocPlannedInput struct {
+	TemplateID uuid.UUID
+	Sport      string
+	Name       *string
+	StartedAt  time.Time
+	EndedAt    time.Time
+}
+
+// CreateAdhocPlannedFromTemplate inserts a planned workout (source 'manual',
+// status 'planned') carrying a template_id but no plan_slot_id. Plain INSERT —
+// ad-hoc rows have no slot to key an upsert on, so two calls for the same day
+// yield two distinct rows (matching manual-write semantics).
+func (r *Repo) CreateAdhocPlannedFromTemplate(ctx context.Context, in AdhocPlannedInput) (*Workout, error) {
+	const sql = `
+        INSERT INTO workouts (
+            id, source, sport, name, status,
+            started_at, ended_at, template_id, plan_slot_id,
+            created_at, updated_at
+        ) VALUES (
+            gen_random_uuid(), 'manual', $1, $2, 'planned',
+            $3, $4, $5, NULL,
+            now(), now()
+        )
+        RETURNING ` + selectCols
+	row := r.q.QueryRow(ctx, sql, in.Sport, in.Name, in.StartedAt, in.EndedAt, in.TemplateID)
+	return scanWorkout(row)
+}
+
 // GetByID returns a single workout row.
 func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*Workout, error) {
 	row := r.q.QueryRow(ctx, `SELECT `+selectCols+` FROM workouts WHERE id = $1`, id)

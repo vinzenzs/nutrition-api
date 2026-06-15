@@ -698,6 +698,13 @@ definitions:
       week:
         type: integer
     type: object
+  garmincontrol.scheduleTemplateRequest:
+    properties:
+      date:
+        type: string
+      template_id:
+        type: string
+    type: object
   garmincontrol.scheduleWorkoutRequest:
     properties:
       workout_id:
@@ -2476,6 +2483,8 @@ definitions:
     - bike
     - swim
     - strength
+    - yoga
+    - mobility
     - other
     type: string
     x-enum-varnames:
@@ -2483,6 +2492,8 @@ definitions:
     - SportBike
     - SportSwim
     - SportStrength
+    - SportYoga
+    - SportMobility
     - SportOther
   workouts.Status:
     enum:
@@ -4037,6 +4048,61 @@ paths:
       security:
       - BearerAuth: []
       summary: Push every planned workout in a plan scope to the watch
+      tags:
+      - garmin
+  /garmin/schedule/template:
+    post:
+      consumes:
+      - application/json
+      description: Creates an ad-hoc planned workout from a template (source=manual,
+        status=planned, no plan slot, started_at=date, ended_at=date + the template's
+        summed timed-step duration, falling back to 60 minutes), then compiles and
+        schedules it via the bridge and stores the returned Garmin ids — the server-side
+        replacement for `garmin.py schedule-yoga`. Unschedule via DELETE /garmin/schedule/workout/{id}
+        on the returned workout. Works for any sport the bridge accepts (notably yoga
+        and mobility).
+      parameters:
+      - description: '{ template_id, date }'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/garmincontrol.scheduleTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: the created workout
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid_json | date_invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: template_not_found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "502":
+          description: garmin_bridge_unreachable | garmin_error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: garmin_disabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Schedule a standalone template to a date on the Garmin watch
       tags:
       - garmin
   /garmin/schedule/workout:
@@ -7635,7 +7701,8 @@ paths:
   /workout-templates:
     get:
       parameters:
-      - description: 'Filter by sport: run | bike | swim | strength | other'
+      - description: 'Filter by sport: run | bike | swim | strength | yoga | mobility
+          | other'
         in: query
         name: sport
         type: string

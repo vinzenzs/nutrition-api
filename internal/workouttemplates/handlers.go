@@ -71,7 +71,7 @@ func (h *Handlers) create(c *gin.Context) {
 // @Summary      List workout templates
 // @Tags         workout-templates
 // @Produce      json
-// @Param        sport  query  string  false  "Filter by sport: run | bike | swim | strength | other"
+// @Param        sport  query  string  false  "Filter by sport: run | bike | swim | strength | yoga | mobility | other"
 // @Success      200  {object}  map[string]interface{}  "{ workout_templates: [...] }"
 // @Failure      400  {object}  map[string]string  "sport_invalid"
 // @Security     BearerAuth

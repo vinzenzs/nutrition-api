@@ -65,6 +65,7 @@ func (h *Handlers) Register(rg *gin.RouterGroup) {
 
 	rg.POST("/garmin/schedule/workout", h.scheduleWorkout)
 	rg.DELETE("/garmin/schedule/workout/:id", h.unscheduleWorkout)
+	rg.POST("/garmin/schedule/template", h.scheduleTemplate)
 	rg.POST("/garmin/schedule/plan", h.schedulePlan)
 	rg.GET("/garmin/calendar", h.calendar)
 
