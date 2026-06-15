@@ -581,29 +581,30 @@ def _pr_achieved_at(pr: dict[str, Any]) -> str | None:
 # --- athlete-config mapper ----------------------------------------------
 
 
-def _speed_to_pace_per_km(speed_mps: float | None) -> float | None:
-    """m/s → seconds per kilometre (Garmin exposes threshold as a speed).
+def _pace_per_km(sec_per_m: float | None) -> float | None:
+    """seconds-per-metre → seconds per kilometre.
 
-    Guarded against an out-of-unit/garbage source: a result outside a plausible
-    running-pace band (≈1:30–20:00 per km) is dropped rather than stored, the same
-    way ``_progress_pct`` omits an out-of-range percent. Observed live: Garmin can
-    report a ``lactateThresholdSpeed`` that is not m/s, yielding a nonsense pace.
+    Garmin's ``lactateThresholdSpeed`` is, despite its name, a pace in seconds per
+    metre (confirmed live: ``0.269`` s/m = 269 s/km = 4:29/km, whose reciprocal
+    3.71 m/s is the real threshold speed). Guarded against a garbage source: a
+    result outside a plausible running-pace band (≈1:30–20:00 per km) is dropped
+    rather than stored, the same way ``_progress_pct`` omits an out-of-range value.
     """
-    if speed_mps is None or speed_mps <= 0:
+    if sec_per_m is None or sec_per_m <= 0:
         return None
-    pace = 1000.0 / speed_mps
+    pace = sec_per_m * 1000.0
     return pace if 90.0 <= pace <= 1200.0 else None
 
 
-def _speed_to_pace_per_100m(speed_mps: float | None) -> float | None:
-    """m/s → seconds per 100 m (the conventional swim pace unit).
+def _pace_per_100m(sec_per_m: float | None) -> float | None:
+    """seconds-per-metre → seconds per 100 m (the conventional swim pace unit).
 
-    Guarded against an out-of-unit/garbage source: a result outside a plausible
-    swim-pace band (≈0:30–10:00 per 100 m) is dropped rather than stored.
+    Guarded against a garbage source: a result outside a plausible swim-pace band
+    (≈0:30–10:00 per 100 m) is dropped rather than stored.
     """
-    if speed_mps is None or speed_mps <= 0:
+    if sec_per_m is None or sec_per_m <= 0:
         return None
-    pace = 100.0 / speed_mps
+    pace = sec_per_m * 100.0
     return pace if 30.0 <= pace <= 600.0 else None
 
 
@@ -662,10 +663,10 @@ def map_athlete_config(raw: dict[str, Any]) -> dict[str, Any] | None:
             "ftp_watts": _as_int(_dig(raw, "cycling_ftp", "functionalThresholdPower")),
             "lactate_threshold_hr": _as_int(user.get("lactateThresholdHeartRate")),
             "max_hr": _as_int((hr_entry or {}).get("maxHeartRateUsed")),
-            "threshold_pace_sec_per_km": _speed_to_pace_per_km(
+            "threshold_pace_sec_per_km": _pace_per_km(
                 _as_float(user.get("lactateThresholdSpeed"))
             ),
-            "threshold_swim_pace_sec_per_100m": _speed_to_pace_per_100m(
+            "threshold_swim_pace_sec_per_100m": _pace_per_100m(
                 _as_float(user.get("lactateThresholdSwimSpeed"))
             ),
         }

@@ -205,9 +205,9 @@ def test_athlete_config_mapping(raw_day):
     assert cfg["lactate_threshold_hr"] == 165
     # max HR + HR-zone maxima from the DEFAULT-sport heart-rate-zones entry
     assert cfg["max_hr"] == 190
-    # threshold speeds (m/s) → paces (from user_profile.userData)
-    assert cfg["threshold_pace_sec_per_km"] == 250.0  # 1000 / 4.0
-    assert cfg["threshold_swim_pace_sec_per_100m"] == 80.0  # 100 / 1.25
+    # threshold paces: lactateThresholdSpeed is seconds-per-metre (from userData)
+    assert cfg["threshold_pace_sec_per_km"] == 250.0  # 0.25 s/m * 1000
+    assert cfg["threshold_swim_pace_sec_per_100m"] == 150.0  # 1.5 s/m * 100
     # zone N max = zone N+1 floor (DEFAULT: 120/140/160/175), zone 5 = maxHeartRateUsed
     assert cfg["hr_zone_1_max"] == 120
     assert cfg["hr_zone_4_max"] == 175
@@ -239,15 +239,22 @@ def test_athlete_config_ignores_preferences_and_ftp_flag():
     assert mapping.map_athlete_config(raw) is None
 
 
+def test_athlete_config_real_threshold_pace_is_kept():
+    """The real account value (0.269 s/m) is valid → ~269 s/km, not dropped."""
+    raw = {"user_profile": {"userData": {"lactateThresholdSpeed": 0.26944369}}}
+    cfg = mapping.map_athlete_config(raw)
+    assert abs(cfg["threshold_pace_sec_per_km"] - 269.44369) < 0.001  # 0.269 * 1000
+
+
 def test_athlete_config_drops_implausible_threshold_pace():
-    """A non-m/s / garbage lactateThresholdSpeed → pace omitted, not stored as nonsense."""
+    """A garbage lactateThresholdSpeed → pace omitted, not stored as nonsense."""
     raw = {
         "cycling_ftp": {"functionalThresholdPower": 255},
-        "user_profile": {"userData": {"lactateThresholdSpeed": 0.269}},
+        "user_profile": {"userData": {"lactateThresholdSpeed": 5.0}},
     }
     cfg = mapping.map_athlete_config(raw)
     assert cfg["ftp_watts"] == 255
-    assert "threshold_pace_sec_per_km" not in cfg  # 1000/0.269 ≈ 3711 s/km → dropped
+    assert "threshold_pace_sec_per_km" not in cfg  # 5.0 * 1000 = 5000 s/km → dropped
 
 
 def test_athlete_config_power_zones_absent(raw_day):
