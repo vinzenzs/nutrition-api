@@ -15,7 +15,7 @@ The system SHALL persist workouts in a `workouts` table independent of meals, hy
   - `id` (UUID PRIMARY KEY)
   - `external_id` (TEXT NULL)
   - `source` (TEXT NOT NULL, CHECK IN `('garmin', 'manual', 'other')`)
-  - `sport` (TEXT NOT NULL, CHECK IN `('run', 'bike', 'swim', 'strength', 'other')`)
+  - `sport` (TEXT NOT NULL, CHECK IN `('run', 'bike', 'swim', 'strength', 'yoga', 'mobility', 'other')`)
   - `status` (TEXT NOT NULL DEFAULT `'completed'`, CHECK IN `('planned', 'completed')`)
   - `name` (TEXT NULL)
   - `started_at` (TIMESTAMPTZ NOT NULL)
@@ -63,6 +63,12 @@ The system SHALL persist workouts in a `workouts` table independent of meals, hy
 - **AND** a POST that omits `status` stores `'completed'`
 - **AND** the `status` column is NOT NULL and always present on responses (no omitempty)
 
+#### Scenario: sport vocabulary admits yoga and mobility
+
+- **WHEN** the migration widening the `sport` CHECK is applied to a database with existing `workouts` rows
+- **THEN** the `sport` CHECK accepts `'yoga'` and `'mobility'` in addition to `'run'`, `'bike'`, `'swim'`, `'strength'`, `'other'`
+- **AND** every existing row keeps its current sport unchanged (the migration only widens the allowed set)
+
 ### Requirement: POST /workouts creates or updates a workout via external_id UPSERT
 
 The system SHALL expose `POST /workouts` that accepts a workout body and persists it. When `external_id` is present and a row already exists with the same `external_id`, the system UPDATES that row (full-replace of the mutable fields); otherwise the system INSERTS a new row. The mutable field set includes `rpe` and `gi_distress_score` as optional integer-valued per-session signals (1..10 and 1..5 respectively), plus the optional ingestion metrics `distance_m`, `avg_power_w`, `temperature_c`, `sweat_loss_ml`, and the optional `session_group` key. This semantic lets an external writer "POST every activity it sees" without tracking what is already synced.
@@ -94,8 +100,14 @@ The system SHALL expose `POST /workouts` that accepts a workout body and persist
 
 #### Scenario: sport is required and validated
 
-- **WHEN** the client posts a body without `sport`, or with `sport` not in `run|bike|swim|strength|other`
+- **WHEN** the client posts a body without `sport`, or with `sport` not in `run|bike|swim|strength|yoga|mobility|other`
 - **THEN** the system returns `400 Bad Request` with `{"error":"sport_invalid"}`
+
+#### Scenario: yoga and mobility are accepted sports
+
+- **WHEN** the client posts a body with `sport: "yoga"` or `sport: "mobility"` and an otherwise valid payload
+- **THEN** the system persists the row with that sport and returns `201 Created`
+- **AND** the response echoes the sport unchanged (no coercion to `other`/`strength`)
 
 #### Scenario: started_at and ended_at are required and validated
 
@@ -462,7 +474,7 @@ The system SHALL expose `POST /workouts/bulk` that accepts a batch of workouts a
 
 #### Scenario: Per-item errors use the same codes as single POST
 
-- **WHEN** one batch item has `sport: "yoga"`
+- **WHEN** one batch item has `sport: "pilates"` (a value outside the documented sport vocabulary)
 - **THEN** its `results` entry is `{"index": <i>, "error": "sport_invalid"}` (matching the single-item POST error code)
 
 ### Requirement: Workouts are source-tagged but source-agnostic in shape

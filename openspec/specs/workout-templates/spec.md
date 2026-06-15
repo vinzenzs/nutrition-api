@@ -19,7 +19,7 @@ JSONB, and audit timestamps. Templates are first-party authored — there is no
 - **WHEN** the migration set is applied to a clean database
 - **THEN** `workout_templates` exists with columns:
   - `id` (UUID PRIMARY KEY)
-  - `sport` (TEXT NOT NULL, CHECK IN `('run', 'bike', 'swim', 'strength', 'other')`)
+  - `sport` (TEXT NOT NULL, CHECK IN `('run', 'bike', 'swim', 'strength', 'yoga', 'mobility', 'other')`)
   - `name` (TEXT NOT NULL)
   - `description` (TEXT NULL)
   - `estimated_duration_sec` (INTEGER NULL, CHECK `estimated_duration_sec IS NULL OR estimated_duration_sec > 0`)
@@ -27,6 +27,13 @@ JSONB, and audit timestamps. Templates are first-party authored — there is no
   - `created_at` (TIMESTAMPTZ NOT NULL DEFAULT now())
   - `updated_at` (TIMESTAMPTZ NOT NULL DEFAULT now())
 - **AND** an index exists on `(sport)` to support the list filter
+- **AND** the `sport` CHECK reuses the `workouts` sport vocabulary, including `'yoga'` and `'mobility'`
+
+#### Scenario: sport vocabulary admits yoga and mobility
+
+- **WHEN** a template is created with `sport: "yoga"` or `sport: "mobility"`
+- **THEN** the row persists with that sport and it is returned unchanged on read
+- **AND** the value passes the same validation used for `workouts` sports
 
 ### Requirement: A template's steps are a validated structured program
 
