@@ -99,9 +99,21 @@ def test_open_duration_maps_to_lapbutton():
 
 
 def test_each_sport_maps():
-    for sport, key in [("run", "running"), ("bike", "cycling"), ("swim", "swimming"), ("strength", "strength_training"), ("other", "other")]:
+    # (sportTypeId, sportTypeKey) per Garmin's workout-service vocabulary. Garmin
+    # validates by id, so the id matters as much as the key. "other" is id 3
+    # (id 9 is hiit); yoga=7, mobility=11.
+    cases = [
+        ("run", 1, "running"),
+        ("bike", 2, "cycling"),
+        ("swim", 4, "swimming"),
+        ("strength", 5, "strength_training"),
+        ("yoga", 7, "yoga"),
+        ("mobility", 11, "mobility"),
+        ("other", 3, "other"),
+    ]
+    for sport, sid, key in cases:
         p = wb.build_payload(sport, "x", [{"type": "step", "intent": "active", "duration": {"kind": "open"}, "target": {"kind": "none"}}])
-        assert p["sportType"]["sportTypeKey"] == key
+        assert p["sportType"] == {"sportTypeId": sid, "sportTypeKey": key}
 
 
 def test_absolute_hr_and_power_targets_use_value_range():

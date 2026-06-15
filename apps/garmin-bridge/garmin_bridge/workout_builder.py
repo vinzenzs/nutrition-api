@@ -17,12 +17,31 @@ from typing import Any
 
 # --- Garmin id/key vocabularies -----------------------------------------
 
+# Our Sport enum → Garmin workout-service (sportTypeId, sportTypeKey).
+#
+# Garmin validates by sportTypeId and OVERWRITES the key with its own canonical
+# one, so the id must be exactly right: a wrong id is silently stored as
+# sportTypeId 0 (no sport on the watch) rather than erroring. The full
+# workout-service sportType vocabulary, verified live against the API
+# (2026-06-15) — keep this list as the reference when adding a sport:
+#
+#    1  running             7  yoga
+#    2  cycling             8  pilates
+#    3  other               9  hiit
+#    4  swimming           11  mobility
+#    5  strength_training  12  walking
+#    6  cardio_training    13  rucking
+#
+# NB: "other" is id 3 — id 9 is hiit (a long-standing mismap pushed "other"
+# workouts to the watch as HIIT).
 _SPORT = {
     "run": (1, "running"),
     "bike": (2, "cycling"),
     "swim": (4, "swimming"),
     "strength": (5, "strength_training"),
-    "other": (9, "other"),
+    "yoga": (7, "yoga"),
+    "mobility": (11, "mobility"),
+    "other": (3, "other"),
 }
 
 # Our intent → Garmin stepType. Garmin has no "active"; it maps to "other".
