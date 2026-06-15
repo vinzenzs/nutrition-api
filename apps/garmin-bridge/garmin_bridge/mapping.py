@@ -19,6 +19,7 @@ Mapping (see spec / design D5):
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -156,6 +157,7 @@ def map_recovery(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
 
 def map_fitness(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
     """VO2max / training-load / race predictions → fitness Snapshot."""
+    ts_dev = _training_status_device(raw)
     snap = _prune(
         {
             "date": date,
@@ -176,16 +178,11 @@ def map_fitness(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
                 _dig(raw, "race_predictions", "timeMarathon")
             ),
             "acute_load": _as_float(
-                _dig(raw, "training_status", "acuteTrainingLoad")
-                or _dig(
-                    raw,
-                    "training_status",
-                    "mostRecentTrainingLoadBalance",
-                    "metricsTrainingLoadBalanceDTOMap",
-                    "acwrPercent",
-                )
+                _dig(ts_dev, "acuteTrainingLoadDTO", "dailyTrainingLoadAcute")
             ),
-            "chronic_load": _as_float(_dig(raw, "training_status", "chronicTrainingLoad")),
+            "chronic_load": _as_float(
+                _dig(ts_dev, "acuteTrainingLoadDTO", "dailyTrainingLoadChronic")
+            ),
             "endurance_score": _as_int(
                 _dig(raw, "endurance_score", "overallScore")
                 or _dig(raw, "endurance_score", "enduranceScore")
@@ -201,20 +198,53 @@ def map_fitness(raw: dict[str, Any], date: str) -> dict[str, Any] | None:
     return snap if _has_metrics(snap) else None
 
 
-def _training_status_label(raw: dict[str, Any]) -> str | None:
-    """The human-readable training-status phrase from the already-fetched payload.
+def _training_status_device(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """The chosen per-device entry from the ``get_training_status`` payload.
 
-    Garmin nests the per-device phrase under ``latestTrainingStatusData[*]``;
-    older/top-level shapes carry it directly. Stored verbatim (not enum-gated),
-    so an unrecognised future word is preserved rather than dropped.
+    Garmin keys the entry by device id under
+    ``mostRecentTrainingStatus.latestTrainingStatusData``; it carries both the
+    ``acuteTrainingLoadDTO`` (acute/chronic load) and the status code/phrase.
+    Prefer the device that actually carries an ``acuteTrainingLoadDTO``; fall back
+    to the first entry. Returns ``None`` when no device entry is present.
     """
-    latest = _dig(raw, "training_status", "latestTrainingStatusData")
-    if isinstance(latest, dict):
-        for entry in latest.values():
-            if isinstance(entry, dict):
-                label = _as_str(entry.get("trainingStatus"))
-                if label is not None:
-                    return label
+    latest = _dig(
+        raw, "training_status", "mostRecentTrainingStatus", "latestTrainingStatusData"
+    )
+    if not isinstance(latest, dict):
+        return None
+    entries = [e for e in latest.values() if isinstance(e, dict)]
+    if not entries:
+        return None
+    for entry in entries:
+        if isinstance(entry.get("acuteTrainingLoadDTO"), dict):
+            return entry
+    return entries[0]
+
+
+def _phrase_label(phrase: str) -> str | None:
+    """``PRODUCTIVE_7`` → ``productive``: strip a trailing ``_<digits>``, lowercase."""
+    label = re.sub(r"_\d+$", "", phrase).strip().lower()
+    return label or None
+
+
+def _training_status_label(raw: dict[str, Any]) -> str | None:
+    """The human-readable training-status word from the already-fetched payload.
+
+    Garmin's per-device ``trainingStatus`` is a numeric code; the word lives in
+    ``trainingStatusFeedbackPhrase`` as ``LABEL_<n>`` (e.g. ``PRODUCTIVE_7``).
+    Prefer a string ``trainingStatus`` when present (defensive / older shapes),
+    else derive the lowercased alphabetic prefix of the phrase, else fall back to
+    a top-level string ``trainingStatus``. Not enum-gated, so an unrecognised
+    word passes through verbatim; a bare numeric code with no phrase yields None.
+    """
+    dev = _training_status_device(raw)
+    if dev is not None:
+        label = _as_str(dev.get("trainingStatus"))
+        if label is not None:
+            return label
+        phrase = _as_str(dev.get("trainingStatusFeedbackPhrase"))
+        if phrase is not None:
+            return _phrase_label(phrase)
     return _as_str(_dig(raw, "training_status", "trainingStatus"))
 
 

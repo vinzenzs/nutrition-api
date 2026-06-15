@@ -27,10 +27,24 @@
     }
   ],
   "training_status": {
-    "acuteTrainingLoad": 412.0,
-    "chronicTrainingLoad": 388.5,
-    "latestTrainingStatusData": {
-      "3812345678": { "trainingStatus": "productive" }
+    "mostRecentTrainingLoadBalance": {
+      "metricsTrainingLoadBalanceDTOMap": {
+        "3812345678": { "monthlyLoadAerobicHigh": 456.25, "trainingBalanceFeedbackPhrase": "BALANCED" }
+      }
+    },
+    "mostRecentTrainingStatus": {
+      "latestTrainingStatusData": {
+        "3812345678": {
+          "trainingStatus": 7,
+          "trainingStatusFeedbackPhrase": "PRODUCTIVE_7",
+          "acuteTrainingLoadDTO": {
+            "dailyTrainingLoadAcute": 412.0,
+            "dailyTrainingLoadChronic": 388.5,
+            "dailyAcuteChronicWorkloadRatio": 1.1,
+            "acwrPercent": 106
+          }
+        }
+      }
     }
   },
   "race_predictions": {

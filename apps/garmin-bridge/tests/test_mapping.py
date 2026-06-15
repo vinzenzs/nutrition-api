@@ -57,7 +57,8 @@ def test_fitness_mapping(raw_day):
     assert fit["endurance_score"] == 7200
     assert fit["hill_score"] == 61
     assert fit["fitness_age"] == 34.0
-    # training_status label passes through verbatim from the already-fetched payload
+    # training_status label is derived from the device feedback phrase
+    # (PRODUCTIVE_7 → productive) in the already-fetched training-status payload
     assert fit["training_status"] == "productive"
 
 
@@ -77,9 +78,30 @@ def test_training_status_label_falls_back_to_top_level():
     assert fit["training_status"] == "maintaining"
 
 
+def test_training_status_derives_label_from_feedback_phrase():
+    """A numeric code with a LABEL_<n> feedback phrase → lowercased prefix."""
+    raw = {
+        "training_status": {
+            "mostRecentTrainingStatus": {
+                "latestTrainingStatusData": {
+                    "42": {"trainingStatus": 5, "trainingStatusFeedbackPhrase": "MAINTAINING_3"}
+                }
+            }
+        }
+    }
+    fit = mapping.map_fitness(raw, "2026-06-12")
+    assert fit["training_status"] == "maintaining"
+
+
 def test_training_status_ignores_non_string_codes():
-    """A numeric trainingStatus code is not a label → omitted, not coerced."""
-    raw = {"training_status": {"latestTrainingStatusData": {"42": {"trainingStatus": 3}}}}
+    """A numeric trainingStatus code with no phrase → omitted, not coerced."""
+    raw = {
+        "training_status": {
+            "mostRecentTrainingStatus": {
+                "latestTrainingStatusData": {"42": {"trainingStatus": 3}}
+            }
+        }
+    }
     fit = mapping.map_fitness(raw, "2026-06-12")
     assert fit is None or "training_status" not in fit
 
